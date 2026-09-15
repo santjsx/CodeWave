@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -16,9 +19,44 @@ android {
         versionName = "1.0.0"
     }
 
+    val keystorePropsFile = rootProject.file("keystore.properties").takeIf { it.exists() }
+        ?: project.file("keystore.properties").takeIf { it.exists() }
+    val keystoreProps = Properties().apply {
+        if (keystorePropsFile != null) {
+            load(FileInputStream(keystorePropsFile))
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val storeFilePath = System.getenv("KEYSTORE_FILE")
+                ?: keystoreProps.getProperty("KEYSTORE_FILE")
+                ?: "release.keystore"
+            val storeCandidate = file(storeFilePath)
+            if (storeCandidate.exists()) {
+                storeFile = storeCandidate
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                    ?: keystoreProps.getProperty("KEYSTORE_PASSWORD")
+                    ?: "codewave2026"
+                keyAlias = System.getenv("KEY_ALIAS")
+                    ?: keystoreProps.getProperty("KEY_ALIAS")
+                    ?: "codewave"
+                keyPassword = System.getenv("KEY_PASSWORD")
+                    ?: keystoreProps.getProperty("KEY_PASSWORD")
+                    ?: "codewave2026"
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

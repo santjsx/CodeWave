@@ -14,3 +14,12 @@
 .cxx
 local.properties
 .vscode/
+
+# Keystores & Signing
+*.keystore
+*.jks
+keystore.properties
+
+# Android build outputs & binaries
+*.apk
+*.aab
