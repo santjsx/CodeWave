@@ -14,8 +14,17 @@ class DspEngine {
     private var legacyEqualizer: Equalizer? = null
     private var currentSessionId: Int = 0
 
-    var dspStatus: DSPStatus = DSPStatus.UNAVAILABLE
-        private set
+    private var lastConfig: EqualizerConfig = EqualizerConfig()
+
+    val dspStatus: DSPStatus
+        get() {
+            if (!lastConfig.isEnabled) return DSPStatus.BYPASSED
+            return when {
+                dynamicsProcessing != null -> DSPStatus.ACTIVE
+                legacyEqualizer != null -> DSPStatus.LIMITED
+                else -> DSPStatus.UNAVAILABLE
+            }
+        }
 
     /**
      * Attaches audio processing to the specific ExoPlayer audio session ID (PRD Section 36).
@@ -23,6 +32,7 @@ class DspEngine {
      */
     fun attachToSession(audioSessionId: Int, config: EqualizerConfig) {
         if (audioSessionId == 0) return
+        lastConfig = config
         if (currentSessionId == audioSessionId && (dynamicsProcessing != null || legacyEqualizer != null)) {
             applyConfig(config)
             return
@@ -34,22 +44,22 @@ class DspEngine {
         // Try DynamicsProcessing (Android 9 / API 28+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             try {
+                // Disable unused Multiband Compressor (MBC) to eliminate distortion & phase artifacts
                 val dpConfig = DynamicsProcessing.Config.Builder(
                     DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                     2, // 2 Channels (Stereo)
                     true, // PreEQ
                     10, // 10 bands
-                    true, // Multiband Compressor
-                    10,
+                    false, // Multiband Compressor disabled to preserve original dynamic range
+                    0,
                     false, // PostEQ
                     0,
-                    true // Limiter (protect against clipping per PRD Section 39)
+                    true // Limiter (protect against digital clipping)
                 ).build()
 
                 dynamicsProcessing = DynamicsProcessing(0, audioSessionId, dpConfig).apply {
                     enabled = config.isEnabled
                 }
-                dspStatus = DSPStatus.ACTIVE
             } catch (_: Exception) {
                 dynamicsProcessing = null
             }
@@ -61,10 +71,8 @@ class DspEngine {
                 legacyEqualizer = Equalizer(0, audioSessionId).apply {
                     enabled = config.isEnabled
                 }
-                dspStatus = DSPStatus.LIMITED
             } catch (_: Exception) {
                 legacyEqualizer = null
-                dspStatus = DSPStatus.UNAVAILABLE
             }
         }
 
@@ -72,6 +80,7 @@ class DspEngine {
     }
 
     fun applyConfig(config: EqualizerConfig) {
+        lastConfig = config
         val dp = dynamicsProcessing
         if (dp != null) {
             try {
@@ -88,20 +97,18 @@ class DspEngine {
                     }
                     dp.setPreEqAllChannelsTo(preEq)
 
-                    // Configure limiter to protect against clipping (PRD Section 39)
-                    if (config.isLimiterEnabled) {
-                        val limiter = DynamicsProcessing.Limiter(
-                            true,
-                            true,
-                            0,
-                            1.0f,
-                            50.0f,
-                            10.0f,
-                            -0.5f,
-                            0.0f
-                        )
-                        dp.setLimiterAllChannelsTo(limiter)
-                    }
+                    // Configure transparent studio limiter to protect against clipping (PRD Section 39)
+                    val limiter = DynamicsProcessing.Limiter(
+                        true,
+                        config.isLimiterEnabled,
+                        0,
+                        2.0f,  // 2ms attack: instant transient protection
+                        60.0f, // 60ms release: natural decay without pumping
+                        10.0f, // 10:1 ratio: firm safety ceiling
+                        -0.2f, // -0.2 dBFS: transparent digital true-peak ceiling
+                        0.0f   // 0 dB makeup gain: uncolored pass-through
+                    )
+                    dp.setLimiterAllChannelsTo(limiter)
                 }
             } catch (_: Exception) {}
             return

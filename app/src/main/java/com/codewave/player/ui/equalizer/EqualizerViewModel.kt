@@ -27,7 +27,7 @@ class EqualizerViewModel(
 
     val dspStatus: StateFlow<DSPStatus> = playbackRepository.playbackState
         .map { it.dspStatus }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DSPStatus.ACTIVE)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DSPStatus.BYPASSED)
 
     fun toggleEnabled(enabled: Boolean) {
         viewModelScope.launch { equalizerRepository.setEnabled(enabled) }

@@ -1,0 +1,11 @@
+{
+  "version": "1.3.2",
+  "versionCode": 6,
+  "minimumSupportedVersion": "1.0.0",
+  "releaseChannel": "Stable",
+  "releaseNotes": "CodeWave v1.3.2: Fixed Equalizer status synchronization to accurately reflect BYPASSED when disabled across all screens, rewritten 120 FPS fluid vertical faders with zero touch contention and instant responsiveness, and enhanced audio engine with transparent studio peak limiter and distortion-free 10-band dynamics.",
+  "apkUrl": "https://github.com/santjsx/CodeWave/releases/download/v1.3.2/CodeWave-v1.3.2.apk",
+  "sha256": "917ccf16a99fc9b76a9d83bb7cb77bfe3e31f281bf6f7a63ed2bed7c480fae22",
+  "size": 4354511,
+  "publishedAt": "2026-09-15T22:20:00.000000+00:00"
+}

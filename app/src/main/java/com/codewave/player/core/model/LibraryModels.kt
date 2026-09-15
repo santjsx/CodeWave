@@ -91,5 +91,5 @@ data class PlaybackState(
     val queue: List<Track> = emptyList(),
     val queueIndex: Int = -1,
     val outputInfo: AudioOutputInfo = AudioOutputInfo.UNAVAILABLE,
-    val dspStatus: DSPStatus = DSPStatus.ACTIVE
+    val dspStatus: DSPStatus = DSPStatus.BYPASSED
 )

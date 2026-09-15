@@ -25,8 +25,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +44,7 @@ import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
 import com.codewave.player.core.model.DSPStatus
+import kotlin.math.roundToInt
 
 @Composable
 fun EqualizerScreen(
@@ -137,6 +142,7 @@ fun EqualizerScreen(
                         text = when (dspStatus) {
                             DSPStatus.ACTIVE -> "DynamicsProcessing active (low-latency float)"
                             DSPStatus.LIMITED -> "Legacy Equalizer active (fallback mode)"
+                            DSPStatus.BYPASSED -> "DSP hardware bypassed (pure bit-perfect pass-through)"
                             DSPStatus.UNAVAILABLE -> "Hardware effects unavailable"
                         },
                         style = CWTypography.AppTypography.bodyMedium,
@@ -149,6 +155,7 @@ fun EqualizerScreen(
                     textColor = when (dspStatus) {
                         DSPStatus.ACTIVE -> CWColors.Success
                         DSPStatus.LIMITED -> CWColors.Warning
+                        DSPStatus.BYPASSED -> CWColors.TextTertiary
                         DSPStatus.UNAVAILABLE -> CWColors.Danger
                     }
                 )
@@ -221,9 +228,17 @@ fun EqualizerScreen(
                     )
                 }
 
+                var localPreamp by remember(config.preampGainDb) { mutableFloatStateOf(config.preampGainDb) }
+                LaunchedEffect(config.preampGainDb) {
+                    localPreamp = config.preampGainDb
+                }
+
                 Slider(
-                    value = config.preampGainDb,
-                    onValueChange = { viewModel.setPreampGain(it) },
+                    value = localPreamp,
+                    onValueChange = {
+                        localPreamp = (it * 2).roundToInt() / 2f
+                        viewModel.setPreampGain(localPreamp)
+                    },
                     valueRange = -12f..12f,
                     enabled = config.isEnabled,
                     colors = SliderDefaults.colors(

@@ -3,6 +3,7 @@ package com.codewave.player.core.data
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -54,7 +55,8 @@ interface PlaybackRepository {
 class DefaultPlaybackRepository(
     private val context: Context,
     private val libraryRepository: LibraryRepository,
-    private val settingsRepository: SettingsRepository? = null
+    private val settingsRepository: SettingsRepository? = null,
+    private val equalizerRepository: EqualizerRepository? = null
 ) : PlaybackRepository {
 
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -70,6 +72,23 @@ class DefaultPlaybackRepository(
     init {
         initializeController()
         startPositionTracking()
+        observeEqualizerStatus()
+    }
+
+    private fun observeEqualizerStatus() {
+        val eqRepo = equalizerRepository ?: return
+        scope.launch {
+            eqRepo.equalizerConfig.collect { config ->
+                val status = if (!config.isEnabled) {
+                    DSPStatus.BYPASSED
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    DSPStatus.ACTIVE
+                } else {
+                    DSPStatus.LIMITED
+                }
+                _playbackState.update { it.copy(dspStatus = status) }
+            }
+        }
     }
 
     private fun initializeController() {
@@ -232,7 +251,7 @@ class DefaultPlaybackRepository(
                     else -> RepeatMode.OFF
                 },
                 outputInfo = CodeWaveMediaSessionService.getOutputRouteInfo(context),
-                dspStatus = DSPStatus.ACTIVE
+                dspStatus = _playbackState.value.dspStatus
             )
         }
     }

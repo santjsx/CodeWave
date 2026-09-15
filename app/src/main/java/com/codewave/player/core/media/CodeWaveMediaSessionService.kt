@@ -65,20 +65,26 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(false) // Managed via our custom AudioBecomingNoisyReceiver
             .build()
 
+        val eqRepo = (application as CodeWaveApplication).container.equalizerRepository
+
+        fun checkAndAttachDsp(sessionId: Int) {
+            if (sessionId != C.AUDIO_SESSION_ID_UNSET && sessionId != 0) {
+                dspEngine.attachToSession(sessionId, eqRepo.equalizerConfig.value)
+            }
+        }
+
+        checkAndAttachDsp(player.audioSessionId)
+
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 super.onAudioSessionIdChanged(audioSessionId)
-                val eqRepo = (application as CodeWaveApplication).container.equalizerRepository
-                serviceScope.launch {
-                    eqRepo.equalizerConfig.collectLatest { config ->
-                        dspEngine.attachToSession(audioSessionId, config)
-                    }
-                }
+                checkAndAttachDsp(audioSessionId)
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 if (isPlaying) {
+                    checkAndAttachDsp(player.audioSessionId)
                     noisyReceiver.register()
                     audioFocusManager.requestAudioFocus()
                 } else {
@@ -88,6 +94,9 @@ class CodeWaveMediaSessionService : MediaSessionService() {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 super.onPlaybackStateChanged(playbackState)
+                if (playbackState == Player.STATE_READY) {
+                    checkAndAttachDsp(player.audioSessionId)
+                }
                 if (playbackState == Player.STATE_ENDED) {
                     audioFocusManager.abandonAudioFocus()
                 }
@@ -106,7 +115,6 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             .build()
 
         // Observe Equalizer updates and push to DSP Engine
-        val eqRepo = (application as CodeWaveApplication).container.equalizerRepository
         eqJob = serviceScope.launch {
             eqRepo.equalizerConfig.collectLatest { config ->
                 dspEngine.applyConfig(config)

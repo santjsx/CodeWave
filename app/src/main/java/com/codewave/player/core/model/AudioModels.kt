@@ -85,6 +85,7 @@ data class AudioOutputInfo(
 enum class DSPStatus {
     ACTIVE,
     LIMITED,
+    BYPASSED,
     UNAVAILABLE
 }
 

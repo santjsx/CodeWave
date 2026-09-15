@@ -57,7 +57,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         DefaultPlaybackRepository(
             context = context,
             libraryRepository = libraryRepository,
-            settingsRepository = settingsRepository
+            settingsRepository = settingsRepository,
+            equalizerRepository = equalizerRepository
         )
     }
 

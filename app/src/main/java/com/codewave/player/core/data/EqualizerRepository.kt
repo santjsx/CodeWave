@@ -11,13 +11,21 @@ import com.codewave.player.core.database.entity.EQPresetEntity
 import com.codewave.player.core.model.EQPreset
 import com.codewave.player.core.model.EqualizerBand
 import com.codewave.player.core.model.EqualizerConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 private val Context.eqDataStore by preferencesDataStore(name = "codewave_eq_prefs")
 
 interface EqualizerRepository {
-    val equalizerConfig: Flow<EqualizerConfig>
+    val equalizerConfig: StateFlow<EqualizerConfig>
     val presets: Flow<List<EQPreset>>
     suspend fun setEnabled(enabled: Boolean)
     suspend fun setPreampGain(gainDb: Float)
@@ -32,6 +40,8 @@ class DefaultEqualizerRepository(
     private val eqPresetDao: EQPresetDao
 ) : EqualizerRepository {
 
+    private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     private object PreferencesKeys {
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         val PREAMP_GAIN = floatPreferencesKey("preamp_gain")
@@ -40,26 +50,33 @@ class DefaultEqualizerRepository(
         val BAND_GAINS = stringPreferencesKey("band_gains")
     }
 
-    override val equalizerConfig: Flow<EqualizerConfig> = context.eqDataStore.data.map { prefs ->
-        val enabled = prefs[PreferencesKeys.EQ_ENABLED] ?: false
-        val preamp = prefs[PreferencesKeys.PREAMP_GAIN] ?: 0f
-        val limiter = prefs[PreferencesKeys.LIMITER_ENABLED] ?: true
-        val preset = prefs[PreferencesKeys.ACTIVE_PRESET] ?: "Flat"
-        val gainsStr = prefs[PreferencesKeys.BAND_GAINS] ?: "0,0,0,0,0,0,0,0,0,0"
+    private val _equalizerConfig = MutableStateFlow(EqualizerConfig())
+    override val equalizerConfig: StateFlow<EqualizerConfig> = _equalizerConfig.asStateFlow()
 
-        val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }
-        val defaultBands = EqualizerConfig.defaultBands()
-        val bands = defaultBands.mapIndexed { index, band ->
-            band.copy(gainDb = gains.getOrElse(index) { 0f })
+    init {
+        repoScope.launch {
+            context.eqDataStore.data.collect { prefs ->
+                val enabled = prefs[PreferencesKeys.EQ_ENABLED] ?: false
+                val preamp = prefs[PreferencesKeys.PREAMP_GAIN] ?: 0f
+                val limiter = prefs[PreferencesKeys.LIMITER_ENABLED] ?: true
+                val preset = prefs[PreferencesKeys.ACTIVE_PRESET] ?: "Flat"
+                val gainsStr = prefs[PreferencesKeys.BAND_GAINS] ?: "0,0,0,0,0,0,0,0,0,0"
+
+                val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }
+                val defaultBands = EqualizerConfig.defaultBands()
+                val bands = defaultBands.mapIndexed { index, band ->
+                    band.copy(gainDb = gains.getOrElse(index) { 0f })
+                }
+
+                _equalizerConfig.value = EqualizerConfig(
+                    isEnabled = enabled,
+                    preampGainDb = preamp,
+                    isLimiterEnabled = limiter,
+                    activePresetName = preset,
+                    bands = bands
+                )
+            }
         }
-
-        EqualizerConfig(
-            isEnabled = enabled,
-            preampGainDb = preamp,
-            isLimiterEnabled = limiter,
-            activePresetName = preset,
-            bands = bands
-        )
     }
 
     override val presets: Flow<List<EQPreset>> = eqPresetDao.getAllPresetsFlow().map { entities ->
@@ -76,35 +93,63 @@ class DefaultEqualizerRepository(
     }
 
     override suspend fun setEnabled(enabled: Boolean) {
-        context.eqDataStore.edit { it[PreferencesKeys.EQ_ENABLED] = enabled }
+        _equalizerConfig.update { it.copy(isEnabled = enabled) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.EQ_ENABLED] = enabled }
+        }
     }
 
     override suspend fun setPreampGain(gainDb: Float) {
-        context.eqDataStore.edit { it[PreferencesKeys.PREAMP_GAIN] = gainDb }
+        _equalizerConfig.update { it.copy(preampGainDb = gainDb) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.PREAMP_GAIN] = gainDb }
+        }
     }
 
     override suspend fun setLimiterEnabled(enabled: Boolean) {
-        context.eqDataStore.edit { it[PreferencesKeys.LIMITER_ENABLED] = enabled }
+        _equalizerConfig.update { it.copy(isLimiterEnabled = enabled) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.LIMITER_ENABLED] = enabled }
+        }
     }
 
     override suspend fun setBandGain(bandIndex: Int, gainDb: Float) {
-        context.eqDataStore.edit { prefs ->
-            val gainsStr = prefs[PreferencesKeys.BAND_GAINS] ?: "0,0,0,0,0,0,0,0,0,0"
-            val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }.toMutableList()
-            while (gains.size < 10) gains.add(0f)
-            if (bandIndex in gains.indices) {
-                gains[bandIndex] = gainDb
+        _equalizerConfig.update { current ->
+            val updatedBands = current.bands.mapIndexed { index, band ->
+                if (index == bandIndex) band.copy(gainDb = gainDb) else band
             }
-            prefs[PreferencesKeys.BAND_GAINS] = gains.joinToString(",")
-            prefs[PreferencesKeys.ACTIVE_PRESET] = "Custom"
+            current.copy(
+                activePresetName = "Custom",
+                bands = updatedBands
+            )
+        }
+        repoScope.launch {
+            val gains = _equalizerConfig.value.bands.map { it.gainDb }
+            context.eqDataStore.edit { prefs ->
+                prefs[PreferencesKeys.BAND_GAINS] = gains.joinToString(",")
+                prefs[PreferencesKeys.ACTIVE_PRESET] = "Custom"
+            }
         }
     }
 
     override suspend fun applyPreset(preset: EQPreset) {
-        context.eqDataStore.edit { prefs ->
-            prefs[PreferencesKeys.ACTIVE_PRESET] = preset.name
-            prefs[PreferencesKeys.PREAMP_GAIN] = preset.preampGainDb
-            prefs[PreferencesKeys.BAND_GAINS] = preset.bandGainsDb.joinToString(",")
+        val defaultBands = EqualizerConfig.defaultBands()
+        val updatedBands = defaultBands.mapIndexed { index, band ->
+            band.copy(gainDb = preset.bandGainsDb.getOrElse(index) { 0f })
+        }
+        _equalizerConfig.update { current ->
+            current.copy(
+                activePresetName = preset.name,
+                preampGainDb = preset.preampGainDb,
+                bands = updatedBands
+            )
+        }
+        repoScope.launch {
+            context.eqDataStore.edit { prefs ->
+                prefs[PreferencesKeys.ACTIVE_PRESET] = preset.name
+                prefs[PreferencesKeys.PREAMP_GAIN] = preset.preampGainDb
+                prefs[PreferencesKeys.BAND_GAINS] = preset.bandGainsDb.joinToString(",")
+            }
         }
     }
 

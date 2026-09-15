@@ -140,11 +140,28 @@ fun TrackInspectorSheet(
                     valueColor = when (dspStatus) {
                         DSPStatus.ACTIVE -> CWColors.Success
                         DSPStatus.LIMITED -> CWColors.Warning
+                        DSPStatus.BYPASSED -> CWColors.TextTertiary
                         DSPStatus.UNAVAILABLE -> CWColors.Danger
                     }
                 )
-                InspectorRow("Processing Core", "Android DynamicsProcessing (10-Band EQ)")
-                InspectorRow("Limiter Protection", "Active (Prevents Inter-sample Clipping)")
+                InspectorRow(
+                    "Processing Core",
+                    when (dspStatus) {
+                        DSPStatus.BYPASSED -> "Direct Bit-Perfect Pass-Through"
+                        DSPStatus.ACTIVE -> "Android DynamicsProcessing (10-Band EQ)"
+                        DSPStatus.LIMITED -> "Legacy AudioFX Equalizer"
+                        DSPStatus.UNAVAILABLE -> "Hardware AudioFX Unavailable"
+                    }
+                )
+                InspectorRow(
+                    "Limiter Protection",
+                    when (dspStatus) {
+                        DSPStatus.BYPASSED -> "Bypassed"
+                        DSPStatus.ACTIVE -> "Active (Prevents Inter-sample Clipping)"
+                        DSPStatus.LIMITED -> "Unavailable in Legacy Mode"
+                        DSPStatus.UNAVAILABLE -> "Unavailable"
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(28.dp))
