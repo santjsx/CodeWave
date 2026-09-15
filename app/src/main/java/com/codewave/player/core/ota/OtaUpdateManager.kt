@@ -137,9 +137,9 @@ class OtaUpdateManager(private val context: Context) {
 
     val currentAppVersion: String
         get() = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.3.0"
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.3.1"
         } catch (_: Exception) {
-            "1.3.0"
+            "1.3.1"
         }
 
     suspend fun checkForUpdates(

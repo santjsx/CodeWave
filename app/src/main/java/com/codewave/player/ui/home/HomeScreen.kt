@@ -64,6 +64,7 @@ fun HomeScreen(
     val scanProgress by viewModel.scanProgress.collectAsState()
     val lastPositionMs by viewModel.lastPlayedPositionMs.collectAsState()
     val lastTrackId by viewModel.lastPlayedTrackId.collectAsState()
+    val continueListeningTrack by viewModel.continueListeningTrack.collectAsState()
 
     LazyColumn(
         modifier = modifier
@@ -247,9 +248,9 @@ fun HomeScreen(
         }
 
         // Continue Listening Section (PRD Section 9)
-        if (recentlyPlayed.isNotEmpty()) {
-            val lastTrack = recentlyPlayed.first()
-            val resumePosition = if (lastTrackId == lastTrack.id && lastPositionMs > 1000L) lastPositionMs else 0L
+        val continueTrack = continueListeningTrack ?: recentlyPlayed.firstOrNull()
+        if (continueTrack != null) {
+            val resumePosition = if (lastTrackId == continueTrack.id && lastPositionMs > 0L) lastPositionMs else 0L
             val resumeBadgeText = if (resumePosition > 0L) {
                 val remMins = resumePosition / 60000
                 val remSecs = (resumePosition % 60000) / 1000
@@ -278,10 +279,13 @@ fun HomeScreen(
                         }
                     }
                     CWTrackRow(
-                        track = lastTrack,
-                        onTrackClick = { viewModel.playTrack(lastTrack, recentlyPlayed, resumePosition) },
-                        onFavoriteClick = { viewModel.toggleFavorite(lastTrack) },
-                        onMoreClick = { onTrackInspect(lastTrack) }
+                        track = continueTrack,
+                        onTrackClick = {
+                            val queue = if (recentlyPlayed.any { it.id == continueTrack.id }) recentlyPlayed else listOf(continueTrack)
+                            viewModel.playTrack(continueTrack, queue, resumePosition)
+                        },
+                        onFavoriteClick = { viewModel.toggleFavorite(continueTrack) },
+                        onMoreClick = { onTrackInspect(continueTrack) }
                     )
                 }
             }

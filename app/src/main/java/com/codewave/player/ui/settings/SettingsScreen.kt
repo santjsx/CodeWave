@@ -606,7 +606,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Version", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
-                    CWTechnicalBadge(text = "1.3.0 (Release)")
+                    CWTechnicalBadge(text = "1.3.1 (Release)")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(

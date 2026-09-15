@@ -173,18 +173,31 @@ class DefaultPlaybackRepository(
             val index = player.currentMediaItemIndex
             val track = currentQueue.getOrNull(index)
 
+            val currentPos = player.currentPosition.coerceAtLeast(0L)
+            val preservedPos = if (currentPos > 0L) {
+                currentPos
+            } else if (_playbackState.value.currentTrack?.id == track?.id && _playbackState.value.positionMs > 0L) {
+                _playbackState.value.positionMs
+            } else {
+                0L
+            }
+
             _playbackState.update {
                 it.copy(
                     currentTrack = track,
                     queueIndex = index,
                     durationMs = player.duration.coerceAtLeast(0L),
-                    positionMs = 0L,
+                    positionMs = preservedPos,
                     outputInfo = CodeWaveMediaSessionService.getOutputRouteInfo(context)
                 )
             }
 
             if (track != null) {
-                scope.launch { settingsRepository?.setLastPlayed(track.id, 0L) }
+                if (preservedPos > 0L) {
+                    scope.launch { settingsRepository?.setLastPlayed(track.id, preservedPos) }
+                } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    scope.launch { settingsRepository?.setLastPlayed(track.id, 0L) }
+                }
             }
         }
 
@@ -293,6 +306,9 @@ class DefaultPlaybackRepository(
 
         val seekPos = if (startPositionMs > 0L) startPositionMs else C.TIME_UNSET
         player.setMediaItems(mediaItems, startIndex, seekPos)
+        if (startPositionMs > 0L) {
+            player.seekTo(startIndex, startPositionMs)
+        }
         val speed = _playbackState.value.playbackSpeed
         if (speed != 1.0f) {
             player.setPlaybackSpeed(speed)

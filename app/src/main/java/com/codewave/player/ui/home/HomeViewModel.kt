@@ -35,6 +35,21 @@ class HomeViewModel(
     val lastPlayedTrackId: StateFlow<Long?> = (settingsRepository?.lastPlayedTrackId ?: kotlinx.coroutines.flow.flowOf(null))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val continueListeningTrack: StateFlow<Track?> = if (settingsRepository != null) {
+        kotlinx.coroutines.flow.combine(
+            settingsRepository.lastPlayedTrackId,
+            libraryRepository.getAllTracks()
+        ) { trackId, tracks ->
+            if (trackId != null) {
+                tracks.find { it.id == trackId }
+            } else {
+                null
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    } else {
+        kotlinx.coroutines.flow.MutableStateFlow(null)
+    }
+
     val stats: StateFlow<LibraryStats> = libraryRepository.getLibraryStats()
         .stateIn(
             scope = viewModelScope,
