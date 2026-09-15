@@ -29,7 +29,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
@@ -202,8 +206,7 @@ private fun TerminalSynchronizedLyricsView(
 
     val activeIndex by remember(lyrics, currentPositionMs) {
         derivedStateOf {
-            val idx = lyrics.indexOfLast { it.timestampMs <= currentPositionMs }
-            if (idx == -1 && lyrics.isNotEmpty()) 0 else idx
+            lyrics.indexOfLast { it.timestampMs <= currentPositionMs }
         }
     }
 
@@ -223,6 +226,8 @@ private fun TerminalSynchronizedLyricsView(
         if (activeIndex in lyrics.indices) {
             val targetIndex = (activeIndex - 2).coerceAtLeast(0)
             listState.animateScrollToItem(targetIndex)
+        } else if (activeIndex == -1) {
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -233,7 +238,7 @@ private fun TerminalSynchronizedLyricsView(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         itemsIndexed(lyrics, key = { idx, line -> "${line.timestampMs}_$idx" }) { index, line ->
-            val isActive = index == activeIndex
+            val isActive = index == activeIndex && activeIndex != -1
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.40f,
                 animationSpec = tween(durationMillis = 160),
@@ -267,7 +272,7 @@ private fun TerminalSynchronizedLyricsView(
                     modifier = Modifier.width(76.dp)
                 )
 
-                // Terminal prompt prompt on active line
+                // Terminal prompt on active line
                 Text(
                     text = if (isActive) "❯ " else "  ",
                     fontFamily = FontFamily.Monospace,
@@ -310,16 +315,6 @@ private fun TerminalPlainLyricsView(lines: List<String>) {
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item {
-            Text(
-                text = "$ cat /proc/audio/lyrics.txt",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = CWColors.TextTertiary,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
-
         itemsIndexed(lines) { index, line ->
             Row(
                 modifier = Modifier
@@ -351,72 +346,64 @@ private fun TerminalPlainLyricsView(lines: List<String>) {
 private fun TerminalNoLyricsState(
     trackTitle: String,
     trackArtist: String,
-    statusMessage: String = "STATUS: NO_SYNCHRONIZED_STREAM"
+    statusMessage: String? = null
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "termEmptyBlink")
-    val cursorAlpha by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "cursorEmptyBlink"
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.CenterStart
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = "$ query_lyrics --track \"$trackTitle\"",
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = CWColors.AccentCyan
-            )
-            Text(
-                text = "> TRACK: $trackTitle",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = CWColors.TextSecondary
-            )
-            Text(
-                text = "> ARTIST: $trackArtist",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = CWColors.TextSecondary
-            )
-            Text(
-                text = "> INSPECTED: embedded ID3/Vorbis/MP4 & .lrc sidecar",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = CWColors.TextTertiary
-            )
-            Text(
-                text = "> $statusMessage",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = CWColors.Warning
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "> PROMPT READY",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = CWColors.TextTertiary
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(CWColors.AccentCyan.copy(alpha = 0.12f))
+                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.GraphicEq,
+                    contentDescription = null,
+                    tint = CWColors.AccentCyan,
+                    modifier = Modifier.size(24.dp)
                 )
-                Text(
-                    text = " _",
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = CWColors.AccentCyan,
-                    modifier = Modifier.alpha(cursorAlpha)
-                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "NO LYRICS AVAILABLE",
+                style = CWTypography.TechBadge,
+                letterSpacing = 1.2.sp,
+                color = CWColors.TextPrimary
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Add a .lrc file in the track folder or add embedded ID3 lyrics tags.",
+                style = CWTypography.AppTypography.bodyMedium,
+                color = CWColors.TextSecondary,
+                textAlign = TextAlign.Center,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CWTechnicalBadge(text = ".LRC", textColor = CWColors.AccentCyan)
+                CWTechnicalBadge(text = ".TXT", textColor = CWColors.TextSecondary)
+                CWTechnicalBadge(text = "ID3 USLT", textColor = CWColors.TextSecondary)
             }
         }
     }

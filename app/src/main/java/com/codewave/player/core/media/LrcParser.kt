@@ -17,16 +17,39 @@ sealed interface LyricsResult {
 }
 
 object LrcParser {
-    // Regex matches [mm:ss.xx] or [mm:ss.xxx] or [mm:ss]
-    private val TIME_PATTERN = Pattern.compile("\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?]")
+    // Regex matches [mm:ss.xx], [mm:ss.xxx], [mm:ss:xx], or [mm:ss]
+    private val TIME_PATTERN = Pattern.compile("\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?]")
+    // Matches enhanced LRC word-level timestamps like <00:01.960> or <00:01:960>
+    private val WORD_TIME_REGEX = Regex("<\\d{1,2}:\\d{2}(?:[.:]\\d{1,3})?>")
+    private val OFFSET_PATTERN = Pattern.compile("\\[offset:\\s*([+-]?\\d+)]", Pattern.CASE_INSENSITIVE)
 
     fun parse(lrcContent: String): List<LyricLine> {
         val lines = mutableListOf<LyricLine>()
         if (lrcContent.isBlank()) return emptyList()
 
+        // Extract global offset tag if present (e.g. [offset:+500] or [offset:-300])
+        var globalOffsetMs = 0L
+        val offsetMatcher = OFFSET_PATTERN.matcher(lrcContent)
+        if (offsetMatcher.find()) {
+            globalOffsetMs = offsetMatcher.group(1)?.toLongOrNull() ?: 0L
+        }
+
         lrcContent.lineSequence().forEach { rawLine ->
             val trimmed = rawLine.trim()
             if (trimmed.isEmpty()) return@forEach
+
+            // Skip metadata header lines like [ti:Title], [ar:Artist], [al:Album], [by:Editor]
+            if (trimmed.startsWith("[ti:", ignoreCase = true) ||
+                trimmed.startsWith("[ar:", ignoreCase = true) ||
+                trimmed.startsWith("[al:", ignoreCase = true) ||
+                trimmed.startsWith("[by:", ignoreCase = true) ||
+                trimmed.startsWith("[offset:", ignoreCase = true) ||
+                trimmed.startsWith("[length:", ignoreCase = true) ||
+                trimmed.startsWith("[re:", ignoreCase = true) ||
+                trimmed.startsWith("[ve:", ignoreCase = true)
+            ) {
+                return@forEach
+            }
 
             val matcher = TIME_PATTERN.matcher(trimmed)
             val timestamps = mutableListOf<Long>()
@@ -43,22 +66,32 @@ object LrcParser {
                     else -> millisPart.take(3).toLong()
                 }
 
-                val totalMs = (minutes * 60 + seconds) * 1000 + millis
-                timestamps.add(totalMs)
+                val totalMs = (minutes * 60 + seconds) * 1000 + millis + globalOffsetMs
+                timestamps.add(totalMs.coerceAtLeast(0L))
                 lastMatchEnd = matcher.end()
             }
 
             if (timestamps.isNotEmpty()) {
-                val lyricText = trimmed.substring(lastMatchEnd).trim()
-                if (lyricText.isNotEmpty()) {
-                    for (ts in timestamps) {
-                        lines.add(LyricLine(timestampMs = ts, text = lyricText))
-                    }
+                val rawLyricText = trimmed.substring(lastMatchEnd).trim()
+                // Strip word-by-word enhanced LRC timestamps like <00:01.960>
+                val cleanedText = rawLyricText
+                    .replace(WORD_TIME_REGEX, "")
+                    .replace("&amp;", "&")
+                    .replace("&quot;", "\"")
+                    .replace("&#39;", "'")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("\\s+".toRegex(), " ")
+                    .trim()
+
+                val finalText = if (cleanedText.isNotEmpty()) cleanedText else "♪"
+                for (ts in timestamps) {
+                    lines.add(LyricLine(timestampMs = ts, text = finalText))
                 }
             }
         }
 
-        return lines.sortedBy { it.timestampMs }
+        return lines.sortedWith(compareBy({ it.timestampMs }, { it.text }))
     }
 
     /**

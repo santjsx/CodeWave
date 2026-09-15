@@ -105,61 +105,59 @@ fun CodeWaveApp(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            if (!isNowPlayingExpanded) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Persistent Mini Player above Bottom Bar (PRD Section 20)
-                    if (playbackState.currentTrack != null) {
-                        val progress = if (playbackState.durationMs > 0)
-                            playbackState.positionMs.toFloat() / playbackState.durationMs.toFloat()
-                        else 0f
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Persistent Mini Player above Bottom Bar (PRD Section 20)
+                if (!isNowPlayingExpanded && playbackState.currentTrack != null) {
+                    val progress = if (playbackState.durationMs > 0)
+                        playbackState.positionMs.toFloat() / playbackState.durationMs.toFloat()
+                    else 0f
 
-                        CWMiniPlayer(
-                            track = playbackState.currentTrack,
-                            isPlaying = playbackState.isPlaying,
-                            progress = progress,
-                            onPlayPauseClick = { container.playbackRepository.togglePlayPause() },
-                            onNextClick = { container.playbackRepository.skipNext() },
-                            onPrevClick = { container.playbackRepository.skipPrevious() },
-                            onClick = { isNowPlayingExpanded = true }
-                        )
-                    }
+                    CWMiniPlayer(
+                        track = playbackState.currentTrack,
+                        isPlaying = playbackState.isPlaying,
+                        progress = progress,
+                        onPlayPauseClick = { container.playbackRepository.togglePlayPause() },
+                        onNextClick = { container.playbackRepository.skipNext() },
+                        onPrevClick = { container.playbackRepository.skipPrevious() },
+                        onClick = { isNowPlayingExpanded = true }
+                    )
+                }
 
-                    NavigationBar(
-                        containerColor = CWColors.SurfacePrimary,
-                        tonalElevation = 0.dp
-                    ) {
-                        Screen.bottomNavItems.forEach { screen ->
-                            val isSelected = currentScreen == screen
-                            NavigationBarItem(
-                                selected = isSelected,
-                                onClick = {
-                                    if (currentScreen == Screen.Library && screen == Screen.Library) {
-                                        libraryInitialTab = 0
-                                    }
-                                    currentScreen = screen
-                                    isNowPlayingExpanded = false
-                                },
-                                icon = {
-                                    Icon(
-                                        imageVector = screen.icon,
-                                        contentDescription = screen.title
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = screen.title,
-                                        style = CWTypography.TechBadge
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = CWColors.AccentCyan,
-                                    selectedTextColor = CWColors.AccentCyan,
-                                    indicatorColor = CWColors.SurfaceElevated,
-                                    unselectedIconColor = CWColors.TextSecondary,
-                                    unselectedTextColor = CWColors.TextSecondary
+                NavigationBar(
+                    containerColor = CWColors.SurfacePrimary,
+                    tonalElevation = 0.dp
+                ) {
+                    Screen.bottomNavItems.forEach { screen ->
+                        val isSelected = !isNowPlayingExpanded && currentScreen == screen
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = {
+                                if (currentScreen == Screen.Library && screen == Screen.Library) {
+                                    libraryInitialTab = 0
+                                }
+                                currentScreen = screen
+                                isNowPlayingExpanded = false
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = screen.icon,
+                                    contentDescription = screen.title
                                 )
+                            },
+                            label = {
+                                Text(
+                                    text = screen.title,
+                                    style = CWTypography.TechBadge
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = CWColors.AccentCyan,
+                                selectedTextColor = CWColors.AccentCyan,
+                                indicatorColor = CWColors.SurfaceElevated,
+                                unselectedIconColor = CWColors.TextSecondary,
+                                unselectedTextColor = CWColors.TextSecondary
                             )
-                        }
+                        )
                     }
                 }
             }

@@ -16,14 +16,14 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#161B26" />
-                <item android:offset="0.5" android:color="#0D1117" />
-                <item android:offset="1.0" android:color="#080B10" />
+                <item android:offset="0.0" android:color="#141923" />
+                <item android:offset="0.5" android:color="#0B0F19" />
+                <item android:offset="1.0" android:color="#070A10" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- Ambient Center Acoustic Glow -->
+    <!-- Subtle Ambient Acoustic Glow -->
     <path
         android:pathData="M54,54m-42,0a42,42 0 1,0 84,0a42,42 0 1,0 -84,0">
         <aapt:attr name="android:fillColor">
@@ -32,23 +32,10 @@
                 android:centerY="54"
                 android:gradientRadius="42"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#3300E5FF" />
-                <item android:offset="0.6" android:color="#1500E5FF" />
+                <item android:offset="0.0" android:color="#2600E5FF" />
+                <item android:offset="0.6" android:color="#1000E5FF" />
                 <item android:offset="1.0" android:color="#00000000" />
             </gradient>
         </aapt:attr>
     </path>
-
-    <!-- Concentric Sub-Bass Pulse Rings -->
-    <path
-        android:pathData="M54,54m-32,0a32,32 0 1,0 64,0a32,32 0 1,0 -64,0"
-        android:strokeColor="#1800E5FF"
-        android:strokeWidth="1.2"
-        android:fillColor="#00000000" />
-
-    <path
-        android:pathData="M54,54m-22,0a22,22 0 1,0 44,0a22,22 0 1,0 -44,0"
-        android:strokeColor="#2500E5FF"
-        android:strokeWidth="1.0"
-        android:fillColor="#00000000" />
 </vector>

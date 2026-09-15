@@ -79,7 +79,7 @@ class SettingsViewModel(
                     if (connection.responseCode == 200) {
                         val body = connection.inputStream.bufferedReader().use { it.readText() }
                         val json = JSONObject(body)
-                        val tagName = json.optString("tag_name", "v1.2.0")
+                        val tagName = json.optString("tag_name", "v1.3.0")
                         val bodyNotes = json.optString("body", "Release notes unavailable.")
                         val assets = json.optJSONArray("assets")
                         var apkUrl: String? = null
@@ -100,7 +100,7 @@ class SettingsViewModel(
                             apkUrl = json.optString("html_url", "https://github.com/santjsx/CodeWave/releases")
                         }
 
-                        val currentVersion = "v1.2.0"
+                        val currentVersion = "v1.3.0"
                         val isNewer = isVersionNewer(tagName, currentVersion)
                         UpdateCheckResult(
                             isChecking = false,

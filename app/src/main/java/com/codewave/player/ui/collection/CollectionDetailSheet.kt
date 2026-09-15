@@ -25,12 +25,25 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,6 +85,21 @@ fun CollectionDetailSheet(
     onTrackInspect: (Track) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renamePlaylistName by remember { mutableStateOf("") }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var currentTitle by remember(target) {
+        mutableStateOf(
+            when (target) {
+                is CollectionTarget.AlbumTarget -> target.album.title
+                is CollectionTarget.ArtistTarget -> target.artist.name
+                is CollectionTarget.PlaylistTarget -> target.playlist.name
+                is CollectionTarget.FavoritesTarget -> "Favorites"
+            }
+        )
+    }
+
     val tracksFlow = when (target) {
         is CollectionTarget.AlbumTarget -> libraryRepository.getTracksByAlbum(target.album.title)
         is CollectionTarget.ArtistTarget -> libraryRepository.getTracksByArtist(target.artist.name)
@@ -125,27 +153,81 @@ fun CollectionDetailSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = CWColors.TextPrimary
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = CWColors.TextPrimary
+                    )
+                }
+                Text(
+                    text = when (target) {
+                        is CollectionTarget.AlbumTarget -> "ALBUM"
+                        is CollectionTarget.ArtistTarget -> "ARTIST"
+                        is CollectionTarget.PlaylistTarget -> "PLAYLIST"
+                        is CollectionTarget.FavoritesTarget -> "FAVORITES"
+                    },
+                    style = CWTypography.TechBadge,
+                    color = CWColors.AccentCyan,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
             }
-            Text(
-                text = when (target) {
-                    is CollectionTarget.AlbumTarget -> "ALBUM"
-                    is CollectionTarget.ArtistTarget -> "ARTIST"
-                    is CollectionTarget.PlaylistTarget -> "PLAYLIST"
-                    is CollectionTarget.FavoritesTarget -> "FAVORITES"
-                },
-                style = CWTypography.TechBadge,
-                color = CWColors.AccentCyan,
-                modifier = Modifier.padding(start = 4.dp)
-            )
+
+            if (target is CollectionTarget.PlaylistTarget && !target.playlist.isSmart) {
+                var menuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Playlist Options",
+                            tint = CWColors.TextSecondary
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        modifier = Modifier.background(CWColors.SurfaceElevated)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename", color = CWColors.TextPrimary) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = CWColors.AccentCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                renamePlaylistName = currentTitle
+                                showRenameDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = CWColors.Danger) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = CWColors.Danger,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                showDeleteConfirm = true
+                            }
+                        )
+                    }
+                }
+            }
         }
 
         LazyColumn(
@@ -291,6 +373,75 @@ fun CollectionDetailSheet(
                     )
                 }
             }
+        }
+
+        if (showRenameDialog && target is CollectionTarget.PlaylistTarget) {
+            AlertDialog(
+                onDismissRequest = { showRenameDialog = false },
+                title = { Text("Rename Playlist", style = CWTypography.TechBadge, color = CWColors.AccentCyan) },
+                text = {
+                    OutlinedTextField(
+                        value = renamePlaylistName,
+                        onValueChange = { renamePlaylistName = it },
+                        label = { Text("Playlist Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val newName = renamePlaylistName.trim()
+                        if (newName.isNotEmpty()) {
+                            currentTitle = newName
+                            coroutineScope.launch {
+                                libraryRepository.renamePlaylist(target.playlist.id, newName)
+                            }
+                        }
+                        showRenameDialog = false
+                    }) {
+                        Text("Save", color = CWColors.AccentCyan)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRenameDialog = false }) {
+                        Text("Cancel", color = CWColors.TextSecondary)
+                    }
+                },
+                containerColor = CWColors.SurfaceElevated,
+                shape = RoundedCornerShape(CWShapes.RadiusLarge)
+            )
+        }
+
+        if (showDeleteConfirm && target is CollectionTarget.PlaylistTarget) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text("Delete Playlist?", style = CWTypography.TechBadge, color = CWColors.Danger) },
+                text = {
+                    Text(
+                        text = "Are you sure you want to delete '${target.playlist.name}'? This playlist will be permanently removed.",
+                        style = CWTypography.AppTypography.bodyMedium,
+                        color = CWColors.TextPrimary
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        coroutineScope.launch {
+                            libraryRepository.deletePlaylist(target.playlist.id)
+                            showDeleteConfirm = false
+                            onBack()
+                        }
+                    }) {
+                        Text("Delete", color = CWColors.Danger, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text("Cancel", color = CWColors.TextSecondary)
+                    }
+                },
+                containerColor = CWColors.SurfaceElevated,
+                shape = RoundedCornerShape(CWShapes.RadiusLarge)
+            )
         }
     }
 }

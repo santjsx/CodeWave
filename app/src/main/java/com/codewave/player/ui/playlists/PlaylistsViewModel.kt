@@ -35,6 +35,13 @@ class PlaylistsViewModel(
         }
     }
 
+    fun renamePlaylist(playlist: Playlist, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            libraryRepository.renamePlaylist(playlist.id, newName.trim())
+        }
+    }
+
     fun deletePlaylist(playlist: Playlist) {
         viewModelScope.launch {
             libraryRepository.deletePlaylist(playlist.id)

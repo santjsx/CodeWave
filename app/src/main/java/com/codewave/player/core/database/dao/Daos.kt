@@ -139,6 +139,15 @@ interface PlaylistDao {
     @Delete
     suspend fun deletePlaylist(playlist: PlaylistEntity)
 
+    @Query("UPDATE playlists SET name = :newName, modifiedAt = :modifiedAt WHERE id = :id")
+    suspend fun renamePlaylist(id: Long, newName: String, modifiedAt: Long = System.currentTimeMillis())
+
+    @Query("DELETE FROM playlists WHERE id = :id")
+    suspend fun deletePlaylistById(id: Long)
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId")
+    suspend fun clearPlaylistTracks(playlistId: Long)
+
     @Query("""
         SELECT t.* FROM tracks t
         INNER JOIN playlist_tracks pt ON t.id = pt.trackId

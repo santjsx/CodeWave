@@ -35,6 +35,7 @@ interface LibraryRepository {
     fun getLibraryStats(): Flow<LibraryStats>
     fun getAllPlaylists(): Flow<List<Playlist>>
     suspend fun createPlaylist(name: String): Long
+    suspend fun renamePlaylist(playlistId: Long, newName: String)
     suspend fun deletePlaylist(playlistId: Long)
     fun getTracksForPlaylist(playlistId: Long): Flow<List<Track>>
     suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long)
@@ -216,9 +217,14 @@ class DefaultLibraryRepository(
         return playlistDao.insertPlaylist(PlaylistEntity(name = name))
     }
 
+    override suspend fun renamePlaylist(playlistId: Long, newName: String) {
+        if (newName.isBlank()) return
+        playlistDao.renamePlaylist(playlistId, newName.trim())
+    }
+
     override suspend fun deletePlaylist(playlistId: Long) {
-        val playlist = playlistDao.getPlaylistById(playlistId) ?: return
-        playlistDao.deletePlaylist(playlist)
+        playlistDao.clearPlaylistTracks(playlistId)
+        playlistDao.deletePlaylistById(playlistId)
     }
 
     override fun getTracksForPlaylist(playlistId: Long): Flow<List<Track>> {

@@ -19,12 +19,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -66,6 +71,9 @@ fun PlaylistsScreen(
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    var playlistToRename by remember { mutableStateOf<Playlist?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
     var selectedTarget by remember { mutableStateOf<CollectionTarget?>(null) }
 
     val currentTarget = selectedTarget
@@ -190,6 +198,8 @@ fun PlaylistsScreen(
 
         if (playlists.isNotEmpty()) {
             items(playlists, key = { it.id }) { playlist ->
+                var menuExpanded by remember { mutableStateOf(false) }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,11 +208,14 @@ fun PlaylistsScreen(
                         .background(CWColors.SurfaceElevated)
                         .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
                         .tactileClickable { selectedTarget = CollectionTarget.PlaylistTarget(playlist) }
-                        .padding(14.dp),
+                        .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
                             imageVector = Icons.Default.PlaylistPlay,
                             contentDescription = null,
@@ -224,11 +237,58 @@ fun PlaylistsScreen(
                             }
                         }
                     }
-                    Text(
-                        text = ">",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextTertiary
-                    )
+
+                    Box {
+                        IconButton(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.tactilePress()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Playlist Options",
+                                tint = CWColors.TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(CWColors.SurfaceElevated)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Rename", color = CWColors.TextPrimary) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = CWColors.AccentCyan,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    renameText = playlist.name
+                                    playlistToRename = playlist
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = CWColors.Danger) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = CWColors.Danger,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    playlistToDelete = playlist
+                                }
+                            )
+                        }
+                    }
                 }
             }
         } else {
@@ -275,20 +335,99 @@ fun PlaylistsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.createPlaylist(newPlaylistName)
-                    newPlaylistName = ""
-                    showCreateDialog = false
-                }) {
+                TextButton(
+                    onClick = {
+                        viewModel.createPlaylist(newPlaylistName)
+                        newPlaylistName = ""
+                        showCreateDialog = false
+                    },
+                    modifier = Modifier.tactilePress()
+                ) {
                     Text("Create", color = CWColors.AccentCyan)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateDialog = false }) {
+                TextButton(
+                    onClick = { showCreateDialog = false },
+                    modifier = Modifier.tactilePress()
+                ) {
                     Text("Cancel", color = CWColors.TextSecondary)
                 }
             },
-            containerColor = CWColors.SurfaceElevated
+            containerColor = CWColors.SurfaceElevated,
+            shape = RoundedCornerShape(CWShapes.RadiusLarge)
+        )
+    }
+
+    playlistToRename?.let { targetPlaylist ->
+        AlertDialog(
+            onDismissRequest = { playlistToRename = null },
+            title = { Text("Rename Playlist", style = CWTypography.TechBadge, color = CWColors.AccentCyan) },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = { Text("Playlist Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.renamePlaylist(targetPlaylist, renameText)
+                        playlistToRename = null
+                    },
+                    modifier = Modifier.tactilePress()
+                ) {
+                    Text("Save", color = CWColors.AccentCyan)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { playlistToRename = null },
+                    modifier = Modifier.tactilePress()
+                ) {
+                    Text("Cancel", color = CWColors.TextSecondary)
+                }
+            },
+            containerColor = CWColors.SurfaceElevated,
+            shape = RoundedCornerShape(CWShapes.RadiusLarge)
+        )
+    }
+
+    playlistToDelete?.let { targetPlaylist ->
+        AlertDialog(
+            onDismissRequest = { playlistToDelete = null },
+            title = { Text("Delete Playlist?", style = CWTypography.TechBadge, color = CWColors.Danger) },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete '${targetPlaylist.name}'? This playlist and its track associations will be removed.",
+                    style = CWTypography.AppTypography.bodyMedium,
+                    color = CWColors.TextPrimary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePlaylist(targetPlaylist)
+                        playlistToDelete = null
+                    },
+                    modifier = Modifier.tactilePress()
+                ) {
+                    Text("Delete", color = CWColors.Danger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { playlistToDelete = null },
+                    modifier = Modifier.tactilePress()
+                ) {
+                    Text("Cancel", color = CWColors.TextSecondary)
+                }
+            },
+            containerColor = CWColors.SurfaceElevated,
+            shape = RoundedCornerShape(CWShapes.RadiusLarge)
         )
     }
 }

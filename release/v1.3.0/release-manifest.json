@@ -1,0 +1,11 @@
+{
+  "version": "1.3.0",
+  "versionCode": 4,
+  "minimumSupportedVersion": "1.0.0",
+  "releaseChannel": "Stable",
+  "releaseNotes": "CodeWave v1.3.0: Enhanced LRC word-timestamp stripping & offset calibration, intro instrumental synchronization fix, simplified clean No-Lyrics state, full playlist management (rename & delete with confirmation dialogs), instant playback controls on cold relaunch, new premium avatar app icon with wired earphones, and restored persistent bottom navbar in Now Playing screen.",
+  "apkUrl": "https://github.com/santjsx/CodeWave/releases/download/v1.3.0/CodeWave-v1.3.0.apk",
+  "sha256": "8932dfd77848f96c087f2f6434083b8ea32683cacc58ee27d3ea801f573c0f98",
+  "size": 4376073,
+  "publishedAt": "2026-09-15T21:14:46.969533+00:00"
+}
