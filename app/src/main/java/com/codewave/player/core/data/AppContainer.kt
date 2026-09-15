@@ -14,6 +14,7 @@ interface AppContainer {
     val equalizerRepository: EqualizerRepository
     val settingsRepository: SettingsRepository
     val playbackRepository: PlaybackRepository
+    val otaUpdateManager: com.codewave.player.core.ota.OtaUpdateManager
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
@@ -58,5 +59,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             libraryRepository = libraryRepository,
             settingsRepository = settingsRepository
         )
+    }
+
+    override val otaUpdateManager: com.codewave.player.core.ota.OtaUpdateManager by lazy {
+        com.codewave.player.core.ota.OtaUpdateManager(context)
     }
 }

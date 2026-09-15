@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
             checkAndRequestPermissions()
         }
 
+        triggerBackgroundUpdateCheck()
+
         setContent {
             val app = application as CodeWaveApplication
             val themeId by app.container.settingsRepository.themeId.collectAsState(initial = "obsidian")
@@ -65,6 +67,17 @@ class MainActivity : ComponentActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             app.container.libraryRepository.scanLibrary()
             app.container.audioScanner.startObservingMediaStore(this)
+        }
+    }
+
+    private fun triggerBackgroundUpdateCheck() {
+        val app = application as CodeWaveApplication
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                app.container.otaUpdateManager.checkForUpdates(showNotificationIfAvailable = true)
+            } catch (_: Exception) {
+                // Fails silently if offline
+            }
         }
     }
 

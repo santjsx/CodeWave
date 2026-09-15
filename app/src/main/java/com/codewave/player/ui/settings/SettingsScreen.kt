@@ -52,6 +52,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.InstallMobile
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import com.codewave.player.core.ota.UpdateStatus
+
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -61,7 +68,7 @@ fun SettingsScreen(
     val gapless by viewModel.gaplessEnabled.collectAsState()
     val crossfade by viewModel.crossfadeSeconds.collectAsState()
     val themeId by viewModel.themeId.collectAsState()
-    val updateState by viewModel.updateState.collectAsState()
+    val otaStatus by viewModel.otaUpdateStatus.collectAsState()
     var isThemeSheetOpen by remember { mutableStateOf(false) }
 
     Column(
@@ -311,59 +318,271 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "GitHub Release Updates",
+                            text = "Over-The-Air (OTA) Updates",
                             style = CWTypography.AppTypography.titleMedium,
                             color = CWColors.TextPrimary
                         )
                         Text(
-                            text = "Non-intrusive sideload APK discovery with SHA-256 verification (Zero analytics / telemetry)",
+                            text = "In-app release discovery, streaming download & automatic installation from GitHub Releases",
                             style = CWTypography.AppTypography.bodyMedium,
                             color = CWColors.TextSecondary
                         )
                     }
-
-                    CWButton(
-                        text = if (updateState.isChecking) "Checking..." else "Check",
-                        onClick = { viewModel.checkForUpdates() },
-                        enabled = !updateState.isChecking,
-                        variant = CWButtonVariant.SOLID,
-                        leadingIcon = Icons.Default.SystemUpdate
-                    )
                 }
 
-                if (updateState.errorMessage != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = updateState.errorMessage ?: "",
-                        style = CWTypography.AppTypography.bodyMedium,
-                        color = CWColors.Warning
-                    )
-                } else if (updateState.latestVersion != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (updateState.isUpdateAvailable)
-                                "Update available: ${updateState.latestVersion}"
-                            else "CODEWAVE is up to date (${updateState.latestVersion})",
-                            style = CWTypography.TechTelemetry,
-                            color = if (updateState.isUpdateAvailable) CWColors.AccentCyan else CWColors.Success
-                        )
+                Spacer(modifier = Modifier.height(14.dp))
 
-                        if (updateState.isUpdateAvailable && !updateState.downloadUrl.isNullOrEmpty()) {
-                            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-                            CWButton(
-                                text = "Get Update",
-                                onClick = {
-                                    try {
-                                        uriHandler.openUri(updateState.downloadUrl!!)
-                                    } catch (_: Exception) {}
-                                },
-                                variant = CWButtonVariant.OUTLINED
+                when (val status = otaStatus) {
+                    is UpdateStatus.Idle -> {
+                        CWButton(
+                            text = "Check for Updates",
+                            onClick = { viewModel.checkForUpdates() },
+                            variant = CWButtonVariant.SOLID,
+                            leadingIcon = Icons.Default.Refresh,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    is UpdateStatus.Checking -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = CWColors.AccentCyan,
+                                strokeWidth = 2.dp
                             )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Checking for latest GitHub release...",
+                                style = CWTypography.AppTypography.bodyMedium,
+                                color = CWColors.TextPrimary
+                            )
+                        }
+                    }
+                    is UpdateStatus.UpToDate -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(1.dp, CWColors.Success.copy(alpha = 0.3f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = CWColors.Success,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "CodeWave is Up to Date",
+                                    style = CWTypography.AppTypography.titleSmall,
+                                    color = CWColors.TextPrimary
+                                )
+                                Text(
+                                    text = "Current version v${status.version} is the latest release.",
+                                    style = CWTypography.TechTelemetry,
+                                    color = CWColors.TextSecondary
+                                )
+                            }
+                            IconButton(onClick = { viewModel.checkForUpdates() }) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Re-check",
+                                    tint = CWColors.TextSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                    is UpdateStatus.UpdateAvailable -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.4f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                .padding(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CWTechnicalBadge(text = "NEW: v${status.info.latestVersion}", textColor = CWColors.AccentCyan)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = status.info.releaseTitle,
+                                        style = CWTypography.AppTypography.titleSmall,
+                                        color = CWColors.TextPrimary
+                                    )
+                                }
+                                Text(
+                                    text = String.format("%.1f MB", status.info.apkSizeMb),
+                                    style = CWTypography.TechTelemetry,
+                                    color = CWColors.TextSecondary
+                                )
+                            }
+
+                            if (status.info.releaseNotes.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = status.info.releaseNotes.take(180) + if (status.info.releaseNotes.length > 180) "..." else "",
+                                    style = CWTypography.AppTypography.bodySmall,
+                                    color = CWColors.TextSecondary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            CWButton(
+                                text = "Download & Install Update",
+                                onClick = { viewModel.downloadAndInstall(status.info) },
+                                variant = CWButtonVariant.SOLID,
+                                leadingIcon = Icons.Default.CloudDownload,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    is UpdateStatus.Downloading -> {
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = (status.progressPercent / 100f).coerceIn(0f, 1f),
+                            label = "ota_progress"
+                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                .padding(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = CWColors.AccentCyan,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = when {
+                                            status.progressPercent >= 100 -> "Verifying & Installing..."
+                                            status.downloadedMb > 0.05 -> "Downloading Update..."
+                                            else -> "Connecting to Server..."
+                                        },
+                                        style = CWTypography.AppTypography.bodyMedium,
+                                        color = CWColors.TextPrimary
+                                    )
+                                }
+                                Text(
+                                    text = "${status.progressPercent}%",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            LinearProgressIndicator(
+                                progress = { animatedProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = CWColors.AccentCyan,
+                                trackColor = CWColors.SurfacePrimary
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = String.format("%.2f MB / %.2f MB", status.downloadedMb, status.totalMb),
+                                style = CWTypography.TechTelemetry,
+                                color = CWColors.TextSecondary,
+                                modifier = Modifier.align(Alignment.End)
+                            )
+                        }
+                    }
+                    is UpdateStatus.ReadyToInstall -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(1.dp, CWColors.Success.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                .padding(14.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = CWColors.Success,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Package Downloaded Successfully",
+                                    style = CWTypography.AppTypography.titleSmall,
+                                    color = CWColors.TextPrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            CWButton(
+                                text = "Install Update Now",
+                                onClick = { viewModel.installApk(status.apkFile) },
+                                variant = CWButtonVariant.SOLID,
+                                leadingIcon = Icons.Default.InstallMobile,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    is UpdateStatus.Error -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(1.dp, CWColors.Warning.copy(alpha = 0.4f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                .padding(14.dp)
+                        ) {
+                            Text(
+                                text = status.message,
+                                style = CWTypography.AppTypography.bodySmall,
+                                color = CWColors.Warning
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                CWButton(
+                                    text = "Dismiss",
+                                    onClick = { viewModel.resetOtaStatus() },
+                                    variant = CWButtonVariant.GHOST
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                CWButton(
+                                    text = "Retry",
+                                    onClick = { viewModel.checkForUpdates() },
+                                    variant = CWButtonVariant.OUTLINED,
+                                    leadingIcon = Icons.Default.Refresh
+                                )
+                            }
                         }
                     }
                 }

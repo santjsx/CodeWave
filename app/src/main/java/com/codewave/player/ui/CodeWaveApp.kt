@@ -81,7 +81,11 @@ fun CodeWaveApp(
         factory = EqualizerViewModel.provideFactory(container.equalizerRepository, container.playbackRepository)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.provideFactory(container.settingsRepository, container.libraryRepository)
+        factory = SettingsViewModel.provideFactory(
+            container.settingsRepository,
+            container.libraryRepository,
+            container.otaUpdateManager
+        )
     )
 
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }

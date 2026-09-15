@@ -128,6 +128,9 @@ dependencies {
   // Coil Image Loading
   implementation(libs.coil.compose)
 
+  // OkHttp for Resilient In-App OTA Updates & Downloads
+  implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
