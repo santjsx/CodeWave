@@ -55,7 +55,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val playbackRepository: PlaybackRepository by lazy {
         DefaultPlaybackRepository(
             context = context,
-            libraryRepository = libraryRepository
+            libraryRepository = libraryRepository,
+            settingsRepository = settingsRepository
         )
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +62,8 @@ fun HomeScreen(
     val recentlyAdded by viewModel.recentlyAdded.collectAsState()
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
+    val lastPositionMs by viewModel.lastPlayedPositionMs.collectAsState()
+    val lastTrackId by viewModel.lastPlayedTrackId.collectAsState()
 
     LazyColumn(
         modifier = modifier
@@ -101,13 +104,6 @@ fun HomeScreen(
                             )
                         }
                     }
-                    IconButton(onClick = { viewModel.scanLibrary() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Scan Library",
-                            tint = if (scanProgress.isScanning) CWColors.AccentCyan else CWColors.TextSecondary
-                        )
-                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
@@ -119,106 +115,114 @@ fun HomeScreen(
             }
         }
 
-        // Scanning Status Bar (PRD Section 98)
+        // Library Scan Banner (active only during scanning)
         if (scanProgress.isScanning) {
             item {
-                Column(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                        .background(CWColors.SurfaceElevated)
-                        .border(1.dp, CWColors.BorderFocus, RoundedCornerShape(CWShapes.RadiusMedium))
-                        .padding(12.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(CWShapes.RadiusMedium),
+                    colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.AccentCyan.copy(alpha = 0.5f))
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "INDEXING LIBRARY",
-                            style = CWTypography.TechBadge,
-                            color = CWColors.AccentCyan
-                        )
-                        Text(
-                            text = "${scanProgress.processedCount} / ${scanProgress.totalCount.coerceAtLeast(1)}",
-                            style = CWTypography.TechTelemetry
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = {
-                            if (scanProgress.totalCount > 0)
-                                scanProgress.processedCount.toFloat() / scanProgress.totalCount.toFloat()
-                            else 0f
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp),
-                        color = CWColors.AccentCyan,
-                        trackColor = CWColors.SurfaceOverlay
-                    )
-                    if (scanProgress.currentFile.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = scanProgress.currentFile,
-                            style = CWTypography.TechTelemetry,
-                            maxLines = 1,
-                            color = CWColors.TextSecondary
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "INDEXING AUDIO PIPELINE...",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.AccentCyan
+                            )
+                            Text(
+                                text = "${scanProgress.processedCount}/${scanProgress.totalCount}",
+                                style = CWTypography.TechTelemetry
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val progress = if (scanProgress.totalCount > 0)
+                            scanProgress.processedCount.toFloat() / scanProgress.totalCount.toFloat()
+                        else 0f
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = CWColors.AccentCyan,
+                            trackColor = CWColors.SurfaceElevated
                         )
                     }
                 }
             }
         }
 
-        // Library Status Telemetry Card (PRD Section 9 & 37)
+        // High-Density Telemetry Strip (PRD Section 8)
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(CWShapes.RadiusMedium),
+                shape = RoundedCornerShape(CWShapes.RadiusLarge),
                 colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "SYSTEM TELEMETRY",
-                            style = CWTypography.TechBadge,
-                            color = CWColors.TextSecondary
-                        )
-                        CWTechnicalBadge(
-                            text = if (scanProgress.isScanning) "SCANNING" else "LIBRARY READY",
-                            textColor = if (scanProgress.isScanning) CWColors.Warning else CWColors.Success
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        TelemetryColumn(value = "${stats.trackCount}", label = "TRACKS")
-                        TelemetryColumn(value = "${stats.albumCount}", label = "ALBUMS")
-                        TelemetryColumn(value = "${stats.artistCount}", label = "ARTISTS")
-                        TelemetryColumn(value = "${stats.hiResCount}", label = "HI-RES", highlight = true)
-                    }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TelemetryColumn(
+                        value = "${stats.trackCount}",
+                        label = "TRACKS"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(32.dp)
+                            .background(CWColors.BorderSubtle)
+                    )
+                    TelemetryColumn(
+                        value = "${stats.losslessCount}",
+                        label = "LOSSLESS",
+                        highlight = stats.losslessCount > 0
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(32.dp)
+                            .background(CWColors.BorderSubtle)
+                    )
+                    TelemetryColumn(
+                        value = "${stats.hiResCount}",
+                        label = "HI-RES",
+                        highlight = stats.hiResCount > 0
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(32.dp)
+                            .background(CWColors.BorderSubtle)
+                    )
+                    TelemetryColumn(
+                        value = "${stats.albumCount}",
+                        label = "ALBUMS"
+                    )
                 }
             }
         }
 
-        // Quick Navigation Buttons (PRD Section 9)
+        // Quick Navigation Grid
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 QuickActionButton(
@@ -245,17 +249,37 @@ fun HomeScreen(
         // Continue Listening Section (PRD Section 9)
         if (recentlyPlayed.isNotEmpty()) {
             val lastTrack = recentlyPlayed.first()
+            val resumePosition = if (lastTrackId == lastTrack.id && lastPositionMs > 1000L) lastPositionMs else 0L
+            val resumeBadgeText = if (resumePosition > 0L) {
+                val remMins = resumePosition / 60000
+                val remSecs = (resumePosition % 60000) / 1000
+                String.format("RESUME AT %02d:%02d", remMins, remSecs)
+            } else null
+
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(
-                        text = "CONTINUE LISTENING",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "CONTINUE LISTENING",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.TextSecondary
+                        )
+                        if (resumeBadgeText != null) {
+                            CWTechnicalBadge(
+                                text = resumeBadgeText,
+                                textColor = CWColors.AccentCyan
+                            )
+                        }
+                    }
                     CWTrackRow(
                         track = lastTrack,
-                        onTrackClick = { viewModel.playTrack(lastTrack, recentlyPlayed) },
+                        onTrackClick = { viewModel.playTrack(lastTrack, recentlyPlayed, resumePosition) },
                         onFavoriteClick = { viewModel.toggleFavorite(lastTrack) },
                         onMoreClick = { onTrackInspect(lastTrack) }
                     )

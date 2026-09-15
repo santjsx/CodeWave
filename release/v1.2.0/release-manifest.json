@@ -1,0 +1,11 @@
+{
+  "version": "1.2.0",
+  "versionCode": 3,
+  "minimumSupportedVersion": "1.0.0",
+  "releaseChannel": "Stable",
+  "releaseNotes": "CodeWave v1.2.0: OTA release check fix, embedded ID3v2/Vorbis/MP4 lyrics extraction, terminal-style lyrics view, touch leak-through & accidental EQ opening prevention, exact millisecond continue playing resume, Emil Kowalski tactile micro-interactions, album art thumbnails in list view, and minimal audio specifications modal.",
+  "apkUrl": "https://github.com/santjsx/CodeWave/releases/download/v1.2.0/CodeWave-v1.2.0.apk",
+  "sha256": "c9590fddde0a9d581f2fd1d2480a03a2a828d7535f5d0e0c6932a9702d6da76c",
+  "size": 4341632,
+  "publishedAt": "2026-09-16T02:05:00Z"
+}

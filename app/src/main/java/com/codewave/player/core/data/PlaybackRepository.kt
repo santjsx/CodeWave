@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,8 +35,8 @@ import kotlinx.coroutines.launch
 
 interface PlaybackRepository {
     val playbackState: StateFlow<PlaybackState>
-    fun playTrack(track: Track, queue: List<Track> = listOf(track))
-    fun playQueue(queue: List<Track>, startIndex: Int = 0)
+    fun playTrack(track: Track, queue: List<Track> = listOf(track), startPositionMs: Long = 0L)
+    fun playQueue(queue: List<Track>, startIndex: Int = 0, startPositionMs: Long = 0L)
     fun togglePlayPause()
     fun seekTo(positionMs: Long)
     fun skipNext()
@@ -51,7 +52,8 @@ interface PlaybackRepository {
 
 class DefaultPlaybackRepository(
     private val context: Context,
-    private val libraryRepository: LibraryRepository
+    private val libraryRepository: LibraryRepository,
+    private val settingsRepository: SettingsRepository? = null
 ) : PlaybackRepository {
 
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -81,10 +83,36 @@ class DefaultPlaybackRepository(
                         addListener(createPlayerListener())
                         updateStateFromPlayer(this)
                     }
+                    if (controller?.currentMediaItem == null) {
+                        restoreLastPlayedState()
+                    }
                 } catch (_: Exception) {}
             },
             MoreExecutors.directExecutor()
         )
+    }
+
+    private fun restoreLastPlayedState() {
+        scope.launch {
+            try {
+                val lastTrackId = settingsRepository?.lastPlayedTrackId?.firstOrNull() ?: return@launch
+                val lastPos = settingsRepository.lastPlayedPositionMs.firstOrNull() ?: 0L
+                val track = libraryRepository.getTrackById(lastTrackId) ?: return@launch
+                if (_playbackState.value.currentTrack == null) {
+                    currentQueue = listOf(track)
+                    _playbackState.update {
+                        it.copy(
+                            currentTrack = track,
+                            queue = listOf(track),
+                            queueIndex = 0,
+                            positionMs = lastPos,
+                            durationMs = track.durationMs,
+                            isPlaying = false
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun createPlayerListener() = object : Player.Listener {
@@ -93,6 +121,9 @@ class DefaultPlaybackRepository(
             val current = _playbackState.value.currentTrack
             if (isPlaying && current != null) {
                 scope.launch { libraryRepository.recordTrackPlayed(current.id) }
+            } else if (!isPlaying && current != null) {
+                val pos = controller?.currentPosition ?: _playbackState.value.positionMs
+                scope.launch { settingsRepository?.setLastPlayed(current.id, pos.coerceAtLeast(0L)) }
             }
         }
 
@@ -122,6 +153,10 @@ class DefaultPlaybackRepository(
                     positionMs = 0L,
                     outputInfo = CodeWaveMediaSessionService.getOutputRouteInfo(context)
                 )
+            }
+
+            if (track != null) {
+                scope.launch { settingsRepository?.setLastPlayed(track.id, 0L) }
             }
         }
 
@@ -163,14 +198,24 @@ class DefaultPlaybackRepository(
 
     private fun startPositionTracking() {
         progressJob = scope.launch {
+            var lastSaveTimestamp = 0L
             while (isActive) {
                 val player = controller
                 if (player != null && player.isPlaying) {
+                    val pos = player.currentPosition.coerceAtLeast(0L)
                     _playbackState.update {
                         it.copy(
-                            positionMs = player.currentPosition.coerceAtLeast(0L),
+                            positionMs = pos,
                             durationMs = player.duration.coerceAtLeast(0L)
                         )
+                    }
+                    val now = System.currentTimeMillis()
+                    if (now - lastSaveTimestamp > 1500L) {
+                        lastSaveTimestamp = now
+                        val currentTrack = _playbackState.value.currentTrack
+                        if (currentTrack != null) {
+                            settingsRepository?.setLastPlayed(currentTrack.id, pos)
+                        }
                     }
                 }
                 delay(100) // 10Hz smooth progress polling for scrubber
@@ -178,13 +223,13 @@ class DefaultPlaybackRepository(
         }
     }
 
-    override fun playTrack(track: Track, queue: List<Track>) {
+    override fun playTrack(track: Track, queue: List<Track>, startPositionMs: Long) {
         val index = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-        playQueue(queue, index)
+        playQueue(queue, index, startPositionMs)
     }
 
     @OptIn(UnstableApi::class)
-    override fun playQueue(queue: List<Track>, startIndex: Int) {
+    override fun playQueue(queue: List<Track>, startIndex: Int, startPositionMs: Long) {
         currentQueue = queue
         val mediaItems = queue.map { track ->
             val metadata = MediaMetadata.Builder()
@@ -202,7 +247,8 @@ class DefaultPlaybackRepository(
         }
 
         val player = controller ?: return
-        player.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
+        val seekPos = if (startPositionMs > 0L) startPositionMs else C.TIME_UNSET
+        player.setMediaItems(mediaItems, startIndex, seekPos)
         val speed = _playbackState.value.playbackSpeed
         if (speed != 1.0f) {
             player.setPlaybackSpeed(speed)
@@ -210,11 +256,17 @@ class DefaultPlaybackRepository(
         player.prepare()
         player.play()
 
+        val track = queue.getOrNull(startIndex)
+        if (track != null && startPositionMs > 0L) {
+            scope.launch { settingsRepository?.setLastPlayed(track.id, startPositionMs) }
+        }
+
         _playbackState.update {
             it.copy(
                 queue = queue,
                 queueIndex = startIndex,
-                currentTrack = queue.getOrNull(startIndex),
+                currentTrack = track,
+                positionMs = startPositionMs.coerceAtLeast(0L),
                 isPlaying = true
             )
         }
@@ -232,6 +284,10 @@ class DefaultPlaybackRepository(
     override fun seekTo(positionMs: Long) {
         controller?.seekTo(positionMs)
         _playbackState.update { it.copy(positionMs = positionMs) }
+        val currentTrack = _playbackState.value.currentTrack
+        if (currentTrack != null) {
+            scope.launch { settingsRepository?.setLastPlayed(currentTrack.id, positionMs) }
+        }
     }
 
     override fun skipNext() {

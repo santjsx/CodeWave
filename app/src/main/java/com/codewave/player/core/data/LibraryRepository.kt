@@ -28,6 +28,7 @@ interface LibraryRepository {
     fun getFavoriteTracks(): Flow<List<Track>>
     fun getRecentlyAdded(): Flow<List<Track>>
     fun getRecentlyPlayed(): Flow<List<Track>>
+    suspend fun getTrackById(trackId: Long): Track?
     fun search(query: String): Flow<SearchResult>
     suspend fun setFavorite(trackId: Long, isFavorite: Boolean)
     suspend fun recordTrackPlayed(trackId: Long)
@@ -49,6 +50,10 @@ class DefaultLibraryRepository(
     override val scanProgress: StateFlow<ScanProgress> = audioScanner.scanProgress
 
     override suspend fun scanLibrary(): Int = audioScanner.scanLibrary()
+
+    override suspend fun getTrackById(trackId: Long): Track? {
+        return trackDao.getTrackById(trackId)?.toDomain()
+    }
 
     override fun getAllTracks(): Flow<List<Track>> {
         return trackDao.getAllTracksFlow().map { entities ->

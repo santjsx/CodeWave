@@ -1,6 +1,7 @@
 package com.codewave.player.ui.library
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PlayArrow
@@ -28,6 +30,11 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
+import com.codewave.player.core.designsystem.component.CWQualityBadge
+import com.codewave.player.core.designsystem.component.tactileClickable
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -415,21 +422,76 @@ private fun AlbumsTab(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onAlbumClick(album) }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .tactileClickable { onAlbumClick(album) }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = album.title,
-                        style = CWTypography.AppTypography.titleMedium,
-                        color = CWColors.TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "${album.trackCount} tracks",
-                        style = CWTypography.TechTelemetry,
-                        color = CWColors.TextSecondary
-                    )
+                    // Album Art Thumbnail with fallback
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                            .background(CWColors.SurfaceElevated)
+                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!album.artworkUri.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = album.artworkUri,
+                                contentDescription = album.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Album,
+                                contentDescription = null,
+                                tint = CWColors.TextTertiary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = album.title,
+                            style = CWTypography.AppTypography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = CWColors.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = album.artist,
+                                style = CWTypography.AppTypography.bodySmall,
+                                color = CWColors.TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Text(
+                                text = " • ${album.trackCount} trks",
+                                style = CWTypography.TechTelemetry,
+                                color = CWColors.TextTertiary,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    if (album.isHiRes) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        CWQualityBadge(text = "HI-RES", isHiRes = true)
+                    } else if (album.isLossless) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        CWQualityBadge(text = "LOSSLESS", isLossless = true)
+                    }
                 }
             }
         }

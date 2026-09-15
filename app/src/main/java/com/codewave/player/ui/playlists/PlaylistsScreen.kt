@@ -47,7 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.codewave.player.core.designsystem.component.CWButton
 import com.codewave.player.core.designsystem.component.CWButtonVariant
-import com.codewave.player.core.designsystem.component.CWTrackRow
+import com.codewave.player.core.designsystem.component.tactileClickable
+import com.codewave.player.core.designsystem.component.tactilePress
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
@@ -118,7 +119,7 @@ fun PlaylistsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clickable { selectedTarget = CollectionTarget.FavoritesTarget },
+                    .tactileClickable { selectedTarget = CollectionTarget.FavoritesTarget },
                 shape = RoundedCornerShape(CWShapes.RadiusMedium),
                 colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
@@ -153,7 +154,7 @@ fun PlaylistsScreen(
                                 color = CWColors.TextPrimary
                             )
                             Text(
-                                text = "${favorites.size} songs",
+                                text = "${favorites.size} songs • Tap to view all",
                                 style = CWTypography.TechTelemetry,
                                 color = CWColors.TextSecondary
                             )
@@ -161,7 +162,10 @@ fun PlaylistsScreen(
                     }
 
                     if (favorites.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.playFavorites() }) {
+                        IconButton(
+                            onClick = { viewModel.playFavorites() },
+                            modifier = Modifier.tactilePress()
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "Play Favorites",
@@ -175,16 +179,16 @@ fun PlaylistsScreen(
         }
 
         // Playlists List
-        if (playlists.isNotEmpty()) {
-            item {
-                Text(
-                    text = "COLLECTIONS",
-                    style = CWTypography.TechBadge,
-                    color = CWColors.TextSecondary,
-                    modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp)
-                )
-            }
+        item {
+            Text(
+                text = "COLLECTIONS",
+                style = CWTypography.TechBadge,
+                color = CWColors.TextSecondary,
+                modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp)
+            )
+        }
 
+        if (playlists.isNotEmpty()) {
             items(playlists, key = { it.id }) { playlist ->
                 Row(
                     modifier = Modifier
@@ -193,7 +197,7 @@ fun PlaylistsScreen(
                         .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                         .background(CWColors.SurfaceElevated)
                         .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
-                        .clickable { selectedTarget = CollectionTarget.PlaylistTarget(playlist) }
+                        .tactileClickable { selectedTarget = CollectionTarget.PlaylistTarget(playlist) }
                         .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -227,26 +231,32 @@ fun PlaylistsScreen(
                     )
                 }
             }
-        }
-
-        // Favorite Songs preview
-        if (favorites.isNotEmpty()) {
+        } else {
             item {
-                Text(
-                    text = "FAVORITE SONGS",
-                    style = CWTypography.TechBadge,
-                    color = CWColors.TextSecondary,
-                    modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp)
-                )
-            }
-
-            items(favorites.take(10), key = { "fav_${it.id}" }) { track ->
-                CWTrackRow(
-                    track = track,
-                    onTrackClick = { viewModel.playTrack(track, favorites) },
-                    onFavoriteClick = { viewModel.toggleFavorite(track) },
-                    onMoreClick = { onTrackInspect(track) }
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                        .background(CWColors.SurfacePrimary)
+                        .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "NO CUSTOM PLAYLISTS",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.TextTertiary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Tap '+' to create your first curated playlist.",
+                            style = CWTypography.AppTypography.bodySmall,
+                            color = CWColors.TextSecondary
+                        )
+                    }
+                }
             }
         }
     }

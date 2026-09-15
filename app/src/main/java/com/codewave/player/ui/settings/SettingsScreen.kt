@@ -340,13 +340,32 @@ fun SettingsScreen(
                     )
                 } else if (updateState.latestVersion != null) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = if (updateState.isUpdateAvailable)
-                            "Update available: ${updateState.latestVersion}"
-                        else "CODEWAVE is up to date (${updateState.latestVersion})",
-                        style = CWTypography.TechTelemetry,
-                        color = if (updateState.isUpdateAvailable) CWColors.AccentCyan else CWColors.Success
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (updateState.isUpdateAvailable)
+                                "Update available: ${updateState.latestVersion}"
+                            else "CODEWAVE is up to date (${updateState.latestVersion})",
+                            style = CWTypography.TechTelemetry,
+                            color = if (updateState.isUpdateAvailable) CWColors.AccentCyan else CWColors.Success
+                        )
+
+                        if (updateState.isUpdateAvailable && !updateState.downloadUrl.isNullOrEmpty()) {
+                            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+                            CWButton(
+                                text = "Get Update",
+                                onClick = {
+                                    try {
+                                        uriHandler.openUri(updateState.downloadUrl!!)
+                                    } catch (_: Exception) {}
+                                },
+                                variant = CWButtonVariant.OUTLINED
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -368,7 +387,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Version", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
-                    CWTechnicalBadge(text = "1.0.0 (Release)")
+                    CWTechnicalBadge(text = "1.2.0 (Release)")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(

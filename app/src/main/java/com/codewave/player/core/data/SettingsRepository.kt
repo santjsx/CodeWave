@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.codewave.player.core.model.AlbumSortOption
@@ -26,6 +27,8 @@ interface SettingsRepository {
     val crossfadeSeconds: Flow<Int>
     val playbackSpeed: Flow<Float>
     val themeId: Flow<String>
+    val lastPlayedTrackId: Flow<Long?>
+    val lastPlayedPositionMs: Flow<Long>
 
     suspend fun setSongSortOption(sort: SongSortOption)
     suspend fun setAlbumSortOption(sort: AlbumSortOption)
@@ -36,6 +39,7 @@ interface SettingsRepository {
     suspend fun setCrossfadeSeconds(seconds: Int)
     suspend fun setPlaybackSpeed(speed: Float)
     suspend fun setThemeId(themeId: String)
+    suspend fun setLastPlayed(trackId: Long, positionMs: Long)
 }
 
 class DefaultSettingsRepository(private val context: Context) : SettingsRepository {
@@ -50,6 +54,8 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
         val CROSSFADE = intPreferencesKey("crossfade_seconds")
         val PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
         val THEME_ID = stringPreferencesKey("theme_id")
+        val LAST_PLAYED_TRACK_ID = longPreferencesKey("last_played_track_id")
+        val LAST_PLAYED_POSITION_MS = longPreferencesKey("last_played_position_ms")
     }
 
     override val songSortOption: Flow<SongSortOption> = context.settingsDataStore.data.map { prefs ->
@@ -98,6 +104,14 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
         prefs[Keys.THEME_ID] ?: "obsidian"
     }
 
+    override val lastPlayedTrackId: Flow<Long?> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.LAST_PLAYED_TRACK_ID]
+    }
+
+    override val lastPlayedPositionMs: Flow<Long> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.LAST_PLAYED_POSITION_MS] ?: 0L
+    }
+
     override suspend fun setSongSortOption(sort: SongSortOption) {
         context.settingsDataStore.edit { it[Keys.SONG_SORT] = sort.name }
     }
@@ -132,5 +146,12 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
 
     override suspend fun setThemeId(themeId: String) {
         context.settingsDataStore.edit { it[Keys.THEME_ID] = themeId }
+    }
+
+    override suspend fun setLastPlayed(trackId: Long, positionMs: Long) {
+        context.settingsDataStore.edit {
+            it[Keys.LAST_PLAYED_TRACK_ID] = trackId
+            it[Keys.LAST_PLAYED_POSITION_MS] = positionMs
+        }
     }
 }

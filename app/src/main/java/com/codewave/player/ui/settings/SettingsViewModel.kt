@@ -69,24 +69,39 @@ class SettingsViewModel(
 
             try {
                 val result = withContext(Dispatchers.IO) {
-                    val url = URL("https://api.github.com/repos/codewave-player/codewave/releases/latest")
+                    val url = URL("https://api.github.com/repos/santjsx/CodeWave/releases/latest")
                     val connection = url.openConnection() as HttpURLConnection
-                    connection.connectTimeout = 5000
-                    connection.readTimeout = 5000
+                    connection.connectTimeout = 7000
+                    connection.readTimeout = 7000
                     connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+                    connection.setRequestProperty("User-Agent", "CodeWave-App")
 
                     if (connection.responseCode == 200) {
                         val body = connection.inputStream.bufferedReader().use { it.readText() }
                         val json = JSONObject(body)
-                        val tagName = json.optString("tag_name", "v1.0.0")
+                        val tagName = json.optString("tag_name", "v1.2.0")
                         val bodyNotes = json.optString("body", "Release notes unavailable.")
                         val assets = json.optJSONArray("assets")
                         var apkUrl: String? = null
                         if (assets != null && assets.length() > 0) {
-                            apkUrl = assets.getJSONObject(0).optString("browser_download_url")
+                            for (i in 0 until assets.length()) {
+                                val asset = assets.getJSONObject(i)
+                                val name = asset.optString("name", "")
+                                if (name.endsWith(".apk", ignoreCase = true)) {
+                                    apkUrl = asset.optString("browser_download_url")
+                                    break
+                                }
+                            }
+                            if (apkUrl == null && assets.length() > 0) {
+                                apkUrl = assets.getJSONObject(0).optString("browser_download_url")
+                            }
+                        }
+                        if (apkUrl == null) {
+                            apkUrl = json.optString("html_url", "https://github.com/santjsx/CodeWave/releases")
                         }
 
-                        val isNewer = tagName != "v1.0.0"
+                        val currentVersion = "v1.2.0"
+                        val isNewer = isVersionNewer(tagName, currentVersion)
                         UpdateCheckResult(
                             isChecking = false,
                             latestVersion = tagName,
@@ -109,6 +124,24 @@ class SettingsViewModel(
                 )
             }
         }
+    }
+
+    private fun isVersionNewer(latest: String, current: String): Boolean {
+        val cleanLatest = latest.removePrefix("v").trim()
+        val cleanCurrent = current.removePrefix("v").trim()
+        if (cleanLatest == cleanCurrent) return false
+
+        val latestParts = cleanLatest.split('.').mapNotNull { it.toIntOrNull() }
+        val currentParts = cleanCurrent.split('.').mapNotNull { it.toIntOrNull() }
+
+        val maxLen = maxOf(latestParts.size, currentParts.size)
+        for (i in 0 until maxLen) {
+            val l = latestParts.getOrElse(i) { 0 }
+            val c = currentParts.getOrElse(i) { 0 }
+            if (l > c) return true
+            if (l < c) return false
+        }
+        return false
     }
 
     companion object {

@@ -79,8 +79,11 @@ import com.codewave.player.core.model.PlaybackState
 import com.codewave.player.core.model.RepeatMode
 import com.codewave.player.core.model.Track
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.semantics.Role
 import com.codewave.player.core.designsystem.component.contentColor
+import com.codewave.player.core.designsystem.component.tactileClickable
+import com.codewave.player.core.designsystem.component.tactilePress
 import com.codewave.player.core.media.LyricsResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -122,10 +125,13 @@ fun NowPlayingScreen(
         }
     }
 
+    val rootInteractionSource = remember { MutableInteractionSource() }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(CWColors.Background)
+            .clickable(interactionSource = rootInteractionSource, indication = null) {}
             .padding(horizontal = 20.dp)
     ) {
         // Top Navigation & Track Inspector Header
@@ -353,7 +359,7 @@ fun NowPlayingScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Transport Controls Row (Shuffle, Prev, Play/Pause, Next, Repeat)
         Row(
@@ -362,7 +368,10 @@ fun NowPlayingScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Shuffle
-            IconButton(onClick = { playbackRepository.setShuffle(!state.shuffleMode) }) {
+            IconButton(
+                onClick = { playbackRepository.setShuffle(!state.shuffleMode) },
+                modifier = Modifier.tactilePress()
+            ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = "Shuffle",
@@ -374,7 +383,7 @@ fun NowPlayingScreen(
             // Previous
             IconButton(
                 onClick = { playbackRepository.skipPrevious() },
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp).tactilePress()
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
@@ -391,7 +400,7 @@ fun NowPlayingScreen(
                     .size(66.dp)
                     .clip(CircleShape)
                     .background(CWColors.AccentCyan)
-                    .clickable(role = Role.Button) { playbackRepository.togglePlayPause() },
+                    .tactileClickable(role = Role.Button, targetScale = 0.94f) { playbackRepository.togglePlayPause() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -405,7 +414,7 @@ fun NowPlayingScreen(
             // Next
             IconButton(
                 onClick = { playbackRepository.skipNext() },
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp).tactilePress()
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipNext,
@@ -416,14 +425,17 @@ fun NowPlayingScreen(
             }
 
             // Repeat Mode
-            IconButton(onClick = {
-                val nextMode = when (state.repeatMode) {
-                    RepeatMode.OFF -> RepeatMode.ALL
-                    RepeatMode.ALL -> RepeatMode.ONE
-                    RepeatMode.ONE -> RepeatMode.OFF
-                }
-                playbackRepository.setRepeatMode(nextMode)
-            }) {
+            IconButton(
+                onClick = {
+                    val nextMode = when (state.repeatMode) {
+                        RepeatMode.OFF -> RepeatMode.ALL
+                        RepeatMode.ALL -> RepeatMode.ONE
+                        RepeatMode.ONE -> RepeatMode.OFF
+                    }
+                    playbackRepository.setRepeatMode(nextMode)
+                },
+                modifier = Modifier.tactilePress()
+            ) {
                 Icon(
                     imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                     contentDescription = "Repeat",
@@ -433,24 +445,30 @@ fun NowPlayingScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Polished Control Chips Row: Speed, Sleep Timer, Queue
+        // Aligned, Equal-width Auxiliary Controls: Speed, Sleep Timer, Queue with generous breathing room
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Speed Chip
+            // Speed Chip (Equal flex weight)
             Box(
                 modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
                     .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                     .background(CWColors.SurfaceElevated)
                     .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
-                    .clickable { isSpeedSelectorOpen = true }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .tactileClickable { isSpeedSelectorOpen = true },
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Speed,
                         contentDescription = "Speed",
@@ -460,29 +478,34 @@ fun NowPlayingScreen(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${state.playbackSpeed}x",
-                        style = CWTypography.TechTelemetry,
-                        color = CWColors.TextPrimary
+                        style = CWTypography.TechBadge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = CWColors.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            // Sleep Timer Chip
+            // Sleep Timer Chip (Equal flex weight)
             val remainingMs = sleepTimerRemainingMs
             val isTimerActive = remainingMs > 0L
             val timerText = when {
-                remainingMs <= 0L -> "Sleep Timer"
+                remainingMs <= 0L -> "Timer"
                 remainingMs >= 60_000L -> {
                     val remMins = (remainingMs + 59999L) / 60000L
-                    "${remMins} min"
+                    "${remMins}m"
                 }
                 else -> {
                     val remSecs = (remainingMs + 999L) / 1000L
-                    "${remSecs} sec"
+                    "${remSecs}s"
                 }
             }
 
             Box(
                 modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
                     .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                     .background(if (isTimerActive) CWColors.AccentCyan.copy(alpha = 0.15f) else CWColors.SurfaceElevated)
                     .border(
@@ -490,10 +513,14 @@ fun NowPlayingScreen(
                         if (isTimerActive) CWColors.AccentCyan else CWColors.BorderSubtle,
                         RoundedCornerShape(CWShapes.RadiusMedium)
                     )
-                    .clickable { isSleepTimerOpen = true }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .tactileClickable { isSleepTimerOpen = true },
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Timer,
                         contentDescription = "Timer",
@@ -504,21 +531,30 @@ fun NowPlayingScreen(
                     Text(
                         text = timerText,
                         style = CWTypography.TechBadge,
-                        color = if (isTimerActive) CWColors.AccentCyan else CWColors.TextSecondary
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isTimerActive) CWColors.AccentCyan else CWColors.TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            // Queue Chip
+            // Queue Chip (Equal flex weight)
             Box(
                 modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
                     .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                     .background(CWColors.SurfaceElevated)
                     .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
-                    .clickable { isQueueOpen = true }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .tactileClickable { isQueueOpen = true },
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.QueueMusic,
                         contentDescription = "Queue",
@@ -529,11 +565,16 @@ fun NowPlayingScreen(
                     Text(
                         text = "Queue (${state.queue.size})",
                         style = CWTypography.TechBadge,
-                        color = CWColors.TextPrimary
+                        fontWeight = FontWeight.SemiBold,
+                        color = CWColors.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(28.dp))
     }
 
     // Modal: Track Inspector

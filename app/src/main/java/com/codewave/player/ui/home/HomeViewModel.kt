@@ -8,6 +8,7 @@ import com.codewave.player.core.data.PlaybackRepository
 import com.codewave.player.core.database.dao.LibraryStats
 import com.codewave.player.core.model.Track
 import com.codewave.player.core.scanner.ScanProgress
+import com.codewave.player.core.data.SettingsRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -22,10 +23,17 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val libraryRepository: LibraryRepository,
-    private val playbackRepository: PlaybackRepository
+    private val playbackRepository: PlaybackRepository,
+    private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
 
     val scanProgress: StateFlow<ScanProgress> = libraryRepository.scanProgress
+
+    val lastPlayedPositionMs: StateFlow<Long> = (settingsRepository?.lastPlayedPositionMs ?: kotlinx.coroutines.flow.flowOf(0L))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val lastPlayedTrackId: StateFlow<Long?> = (settingsRepository?.lastPlayedTrackId ?: kotlinx.coroutines.flow.flowOf(null))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val stats: StateFlow<LibraryStats> = libraryRepository.getLibraryStats()
         .stateIn(
@@ -54,8 +62,8 @@ class HomeViewModel(
         }
     }
 
-    fun playTrack(track: Track, queue: List<Track>) {
-        playbackRepository.playTrack(track, queue)
+    fun playTrack(track: Track, queue: List<Track>, startPositionMs: Long = 0L) {
+        playbackRepository.playTrack(track, queue, startPositionMs)
     }
 
     fun toggleFavorite(track: Track) {
@@ -65,11 +73,12 @@ class HomeViewModel(
     companion object {
         fun provideFactory(
             libraryRepository: LibraryRepository,
-            playbackRepository: PlaybackRepository
+            playbackRepository: PlaybackRepository,
+            settingsRepository: SettingsRepository? = null
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return HomeViewModel(libraryRepository, playbackRepository) as T
+                return HomeViewModel(libraryRepository, playbackRepository, settingsRepository) as T
             }
         }
     }
