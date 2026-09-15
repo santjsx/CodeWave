@@ -25,6 +25,7 @@ interface SettingsRepository {
     val gaplessEnabled: Flow<Boolean>
     val crossfadeSeconds: Flow<Int>
     val playbackSpeed: Flow<Float>
+    val themeId: Flow<String>
 
     suspend fun setSongSortOption(sort: SongSortOption)
     suspend fun setAlbumSortOption(sort: AlbumSortOption)
@@ -34,6 +35,7 @@ interface SettingsRepository {
     suspend fun setGaplessEnabled(enabled: Boolean)
     suspend fun setCrossfadeSeconds(seconds: Int)
     suspend fun setPlaybackSpeed(speed: Float)
+    suspend fun setThemeId(themeId: String)
 }
 
 class DefaultSettingsRepository(private val context: Context) : SettingsRepository {
@@ -47,6 +49,7 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
         val GAPLESS = booleanPreferencesKey("gapless_playback")
         val CROSSFADE = intPreferencesKey("crossfade_seconds")
         val PLAYBACK_SPEED = floatPreferencesKey("playback_speed")
+        val THEME_ID = stringPreferencesKey("theme_id")
     }
 
     override val songSortOption: Flow<SongSortOption> = context.settingsDataStore.data.map { prefs ->
@@ -91,6 +94,10 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
         prefs[Keys.PLAYBACK_SPEED] ?: 1.0f
     }
 
+    override val themeId: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.THEME_ID] ?: "obsidian"
+    }
+
     override suspend fun setSongSortOption(sort: SongSortOption) {
         context.settingsDataStore.edit { it[Keys.SONG_SORT] = sort.name }
     }
@@ -121,5 +128,9 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
 
     override suspend fun setPlaybackSpeed(speed: Float) {
         context.settingsDataStore.edit { it[Keys.PLAYBACK_SPEED] = speed }
+    }
+
+    override suspend fun setThemeId(themeId: String) {
+        context.settingsDataStore.edit { it[Keys.THEME_ID] = themeId }
     }
 }

@@ -84,7 +84,9 @@ fun CodeWaveApp(
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
     var inspectedTrack by remember { mutableStateOf<Track?>(null) }
     var libraryInitialTab by remember { mutableIntStateOf(0) }
+    var isThemeSheetOpen by remember { mutableStateOf(false) }
 
+    val currentThemeId by container.settingsRepository.themeId.collectAsState(initial = "obsidian")
     val playbackState by container.playbackRepository.playbackState.collectAsState()
 
     // Back handling (PRD Section 96)
@@ -130,6 +132,7 @@ fun CodeWaveApp(
                                     libraryInitialTab = 0
                                 }
                                 currentScreen = screen
+                                isNowPlayingExpanded = false
                             },
                             icon = {
                                 Icon(
@@ -170,7 +173,8 @@ fun CodeWaveApp(
                         currentScreen = Screen.Library
                     },
                     onNavigateToSettings = { currentScreen = Screen.Settings },
-                    onTrackInspect = { inspectedTrack = it }
+                    onTrackInspect = { inspectedTrack = it },
+                    onOpenThemes = { isThemeSheetOpen = true }
                 )
                 Screen.Library -> LibraryScreen(
                     viewModel = libraryViewModel,
@@ -214,6 +218,18 @@ fun CodeWaveApp(
                     outputInfo = playbackState.outputInfo,
                     dspStatus = playbackState.dspStatus,
                     onDismiss = { inspectedTrack = null }
+                )
+            }
+
+            // Theme Selector Bottom Sheet
+            if (isThemeSheetOpen) {
+                com.codewave.player.ui.settings.ThemeSelectorSheet(
+                    activeThemeId = currentThemeId,
+                    onSelectTheme = { selectedTheme ->
+                        settingsViewModel.setThemeId(selectedTheme)
+                        isThemeSheetOpen = false
+                    },
+                    onDismiss = { isThemeSheetOpen = false }
                 )
             }
         }

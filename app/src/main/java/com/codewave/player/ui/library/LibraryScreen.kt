@@ -42,7 +42,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.activity.compose.BackHandler
+import com.codewave.player.ui.collection.CollectionDetailSheet
+import com.codewave.player.ui.collection.CollectionTarget
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +57,7 @@ import com.codewave.player.core.designsystem.component.CWAlbumCard
 import com.codewave.player.core.designsystem.component.CWButton
 import com.codewave.player.core.designsystem.component.CWButtonVariant
 import com.codewave.player.core.designsystem.component.CWEmptyState
+import com.codewave.player.core.designsystem.component.CWPlayAllButton
 import com.codewave.player.core.designsystem.component.CWTrackRow
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
@@ -74,6 +79,22 @@ fun LibraryScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(initialTab) }
     val tabs = listOf("Songs", "Albums", "Artists")
+
+    var selectedTarget by remember { mutableStateOf<CollectionTarget?>(null) }
+
+    val currentTarget = selectedTarget
+    if (currentTarget != null) {
+        BackHandler { selectedTarget = null }
+        CollectionDetailSheet(
+            target = currentTarget,
+            libraryRepository = viewModel.libraryRepository,
+            playbackRepository = viewModel.playbackRepository,
+            onBack = { selectedTarget = null },
+            onTrackInspect = onTrackInspect,
+            modifier = modifier
+        )
+        return
+    }
 
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
@@ -281,11 +302,11 @@ fun LibraryScreen(
             1 -> AlbumsTab(
                 albums = albums,
                 viewMode = albumViewMode,
-                onAlbumClick = { /* View album details */ }
+                onAlbumClick = { selectedTarget = CollectionTarget.AlbumTarget(it) }
             )
             2 -> ArtistsTab(
                 artists = artists,
-                onArtistClick = { /* View artist details */ }
+                onArtistClick = { selectedTarget = CollectionTarget.ArtistTarget(it) }
             )
         }
     }
@@ -331,17 +352,14 @@ private fun SongsTab(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CWButton(
+                    CWPlayAllButton(
                         text = "Play All",
-                        onClick = onPlayAllClick,
-                        variant = CWButtonVariant.SOLID,
-                        leadingIcon = Icons.Default.PlayArrow
+                        onClick = onPlayAllClick
                     )
-                    CWButton(
+                    CWPlayAllButton(
                         text = "Shuffle",
-                        onClick = onShuffleClick,
-                        variant = CWButtonVariant.OUTLINED,
-                        leadingIcon = Icons.Default.Shuffle
+                        isShuffle = true,
+                        onClick = onShuffleClick
                     )
                 }
             }

@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -19,44 +20,49 @@ object CodeWaveTheme {
         get() = LocalCodeWaveColors.current
 }
 
-private val DarkMaterialColorScheme = darkColorScheme(
-    primary = CWColors.AccentCyan,
-    onPrimary = CWColors.Background,
-    primaryContainer = CWColors.SurfaceElevated,
-    onPrimaryContainer = CWColors.TextPrimary,
-    secondary = CWColors.AccentViolet,
-    onSecondary = CWColors.TextPrimary,
-    background = CWColors.Background,
-    onBackground = CWColors.TextPrimary,
-    surface = CWColors.SurfacePrimary,
-    onSurface = CWColors.TextPrimary,
-    surfaceVariant = CWColors.SurfaceElevated,
-    onSurfaceVariant = CWColors.TextSecondary,
-    outline = CWColors.BorderSubtle,
-    error = CWColors.Danger,
-    onError = CWColors.TextPrimary
-)
-
 @Composable
 fun CodeWaveTheme(
+    themeId: String = "obsidian",
     content: @Composable () -> Unit
 ) {
+    val scheme = remember(themeId) {
+        CWColors.applyTheme(themeId)
+    }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = CWColors.Background.toArgb()
-            window.navigationBarColor = CWColors.Background.toArgb()
+            window.statusBarColor = scheme.background.toArgb()
+            window.navigationBarColor = scheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
         }
     }
 
+    val darkMaterialColorScheme = darkColorScheme(
+        primary = scheme.accent,
+        onPrimary = scheme.background,
+        primaryContainer = scheme.surfaceElevated,
+        onPrimaryContainer = scheme.textPrimary,
+        secondary = scheme.accentSecondary,
+        onSecondary = scheme.textPrimary,
+        background = scheme.background,
+        onBackground = scheme.textPrimary,
+        surface = scheme.surfacePrimary,
+        onSurface = scheme.textPrimary,
+        surfaceVariant = scheme.surfaceElevated,
+        onSurfaceVariant = scheme.textSecondary,
+        outline = scheme.borderSubtle,
+        error = scheme.danger,
+        onError = scheme.textPrimary
+    )
+
     CompositionLocalProvider(
-        LocalCodeWaveColors provides CodeWaveColorScheme()
+        LocalCodeWaveColors provides scheme
     ) {
         MaterialTheme(
-            colorScheme = DarkMaterialColorScheme,
+            colorScheme = darkMaterialColorScheme,
             typography = CWTypography.AppTypography,
             shapes = CWShapes.AppShapes,
             content = content

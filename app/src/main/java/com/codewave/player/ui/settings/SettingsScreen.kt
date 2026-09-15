@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -42,6 +43,15 @@ import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -50,7 +60,9 @@ fun SettingsScreen(
 ) {
     val gapless by viewModel.gaplessEnabled.collectAsState()
     val crossfade by viewModel.crossfadeSeconds.collectAsState()
+    val themeId by viewModel.themeId.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+    var isThemeSheetOpen by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -80,6 +92,87 @@ fun SettingsScreen(
                 color = CWColors.TextPrimary,
                 modifier = Modifier.padding(start = 8.dp)
             )
+        }
+
+        // Section: Appearance & Themes
+        SettingsHeader(title = "APPEARANCE & THEMES")
+
+        val currentTheme = CWColors.AvailableThemes.find { it.id.equals(themeId, ignoreCase = true) }
+            ?: CWColors.AvailableThemes.first()
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = currentTheme.name,
+                                style = CWTypography.AppTypography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = CWColors.TextPrimary
+                            )
+                            CWTechnicalBadge(
+                                text = currentTheme.playBarType.name.replace("_", " "),
+                                textColor = currentTheme.accentColor
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = currentTheme.description,
+                            style = CWTypography.AppTypography.bodyMedium,
+                            color = CWColors.TextSecondary
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            currentTheme.previewColors.forEach { color ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(color)
+                                        .border(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.2f), CircleShape)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(1.dp, CWColors.AccentCyan, RoundedCornerShape(CWShapes.RadiusSmall))
+                            .clickable { isThemeSheetOpen = true }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "CHANGE",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.AccentCyan
+                        )
+                    }
+                }
+            }
         }
 
         // Section: Playback & Audio
@@ -302,6 +395,17 @@ fun SettingsScreen(
                     CWTechnicalBadge(text = "NONE (ZERO TRACKING)", textColor = CWColors.Success)
                 }
             }
+        }
+
+        if (isThemeSheetOpen) {
+            ThemeSelectorSheet(
+                activeThemeId = themeId,
+                onSelectTheme = { selectedId ->
+                    viewModel.setThemeId(selectedId)
+                    isThemeSheetOpen = false
+                },
+                onDismiss = { isThemeSheetOpen = false }
+            )
         }
     }
 }

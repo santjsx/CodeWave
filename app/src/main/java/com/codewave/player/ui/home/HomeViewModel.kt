@@ -59,9 +59,7 @@ class HomeViewModel(
     }
 
     fun toggleFavorite(track: Track) {
-        viewModelScope.launch {
-            libraryRepository.setFavorite(track.id, !track.isFavorite)
-        }
+        playbackRepository.toggleFavorite(track)
     }
 
     companion object {

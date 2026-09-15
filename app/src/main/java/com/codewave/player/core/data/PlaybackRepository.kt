@@ -43,6 +43,10 @@ interface PlaybackRepository {
     fun setShuffle(enabled: Boolean)
     fun setRepeatMode(mode: RepeatMode)
     fun setPlaybackSpeed(speed: Float)
+    fun toggleFavorite(track: Track)
+    val sleepTimerRemainingMs: StateFlow<Long>
+    fun startSleepTimer(minutes: Int)
+    fun stopSleepTimer()
 }
 
 class DefaultPlaybackRepository(
@@ -103,6 +107,10 @@ class DefaultPlaybackRepository(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val player = controller ?: return
+            val speed = _playbackState.value.playbackSpeed
+            if (speed != 1.0f) {
+                player.setPlaybackSpeed(speed)
+            }
             val index = player.currentMediaItemIndex
             val track = currentQueue.getOrNull(index)
 
@@ -165,7 +173,7 @@ class DefaultPlaybackRepository(
                         )
                     }
                 }
-                delay(250) // Smooth 4Hz progress polling for scrubber
+                delay(100) // 10Hz smooth progress polling for scrubber
             }
         }
     }
@@ -195,6 +203,10 @@ class DefaultPlaybackRepository(
 
         val player = controller ?: return
         player.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
+        val speed = _playbackState.value.playbackSpeed
+        if (speed != 1.0f) {
+            player.setPlaybackSpeed(speed)
+        }
         player.prepare()
         player.play()
 
@@ -254,5 +266,65 @@ class DefaultPlaybackRepository(
     override fun setPlaybackSpeed(speed: Float) {
         controller?.setPlaybackSpeed(speed)
         _playbackState.update { it.copy(playbackSpeed = speed) }
+    }
+
+    override fun toggleFavorite(track: Track) {
+        val newFav = !track.isFavorite
+        scope.launch(Dispatchers.IO) {
+            libraryRepository.setFavorite(track.id, newFav)
+        }
+        _playbackState.update { state ->
+            val updatedTrack = if (state.currentTrack?.id == track.id) {
+                state.currentTrack.copy(isFavorite = newFav)
+            } else {
+                state.currentTrack
+            }
+            val updatedQueue = state.queue.map {
+                if (it.id == track.id) it.copy(isFavorite = newFav) else it
+            }
+            currentQueue = updatedQueue
+            state.copy(
+                currentTrack = updatedTrack,
+                queue = updatedQueue
+            )
+        }
+    }
+
+    private val _sleepTimerRemainingMs = MutableStateFlow(0L)
+    override val sleepTimerRemainingMs: StateFlow<Long> = _sleepTimerRemainingMs.asStateFlow()
+    private var sleepTimerJob: Job? = null
+
+    override fun startSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        if (minutes <= 0) {
+            _sleepTimerRemainingMs.value = 0L
+            return
+        }
+
+        val totalMs = minutes * 60 * 1000L
+        val targetEndTimeMs = android.os.SystemClock.elapsedRealtime() + totalMs
+        _sleepTimerRemainingMs.value = totalMs
+
+        sleepTimerJob = scope.launch {
+            while (isActive) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val remaining = (targetEndTimeMs - now).coerceAtLeast(0L)
+                _sleepTimerRemainingMs.value = remaining
+                if (remaining <= 0L) {
+                    break
+                }
+                delay(250L) // 250ms polling ensures accurate second transitions without drift
+            }
+            if (isActive) {
+                controller?.pause()
+                _sleepTimerRemainingMs.value = 0L
+            }
+        }
+    }
+
+    override fun stopSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerRemainingMs.value = 0L
     }
 }

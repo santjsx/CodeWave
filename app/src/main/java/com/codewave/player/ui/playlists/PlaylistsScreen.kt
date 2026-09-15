@@ -36,6 +36,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.BackHandler
+import com.codewave.player.ui.collection.CollectionDetailSheet
+import com.codewave.player.ui.collection.CollectionTarget
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +65,21 @@ fun PlaylistsScreen(
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    var selectedTarget by remember { mutableStateOf<CollectionTarget?>(null) }
+
+    val currentTarget = selectedTarget
+    if (currentTarget != null) {
+        BackHandler { selectedTarget = null }
+        CollectionDetailSheet(
+            target = currentTarget,
+            libraryRepository = viewModel.libraryRepository,
+            playbackRepository = viewModel.playbackRepository,
+            onBack = { selectedTarget = null },
+            onTrackInspect = onTrackInspect,
+            modifier = modifier
+        )
+        return
+    }
 
     LazyColumn(
         modifier = modifier
@@ -99,7 +117,8 @@ fun PlaylistsScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clickable { selectedTarget = CollectionTarget.FavoritesTarget },
                 shape = RoundedCornerShape(CWShapes.RadiusMedium),
                 colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
@@ -174,6 +193,7 @@ fun PlaylistsScreen(
                         .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                         .background(CWColors.SurfaceElevated)
                         .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+                        .clickable { selectedTarget = CollectionTarget.PlaylistTarget(playlist) }
                         .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically

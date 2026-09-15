@@ -49,6 +49,15 @@ class EqualizerViewModel(
         viewModelScope.launch { equalizerRepository.applyPreset(preset) }
     }
 
+    fun resetAll() {
+        viewModelScope.launch {
+            val flatPreset = presets.value.find { it.name.equals("Flat", ignoreCase = true) }
+                ?: EQPreset(1, "Flat", true, 0f, List(10) { 0f })
+            equalizerRepository.applyPreset(flatPreset)
+            equalizerRepository.setPreampGain(0f)
+        }
+    }
+
     companion object {
         fun provideFactory(
             equalizerRepository: EqualizerRepository,

@@ -1,6 +1,7 @@
 package com.codewave.player.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -27,6 +28,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
@@ -43,8 +46,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,22 +58,37 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.codewave.player.core.data.PlaybackRepository
+import com.codewave.player.core.designsystem.component.CWPlayTimeBar
 import com.codewave.player.core.designsystem.component.CWQualityBadge
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
 import com.codewave.player.core.designsystem.component.TrackInspectorSheet
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
+import com.codewave.player.core.media.LrcParser
 import com.codewave.player.core.model.PlaybackState
 import com.codewave.player.core.model.RepeatMode
 import com.codewave.player.core.model.Track
+
+import androidx.compose.ui.semantics.Role
+import com.codewave.player.core.designsystem.component.contentColor
+import com.codewave.player.core.media.LyricsResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+enum class NowPlayingCenterView {
+    ARTWORK,
+    LYRICS
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,31 +98,41 @@ fun NowPlayingScreen(
     onToggleFavorite: (Track) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    androidx.activity.compose.BackHandler { onCollapse() }
+
     val state by playbackRepository.playbackState.collectAsState()
+    val sleepTimerRemainingMs by playbackRepository.sleepTimerRemainingMs.collectAsState()
     val track = state.currentTrack ?: return
 
+    var centerView by remember { mutableStateOf(NowPlayingCenterView.ARTWORK) }
     var isInspectorOpen by remember { mutableStateOf(false) }
+    var isQualityExplainerOpen by remember { mutableStateOf(false) }
     var isQueueOpen by remember { mutableStateOf(false) }
     var isSleepTimerOpen by remember { mutableStateOf(false) }
     var isSpeedSelectorOpen by remember { mutableStateOf(false) }
 
-    var isDraggingSlider by remember { mutableStateOf(false) }
-    var dragProgressMs by remember { mutableFloatStateOf(0f) }
-
-    val currentPosition = if (isDraggingSlider) dragProgressMs.toLong() else state.positionMs
     val duration = state.durationMs.coerceAtLeast(1L)
+    var lyricsResult by remember(track.id) { mutableStateOf<LyricsResult>(LyricsResult.Loading) }
+
+    androidx.compose.runtime.LaunchedEffect(track.id, track.path) {
+        lyricsResult = LyricsResult.Loading
+        withContext(Dispatchers.IO) {
+            val res = LrcParser.loadLyricsForTrack(track.path)
+            lyricsResult = res
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(CWColors.Background)
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 20.dp)
     ) {
-        // Top Bar
+        // Top Navigation & Track Inspector Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 8.dp),
+                .padding(top = 12.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -119,19 +145,41 @@ fun NowPlayingScreen(
                 )
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "PLAYING FROM LIBRARY",
-                    style = CWTypography.TechBadge,
-                    color = CWColors.TextSecondary
-                )
-                Text(
-                    text = track.album,
-                    style = CWTypography.AppTypography.bodyMedium,
-                    color = CWColors.TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            // View Toggle Chips [ ARTWORK | LYRICS ]
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                    .background(CWColors.SurfaceElevated)
+                    .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+                    .padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                        .background(if (centerView == NowPlayingCenterView.ARTWORK) CWColors.AccentCyan else Color.Transparent)
+                        .clickable { centerView = NowPlayingCenterView.ARTWORK }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "COVER",
+                        style = CWTypography.TechBadge,
+                        color = if (centerView == NowPlayingCenterView.ARTWORK) CWColors.Background else CWColors.TextSecondary
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                        .background(if (centerView == NowPlayingCenterView.LYRICS) CWColors.AccentCyan else Color.Transparent)
+                        .clickable { centerView = NowPlayingCenterView.LYRICS }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "LYRICS",
+                        style = CWTypography.TechBadge,
+                        color = if (centerView == NowPlayingCenterView.LYRICS) CWColors.Background else CWColors.TextSecondary
+                    )
+                }
             }
 
             IconButton(onClick = { isInspectorOpen = true }) {
@@ -144,45 +192,72 @@ fun NowPlayingScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Center: Album Art Card (Square)
+        // Center Area: Crossfade between Artwork and Lyrics View
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
-                .background(CWColors.SurfacePrimary)
-                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge)),
-            contentAlignment = Alignment.Center
         ) {
-            if (!track.albumArtUri.isNullOrEmpty()) {
-                AsyncImage(
-                    model = track.albumArtUri,
-                    contentDescription = track.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "> CW_",
-                        style = CWTypography.TechInspectorHeader,
-                        color = CWColors.AccentCyan
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "CODEWAVE WORKSTATION",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextSecondary
-                    )
+            Crossfade(targetState = centerView, label = "np_center_view") { view ->
+                when (view) {
+                    NowPlayingCenterView.ARTWORK -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                                .background(CWColors.SurfacePrimary)
+                                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (!track.albumArtUri.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = track.albumArtUri,
+                                    contentDescription = track.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.MusicNote,
+                                        contentDescription = null,
+                                        tint = CWColors.AccentCyan,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "> CODEWAVE_STUDIO",
+                                        style = CWTypography.TechInspectorHeader,
+                                        color = CWColors.AccentCyan
+                                    )
+                                    Text(
+                                        text = "HI-FI AUDIO ENGINE",
+                                        style = CWTypography.TechBadge,
+                                        color = CWColors.TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    NowPlayingCenterView.LYRICS -> {
+                        LyricsView(
+                            lyricsResult = lyricsResult,
+                            currentPositionMs = state.positionMs,
+                            trackTitle = track.title,
+                            trackArtist = track.artist,
+                            onSeekTo = { posMs -> playbackRepository.seekTo(posMs) },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Song Title, Artist & Favorite Button
+        // Song Title, Artist & Real-time Favorite Toggle
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -199,7 +274,7 @@ fun NowPlayingScreen(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = track.artist,
+                    text = "${track.artist} · ${track.album}",
                     style = CWTypography.AppTypography.bodyLarge,
                     color = CWColors.TextSecondary,
                     maxLines = 1,
@@ -212,59 +287,64 @@ fun NowPlayingScreen(
                     imageVector = if (track.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Favorite",
                     tint = if (track.isFavorite) CWColors.Danger else CWColors.TextSecondary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
 
-        // Quality & Technical Badges
+        // Clickable Quality & Technical Badges
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (track.isHiRes) {
-                CWQualityBadge(text = "HI-RES", isHiRes = true)
+                CWQualityBadge(
+                    text = "HI-RES",
+                    isHiRes = true,
+                    onClick = { isQualityExplainerOpen = true }
+                )
             } else if (track.isLossless) {
-                CWQualityBadge(text = "LOSSLESS", isLossless = true)
+                CWQualityBadge(
+                    text = "LOSSLESS",
+                    isLossless = true,
+                    onClick = { isQualityExplainerOpen = true }
+                )
+            } else {
+                CWQualityBadge(
+                    text = track.format.displayName,
+                    onClick = { isQualityExplainerOpen = true }
+                )
             }
-            CWTechnicalBadge(text = "${track.format.displayName} · ${track.bitDepth?.let { "$it-BIT / " } ?: ""}${track.sampleRate / 1000}kHz")
+
+            CWTechnicalBadge(
+                text = "${track.bitDepth?.let { "$it-BIT · " } ?: ""}${track.sampleRate / 1000}kHz",
+                onClick = { isQualityExplainerOpen = true }
+            )
+
             if (track.bitrateKbps > 0) {
                 CWTechnicalBadge(text = "${track.bitrateKbps} kbps")
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Scrubber / Slider
-        Slider(
-            value = currentPosition.toFloat(),
-            onValueChange = {
-                isDraggingSlider = true
-                dragProgressMs = it
-            },
-            onValueChangeFinished = {
-                playbackRepository.seekTo(dragProgressMs.toLong())
-                isDraggingSlider = false
-            },
-            valueRange = 0f..duration.toFloat(),
-            colors = SliderDefaults.colors(
-                thumbColor = CWColors.AccentCyan,
-                activeTrackColor = CWColors.AccentCyan,
-                inactiveTrackColor = CWColors.SurfaceOverlay
-            ),
-            modifier = Modifier.fillMaxWidth()
+        // Scrubber / Progress Bar using CWPlayTimeBar
+        CWPlayTimeBar(
+            currentPositionMs = state.positionMs,
+            durationMs = duration,
+            onSeek = { targetMs -> playbackRepository.seekTo(targetMs) }
         )
 
-        // Timestamp row
+        // Timestamp Readout
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = formatDuration(currentPosition),
+                text = formatDuration(state.positionMs),
                 style = CWTypography.TechTelemetry
             )
             Text(
@@ -273,21 +353,21 @@ fun NowPlayingScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Playback Controls Row (Shuffle, Prev, Play/Pause, Next, Repeat)
+        // Transport Controls Row (Shuffle, Prev, Play/Pause, Next, Repeat)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Shuffle Button
+            // Shuffle
             IconButton(onClick = { playbackRepository.setShuffle(!state.shuffleMode) }) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = "Shuffle",
                     tint = if (state.shuffleMode) CWColors.AccentCyan else CWColors.TextTertiary,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -300,24 +380,25 @@ fun NowPlayingScreen(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = "Previous",
                     tint = CWColors.TextPrimary,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
-            // Play / Pause Floating Circle
+            // Play / Pause Circle
+            val playPauseContentColor = CWColors.AccentCyan.contentColor()
             Box(
                 modifier = Modifier
-                    .size(68.dp)
+                    .size(66.dp)
                     .clip(CircleShape)
                     .background(CWColors.AccentCyan)
-                    .clickable { playbackRepository.togglePlayPause() },
+                    .clickable(role = Role.Button) { playbackRepository.togglePlayPause() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    tint = CWColors.Background,
-                    modifier = Modifier.size(36.dp)
+                    tint = playPauseContentColor,
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
@@ -330,11 +411,11 @@ fun NowPlayingScreen(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = "Next",
                     tint = CWColors.TextPrimary,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
-            // Repeat Mode Button
+            // Repeat Mode
             IconButton(onClick = {
                 val nextMode = when (state.repeatMode) {
                     RepeatMode.OFF -> RepeatMode.ALL
@@ -347,51 +428,110 @@ fun NowPlayingScreen(
                     imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                     contentDescription = "Repeat",
                     tint = if (state.repeatMode != RepeatMode.OFF) CWColors.AccentCyan else CWColors.TextTertiary,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Bottom Tool Bar: Speed, Sleep Timer, Queue
+        // Polished Control Chips Row: Speed, Sleep Timer, Queue
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceAround,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { isSpeedSelectorOpen = true }) {
+            // Speed Chip
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                    .background(CWColors.SurfaceElevated)
+                    .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+                    .clickable { isSpeedSelectorOpen = true }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Speed,
-                        contentDescription = "Playback Speed",
-                        tint = CWColors.TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        contentDescription = "Speed",
+                        tint = CWColors.AccentCyan,
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${state.playbackSpeed}x",
-                        style = CWTypography.TechTelemetry
+                        style = CWTypography.TechTelemetry,
+                        color = CWColors.TextPrimary
                     )
                 }
             }
 
-            IconButton(onClick = { isSleepTimerOpen = true }) {
-                Icon(
-                    imageVector = Icons.Default.Timer,
-                    contentDescription = "Sleep Timer",
-                    tint = CWColors.TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
+            // Sleep Timer Chip
+            val remainingMs = sleepTimerRemainingMs
+            val isTimerActive = remainingMs > 0L
+            val timerText = when {
+                remainingMs <= 0L -> "Sleep Timer"
+                remainingMs >= 60_000L -> {
+                    val remMins = (remainingMs + 59999L) / 60000L
+                    "${remMins} min"
+                }
+                else -> {
+                    val remSecs = (remainingMs + 999L) / 1000L
+                    "${remSecs} sec"
+                }
             }
 
-            IconButton(onClick = { isQueueOpen = true }) {
-                Icon(
-                    imageVector = Icons.Default.QueueMusic,
-                    contentDescription = "Queue",
-                    tint = CWColors.TextSecondary,
-                    modifier = Modifier.size(22.dp)
-                )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                    .background(if (isTimerActive) CWColors.AccentCyan.copy(alpha = 0.15f) else CWColors.SurfaceElevated)
+                    .border(
+                        1.dp,
+                        if (isTimerActive) CWColors.AccentCyan else CWColors.BorderSubtle,
+                        RoundedCornerShape(CWShapes.RadiusMedium)
+                    )
+                    .clickable { isSleepTimerOpen = true }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Timer,
+                        contentDescription = "Timer",
+                        tint = if (isTimerActive) CWColors.AccentCyan else CWColors.TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = timerText,
+                        style = CWTypography.TechBadge,
+                        color = if (isTimerActive) CWColors.AccentCyan else CWColors.TextSecondary
+                    )
+                }
+            }
+
+            // Queue Chip
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                    .background(CWColors.SurfaceElevated)
+                    .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+                    .clickable { isQueueOpen = true }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.QueueMusic,
+                        contentDescription = "Queue",
+                        tint = CWColors.TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Queue (${state.queue.size})",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.TextPrimary
+                    )
+                }
             }
         }
     }
@@ -403,6 +543,14 @@ fun NowPlayingScreen(
             outputInfo = state.outputInfo,
             dspStatus = state.dspStatus,
             onDismiss = { isInspectorOpen = false }
+        )
+    }
+
+    // Modal: Audio Quality Explainer
+    if (isQualityExplainerOpen) {
+        AudioQualityExplainerDialog(
+            track = track,
+            onDismiss = { isQualityExplainerOpen = false }
         )
     }
 
@@ -422,7 +570,7 @@ fun NowPlayingScreen(
                     style = CWTypography.TechInspectorHeader,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                LazyColumn(modifier = Modifier.fillMaxWidth().height(380.dp)) {
                     itemsIndexed(state.queue, key = { idx, t -> "${idx}_${t.id}" }) { idx, t ->
                         Row(
                             modifier = Modifier
@@ -469,23 +617,37 @@ fun NowPlayingScreen(
     if (isSpeedSelectorOpen) {
         AlertDialog(
             onDismissRequest = { isSpeedSelectorOpen = false },
-            title = { Text("Playback Speed", style = CWTypography.TechBadge, color = CWColors.AccentCyan) },
+            title = {
+                Text(
+                    text = "PLAYBACK SPEED",
+                    style = CWTypography.TechInspectorHeader
+                )
+            },
             text = {
-                Column {
-                    listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf(0.5f, 0.75f, 0.9f, 1.0f, 1.1f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                        val isCurrent = state.playbackSpeed == speed
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                                .background(if (isCurrent) CWColors.SurfaceOverlay else Color.Transparent)
                                 .clickable {
                                     playbackRepository.setPlaybackSpeed(speed)
                                     isSpeedSelectorOpen = false
                                 }
-                                .padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "${speed}x", style = CWTypography.AppTypography.bodyLarge, color = CWColors.TextPrimary)
-                            if (state.playbackSpeed == speed) {
-                                Text(text = "ACTIVE", style = CWTypography.TechBadge, color = CWColors.AccentCyan)
+                            Text(
+                                text = "${speed}x",
+                                style = CWTypography.AppTypography.bodyLarge,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isCurrent) CWColors.AccentCyan else CWColors.TextPrimary
+                            )
+                            if (isCurrent) {
+                                CWTechnicalBadge(text = "ACTIVE", textColor = CWColors.AccentCyan)
                             }
                         }
                     }
@@ -493,7 +655,7 @@ fun NowPlayingScreen(
             },
             confirmButton = {
                 TextButton(onClick = { isSpeedSelectorOpen = false }) {
-                    Text("Close", color = CWColors.AccentCyan)
+                    Text("CLOSE", style = CWTypography.TechBadge, color = CWColors.AccentCyan)
                 }
             },
             containerColor = CWColors.SurfaceElevated
@@ -504,26 +666,77 @@ fun NowPlayingScreen(
     if (isSleepTimerOpen) {
         AlertDialog(
             onDismissRequest = { isSleepTimerOpen = false },
-            title = { Text("Sleep Timer", style = CWTypography.TechBadge, color = CWColors.AccentCyan) },
+            title = {
+                Text(
+                    text = "SLEEP TIMER",
+                    style = CWTypography.TechInspectorHeader
+                )
+            },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val remainingMs = sleepTimerRemainingMs
+                    if (remainingMs != null && remainingMs > 0L) {
+                        val totalSecs = (remainingMs + 999L) / 1000L
+                        val mins = totalSecs / 60L
+                        val secs = totalSecs % 60L
+                        val remLabel = if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                                .background(CWColors.Danger.copy(alpha = 0.15f))
+                                .clickable {
+                                    playbackRepository.stopSleepTimer()
+                                    isSleepTimerOpen = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Turn Off Timer",
+                                    style = CWTypography.AppTypography.bodyLarge,
+                                    color = CWColors.Danger,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "$remLabel remaining",
+                                    style = CWTypography.TechTelemetry,
+                                    color = CWColors.TextSecondary
+                                )
+                            }
+                            CWTechnicalBadge(text = "STOP", textColor = CWColors.Danger)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
                     listOf(15, 30, 45, 60, 90).forEach { mins ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                                 .clickable {
+                                    playbackRepository.startSleepTimer(mins)
                                     isSleepTimerOpen = false
                                 }
-                                .padding(vertical = 10.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "$mins Minutes", style = CWTypography.AppTypography.bodyLarge, color = CWColors.TextPrimary)
+                            Text(
+                                text = "$mins Minutes",
+                                style = CWTypography.AppTypography.bodyLarge,
+                                color = CWColors.TextPrimary
+                            )
+                            CWTechnicalBadge(text = "+$mins min")
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { isSleepTimerOpen = false }) {
-                    Text("Cancel", color = CWColors.AccentCyan)
+                    Text("CLOSE", style = CWTypography.TechBadge, color = CWColors.AccentCyan)
                 }
             },
             containerColor = CWColors.SurfaceElevated

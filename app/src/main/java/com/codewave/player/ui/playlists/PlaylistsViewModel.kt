@@ -15,8 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class PlaylistsViewModel(
-    private val libraryRepository: LibraryRepository,
-    private val playbackRepository: PlaybackRepository
+    val libraryRepository: LibraryRepository,
+    val playbackRepository: PlaybackRepository
 ) : ViewModel() {
 
     val playlists: StateFlow<List<Playlist>> = libraryRepository.getAllPlaylists()
@@ -53,9 +53,7 @@ class PlaylistsViewModel(
     }
 
     fun toggleFavorite(track: Track) {
-        viewModelScope.launch {
-            libraryRepository.setFavorite(track.id, !track.isFavorite)
-        }
+        playbackRepository.toggleFavorite(track)
     }
 
     companion object {

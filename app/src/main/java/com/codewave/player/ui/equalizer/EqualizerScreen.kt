@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
+import com.codewave.player.core.designsystem.component.CWVerticalFader
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
@@ -72,22 +73,42 @@ fun EqualizerScreen(
                     color = CWColors.TextPrimary
                 )
                 Text(
-                    text = "10-BAND DYNAMICS PROCESSING",
+                    text = if (config.isEnabled) "STATUS: PROCESSING ACTIVE" else "STATUS: BYPASSED",
                     style = CWTypography.TechBadge,
-                    color = CWColors.TextSecondary
+                    color = if (config.isEnabled) CWColors.AccentCyan else CWColors.TextTertiary
                 )
             }
 
-            Switch(
-                checked = config.isEnabled,
-                onCheckedChange = { viewModel.toggleEnabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = CWColors.Background,
-                    checkedTrackColor = CWColors.AccentCyan,
-                    uncheckedThumbColor = CWColors.TextTertiary,
-                    uncheckedTrackColor = CWColors.SurfaceOverlay
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                        .background(CWColors.SurfaceElevated)
+                        .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                        .clickable { viewModel.resetAll() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "FLAT / RESET",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.TextPrimary
+                    )
+                }
+
+                Switch(
+                    checked = config.isEnabled,
+                    onCheckedChange = { viewModel.toggleEnabled(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = CWColors.Background,
+                        checkedTrackColor = CWColors.AccentCyan,
+                        uncheckedThumbColor = CWColors.TextTertiary,
+                        uncheckedTrackColor = CWColors.SurfaceOverlay
+                    )
                 )
-            )
+            }
         }
 
         // DSP Telemetry Banner (PRD Section 40)
@@ -241,7 +262,7 @@ fun EqualizerScreen(
 
         // 10-Band Graphic Equalizer Section (PRD Section 37)
         Text(
-            text = "10-BAND FREQUENCY SPECTRUM",
+            text = "10-BAND FREQUENCY SPECTRUM (TAP/DRAG OR DOUBLE-TAP TO ZERO)",
             style = CWTypography.TechBadge,
             color = CWColors.TextSecondary,
             modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp)
@@ -255,7 +276,7 @@ fun EqualizerScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             config.bands.forEachIndexed { index, band ->
-                BandSliderColumn(
+                CWVerticalFader(
                     label = band.frequencyLabel,
                     gainDb = band.gainDb,
                     enabled = config.isEnabled,
@@ -265,57 +286,5 @@ fun EqualizerScreen(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun BandSliderColumn(
-    label: String,
-    gainDb: Float,
-    enabled: Boolean,
-    onGainChange: (Float) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .width(52.dp)
-            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-            .background(CWColors.SurfacePrimary)
-            .border(0.75.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "%+.1f".format(gainDb),
-            style = CWTypography.TechTelemetry,
-            fontSize = 10.sp,
-            color = if (gainDb != 0f) CWColors.AccentCyan else CWColors.TextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Simple vertical-representing slider using Slider
-        Slider(
-            value = gainDb,
-            onValueChange = onGainChange,
-            valueRange = -12f..12f,
-            enabled = enabled,
-            colors = SliderDefaults.colors(
-                thumbColor = CWColors.AccentCyan,
-                activeTrackColor = CWColors.AccentCyan,
-                inactiveTrackColor = CWColors.SurfaceOverlay
-            ),
-            modifier = Modifier
-                .height(130.dp)
-                .fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = label,
-            style = CWTypography.TechBadge,
-            color = CWColors.TextPrimary,
-            textAlign = TextAlign.Center
-        )
     }
 }

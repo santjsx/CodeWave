@@ -1,0 +1,11 @@
+{
+  "version": "1.1.0",
+  "versionCode": 2,
+  "minimumSupportedVersion": "1.0.0",
+  "releaseChannel": "Stable",
+  "releaseNotes": "CodeWave v1.1.0: Real synchronized LRC karaoke lyrics, sleep timer engine fix with live countdown, playback speed preservation, 5 VS Code themes, high-contrast buttons, and Apple-style adaptive launcher icon.",
+  "apkUrl": "https://github.com/santjsx/CodeWave/releases/download/v1.1.0/CodeWave-v1.1.0.apk",
+  "sha256": "f73e9ba1a8794171651d36883605fd6fc1a0be756fdb9d392b81152b8a0182d8",
+  "size": 4341640,
+  "publishedAt": "2026-09-16T00:55:00Z"
+}

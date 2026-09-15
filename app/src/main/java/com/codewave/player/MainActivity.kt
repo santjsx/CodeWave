@@ -8,7 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.codewave.player.core.designsystem.theme.CodeWaveTheme
 import com.codewave.player.ui.CodeWaveApp
 
@@ -24,10 +29,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (audioGranted) {
-            // Trigger initial discovery on first run grant
-            (application as CodeWaveApplication).container.audioScanner.startObservingMediaStore(
-                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
-            )
+            triggerBackgroundScan()
         }
     }
 
@@ -35,12 +37,34 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        checkAndRequestPermissions()
+        if (hasAudioPermission()) {
+            triggerBackgroundScan()
+        } else {
+            checkAndRequestPermissions()
+        }
 
         setContent {
-            CodeWaveTheme {
-                CodeWaveApp(application = application as CodeWaveApplication)
+            val app = application as CodeWaveApplication
+            val themeId by app.container.settingsRepository.themeId.collectAsState(initial = "obsidian")
+            CodeWaveTheme(themeId = themeId) {
+                CodeWaveApp(application = app)
             }
+        }
+    }
+
+    private fun hasAudioPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun triggerBackgroundScan() {
+        val app = application as CodeWaveApplication
+        CoroutineScope(Dispatchers.IO).launch {
+            app.container.libraryRepository.scanLibrary()
+            app.container.audioScanner.startObservingMediaStore(this)
         }
     }
 

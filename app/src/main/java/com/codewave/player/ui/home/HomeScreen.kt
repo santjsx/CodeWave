@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -53,6 +54,7 @@ fun HomeScreen(
     onNavigateToLibrary: (initialTab: Int) -> Unit,
     onNavigateToSettings: () -> Unit,
     onTrackInspect: (Track) -> Unit,
+    onOpenThemes: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -89,7 +91,16 @@ fun HomeScreen(
                     )
                 }
 
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onOpenThemes != null) {
+                        IconButton(onClick = onOpenThemes) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = "Themes",
+                                tint = CWColors.AccentCyan
+                            )
+                        }
+                    }
                     IconButton(onClick = { viewModel.scanLibrary() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,

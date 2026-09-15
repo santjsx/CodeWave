@@ -37,8 +37,15 @@ class SettingsViewModel(
     val crossfadeSeconds: StateFlow<Int> = settingsRepository.crossfadeSeconds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val themeId: StateFlow<String> = settingsRepository.themeId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "obsidian")
+
     private val _updateState = MutableStateFlow(UpdateCheckResult())
     val updateState: StateFlow<UpdateCheckResult> = _updateState.asStateFlow()
+
+    fun setThemeId(themeId: String) {
+        viewModelScope.launch { settingsRepository.setThemeId(themeId) }
+    }
 
     fun toggleGapless(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setGaplessEnabled(enabled) }
