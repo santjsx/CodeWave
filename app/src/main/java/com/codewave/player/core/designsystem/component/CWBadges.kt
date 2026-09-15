@@ -68,13 +68,15 @@ fun CWTechnicalBadge(
             .background(CWColors.SurfaceOverlay)
             .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(3.dp))
             .then(clickModifier)
-            .padding(horizontal = 5.dp, vertical = 2.dp),
+            .padding(horizontal = 6.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             style = CWTypography.TechBadge,
-            color = textColor
+            color = textColor,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }

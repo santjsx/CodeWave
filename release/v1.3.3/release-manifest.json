@@ -1,0 +1,11 @@
+{
+  "version": "1.3.3",
+  "versionCode": 7,
+  "minimumSupportedVersion": "1.0.0",
+  "releaseChannel": "Stable",
+  "releaseNotes": "CodeWave v1.3.3: Fixed the squashed BYPASSED status badge with single-line horizontal alignment and dynamic layout weighting, redesigned presets into a high-visibility 3-column non-scrolling grid with active profile spotlight, and deployed the new 3D glowing blue ribbon musical note app icon across all Android adaptive icon layers and density buckets.",
+  "apkUrl": "https://github.com/santjsx/CodeWave/releases/download/v1.3.3/CodeWave-v1.3.3.apk",
+  "sha256": "1f740f3d73217969891cee4267c62b01e55cac4b71f9f9aaf2b46e207531a825",
+  "size": 4396384,
+  "publishedAt": "2026-09-15T22:50:00.000000+00:00"
+}

@@ -13,12 +13,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -36,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
@@ -128,16 +134,39 @@ fun EqualizerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "HARDWARE DSP STATUS",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextSecondary
-                    )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when (dspStatus) {
+                                        DSPStatus.ACTIVE -> CWColors.Success
+                                        DSPStatus.LIMITED -> CWColors.Warning
+                                        DSPStatus.BYPASSED -> CWColors.TextTertiary
+                                        DSPStatus.UNAVAILABLE -> CWColors.Danger
+                                    }
+                                )
+                        )
+                        Text(
+                            text = "HARDWARE DSP STATUS",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.TextSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = when (dspStatus) {
                             DSPStatus.ACTIVE -> "DynamicsProcessing active (low-latency float)"
@@ -162,41 +191,129 @@ fun EqualizerScreen(
             }
         }
 
-        // Presets Horizontal Bar (PRD Section 38)
-        Text(
-            text = "PRESETS",
-            style = CWTypography.TechBadge,
-            color = CWColors.TextSecondary,
-            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
-        )
-
+        // Presets Header & Telemetry
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            presets.forEach { preset ->
-                val isSelected = config.activePresetName == preset.name
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                        .background(if (isSelected) CWColors.AccentCyan else CWColors.SurfaceElevated)
-                        .border(
-                            1.dp,
-                            if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
-                            RoundedCornerShape(CWShapes.RadiusMedium)
-                        )
-                        .clickable { viewModel.applyPreset(preset) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
+            Text(
+                text = "SOUND PROFILES & PRESETS",
+                style = CWTypography.TechBadge,
+                color = CWColors.TextSecondary
+            )
+            val activePreset = presets.find { it.name == config.activePresetName }
+            if (activePreset != null && activePreset.preampGainDb != 0f) {
+                Text(
+                    text = "PROFILE PREAMP %+.1f dB".format(activePreset.preampGainDb),
+                    style = CWTypography.TechBadge,
+                    color = CWColors.AccentCyan
+                )
+            }
+        }
+
+        // Active Profile Spotlight Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = preset.name,
-                        style = CWTypography.AppTypography.titleSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) CWColors.Background else CWColors.TextPrimary
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.3f), RoundedCornerShape(CWShapes.RadiusSmall)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = CWColors.AccentCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "CURRENT PROFILE",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.TextTertiary
+                        )
+                        Text(
+                            text = config.activePresetName,
+                            style = CWTypography.AppTypography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CWColors.TextPrimary
+                        )
+                    }
+                }
+
+                CWTechnicalBadge(
+                    text = "${presets.size} PROFILES",
+                    textColor = CWColors.AccentCyan
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // 3-Column Presets Grid (All 12 presets visible at a glance without horizontal scroll)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            presets.chunked(3).forEach { rowPresets ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowPresets.forEach { preset ->
+                        val isSelected = config.activePresetName == preset.name
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                                .background(if (isSelected) CWColors.AccentCyan else CWColors.SurfaceElevated)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                    RoundedCornerShape(CWShapes.RadiusMedium)
+                                )
+                                .clickable { viewModel.applyPreset(preset) }
+                                .padding(horizontal = 4.dp, vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = preset.name,
+                                style = CWTypography.AppTypography.bodySmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) CWColors.Background else CWColors.TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    repeat(3 - rowPresets.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
