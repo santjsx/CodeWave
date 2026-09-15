@@ -1,0 +1,317 @@
+package com.codewave.player.ui.settings
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.codewave.player.core.designsystem.component.CWButton
+import com.codewave.player.core.designsystem.component.CWButtonVariant
+import com.codewave.player.core.designsystem.component.CWTechnicalBadge
+import com.codewave.player.core.designsystem.theme.CWColors
+import com.codewave.player.core.designsystem.theme.CWShapes
+import com.codewave.player.core.designsystem.theme.CWTypography
+
+@Composable
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val gapless by viewModel.gaplessEnabled.collectAsState()
+    val crossfade by viewModel.crossfadeSeconds.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(CWColors.Background)
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 120.dp)
+    ) {
+        // Top Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = CWColors.TextPrimary
+                )
+            }
+            Text(
+                text = "SETTINGS",
+                style = CWTypography.AppTypography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = CWColors.TextPrimary,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        // Section: Playback & Audio
+        SettingsHeader(title = "PLAYBACK & AUDIO")
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Gapless Playback Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Gapless Playback",
+                            style = CWTypography.AppTypography.titleMedium,
+                            color = CWColors.TextPrimary
+                        )
+                        Text(
+                            text = "Preserves sample-accurate transitions for live albums and classical music (PRD Section 23)",
+                            style = CWTypography.AppTypography.bodyMedium,
+                            color = CWColors.TextSecondary
+                        )
+                    }
+
+                    Switch(
+                        checked = gapless,
+                        onCheckedChange = { viewModel.toggleGapless(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CWColors.Background,
+                            checkedTrackColor = CWColors.AccentCyan,
+                            uncheckedThumbColor = CWColors.TextTertiary,
+                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Crossfade
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Crossfade Duration",
+                        style = CWTypography.AppTypography.titleMedium,
+                        color = CWColors.TextPrimary
+                    )
+                    Text(
+                        text = if (crossfade == 0) "OFF" else "${crossfade}s",
+                        style = CWTypography.TechTelemetry,
+                        color = if (crossfade > 0) CWColors.AccentCyan else CWColors.TextSecondary
+                    )
+                }
+
+                Slider(
+                    value = crossfade.toFloat(),
+                    onValueChange = { viewModel.setCrossfadeSeconds(it.toInt()) },
+                    valueRange = 0f..12f,
+                    steps = 11,
+                    colors = SliderDefaults.colors(
+                        thumbColor = CWColors.AccentCyan,
+                        activeTrackColor = CWColors.AccentCyan,
+                        inactiveTrackColor = CWColors.SurfaceOverlay
+                    )
+                )
+            }
+        }
+
+        // Section: Library Maintenance
+        SettingsHeader(title = "LIBRARY MAINTENANCE")
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Rescan Media Storage",
+                            style = CWTypography.AppTypography.titleMedium,
+                            color = CWColors.TextPrimary
+                        )
+                        Text(
+                            text = "Forces reconciliation against Android MediaStore to discover newly added audio files",
+                            style = CWTypography.AppTypography.bodyMedium,
+                            color = CWColors.TextSecondary
+                        )
+                    }
+
+                    CWButton(
+                        text = "Scan",
+                        onClick = { viewModel.rescanLibrary() },
+                        variant = CWButtonVariant.OUTLINED,
+                        leadingIcon = Icons.Default.Refresh
+                    )
+                }
+            }
+        }
+
+        // Section: Updates & Sideloading (PRD Section 80, 81)
+        SettingsHeader(title = "UPDATES & DISTRIBUTION")
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "GitHub Release Updates",
+                            style = CWTypography.AppTypography.titleMedium,
+                            color = CWColors.TextPrimary
+                        )
+                        Text(
+                            text = "Non-intrusive sideload APK discovery with SHA-256 verification (Zero analytics / telemetry)",
+                            style = CWTypography.AppTypography.bodyMedium,
+                            color = CWColors.TextSecondary
+                        )
+                    }
+
+                    CWButton(
+                        text = if (updateState.isChecking) "Checking..." else "Check",
+                        onClick = { viewModel.checkForUpdates() },
+                        enabled = !updateState.isChecking,
+                        variant = CWButtonVariant.SOLID,
+                        leadingIcon = Icons.Default.SystemUpdate
+                    )
+                }
+
+                if (updateState.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = updateState.errorMessage ?: "",
+                        style = CWTypography.AppTypography.bodyMedium,
+                        color = CWColors.Warning
+                    )
+                } else if (updateState.latestVersion != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = if (updateState.isUpdateAvailable)
+                            "Update available: ${updateState.latestVersion}"
+                        else "CODEWAVE is up to date (${updateState.latestVersion})",
+                        style = CWTypography.TechTelemetry,
+                        color = if (updateState.isUpdateAvailable) CWColors.AccentCyan else CWColors.Success
+                    )
+                }
+            }
+        }
+
+        // Section: About & Engineering Integrity
+        SettingsHeader(title = "ABOUT CODEWAVE")
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Version", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
+                    CWTechnicalBadge(text = "1.0.0 (Release)")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Audio Engine", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
+                    Text(text = "Jetpack Media3 ExoPlayer", style = CWTypography.TechTelemetry)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Architecture", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
+                    Text(text = "Offline-First Local Workstation", style = CWTypography.TechTelemetry)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Telemetry / Ads", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
+                    CWTechnicalBadge(text = "NONE (ZERO TRACKING)", textColor = CWColors.Success)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHeader(title: String) {
+    Text(
+        text = title,
+        style = CWTypography.TechBadge,
+        color = CWColors.AccentCyan,
+        modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp)
+    )
+}

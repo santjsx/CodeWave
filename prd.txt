@@ -1,0 +1,3467 @@
+# CODEWAVE
+
+## Industry-Grade Offline Hi-Res Music Player for Android
+
+**Product type:** Native Android local music player
+**Primary platform:** Android phones
+**Secondary targets:** Android Auto, Wear OS, tablets/large screens
+**Connectivity:** Offline-first; internet optional and only required for updates
+**Account:** None
+**Cloud library:** None
+**Streaming:** None
+**Ads:** None
+**Analytics:** None by default
+**Primary differentiator:** VS-Code-inspired developer aesthetic combined with audiophile-grade local playback and an extremely fast local library.
+
+---
+
+# 1. PRODUCT VISION
+
+CODEWAVE is a premium, completely local Android music player for people who own their music.
+
+It must:
+
+* discover local audio rapidly
+* play music reliably in foreground/background
+* expose meaningful technical audio information
+* preserve lossless playback whenever the Android audio path permits it
+* provide professional library organization
+* provide a serious equalizer/DSP system
+* remain usable without an internet connection
+* feel instantaneous
+* survive Android process death
+* recover gracefully from media/file/device changes
+* integrate properly with Android system media controls
+* provide optional GitHub Release-based sideload update discovery
+* maintain a polished, coherent visual system
+
+CODEWAVE is **not**:
+
+* a streaming service
+* a downloader
+* a social network
+* an account-based music platform
+* a cloud music locker
+* a generic MP3 player with a themed skin
+
+---
+
+# 2. CORE PRODUCT PRINCIPLES
+
+## P0 — Local ownership
+
+The user's music remains on their device.
+
+No account is required.
+
+No cloud database is required.
+
+No network is required for:
+
+* scanning
+* browsing
+* searching
+* playlists
+* favorites
+* playback
+* EQ
+* sleep timer
+* queue management
+* album art
+* metadata editing
+
+---
+
+## P0 — Playback reliability beats visual complexity
+
+The player must never sacrifice playback reliability for animations.
+
+If the device is under memory pressure:
+
+1. visual effects degrade
+2. album-art prefetching is reduced
+3. expensive visualizers disable
+4. playback remains unaffected
+
+---
+
+## P0 — Never lie about audio quality
+
+CODEWAVE must distinguish:
+
+**File properties**
+
+from
+
+**actual playback/output properties.**
+
+For example:
+
+> FLAC · 24-bit · 96 kHz
+
+means the file contains that format.
+
+It must NOT imply that the user is necessarily receiving 24-bit/96-kHz output from the hardware.
+
+The UI should therefore distinguish:
+
+**SOURCE**
+
+`FLAC · 24-bit · 96 kHz · Lossless`
+
+and, where technically obtainable:
+
+**OUTPUT**
+
+`48 kHz · 24-bit · PCM`
+
+If output information cannot be reliably determined:
+
+`Output information unavailable`
+
+Never fabricate it.
+
+---
+
+# 3. DESIGN DIRECTION
+
+## Design concept
+
+### “Developer workstation for music.”
+
+The UI takes inspiration from:
+
+* VS Code
+* JetBrains IDEs
+* professional DAWs
+* terminal interfaces
+* modern Material 3
+* high-end audio equipment
+
+But it must NOT copy Microsoft's VS Code UI, branding, icons or proprietary visual assets.
+
+---
+
+# 4. VISUAL DESIGN SYSTEM
+
+## Color philosophy
+
+Default theme:
+
+### Obsidian
+
+Background:
+
+`#0B0D10`
+
+Primary surface:
+
+`#11151A`
+
+Elevated surface:
+
+`#171C22`
+
+Border:
+
+subtle neutral gray
+
+Primary accent:
+
+electric blue/cyan family
+
+Secondary accent:
+
+muted violet
+
+Success:
+
+green
+
+Warning:
+
+amber
+
+Error:
+
+red
+
+The accent must be restrained.
+
+The app should not look like a gaming RGB interface.
+
+---
+
+# 5. TYPOGRAPHY
+
+Use two type families.
+
+## UI font
+
+Modern Android system sans-serif.
+
+Used for:
+
+* navigation
+* headings
+* buttons
+* descriptions
+* dialogs
+
+## Technical font
+
+A bundled or system-available monospaced font.
+
+Used for:
+
+* bitrate
+* sample rate
+* bit depth
+* codec
+* file extension
+* duration
+* technical badges
+* debug information
+* version number
+* update information
+
+Example:
+
+`FLAC  •  24-bit  •  96 kHz`
+
+---
+
+# 6. SIGNATURE UI ELEMENT
+
+CODEWAVE's signature component is the:
+
+## Track Inspector
+
+Every song can expose a compact technical panel:
+
+```text
+TRACK
+────────────────────────
+FLAC
+24-bit / 96 kHz
+Lossless
+1,482 kbps
+04:37
+Stereo
+
+SOURCE
+/storage/Music/Album/track.flac
+```
+
+This becomes one of the product's defining features.
+
+---
+
+# 7. APP ICON
+
+The icon should NOT be:
+
+* headphones
+* generic music note
+* vinyl record
+* equalizer bars
+* generic waveform
+
+Those are commodity symbols.
+
+## Proposed icon
+
+A minimal:
+
+**`>` + waveform**
+
+concept.
+
+Imagine a terminal prompt:
+
+```text
+>
+```
+
+whose horizontal stroke transforms into a clean audio waveform.
+
+The mark communicates:
+
+**code → audio**
+
+It should remain recognizable at:
+
+* 16 dp
+* 24 dp
+* 48 dp
+* launcher size
+* adaptive icon
+* monochrome Android icon
+
+No text inside the icon.
+
+---
+
+# 8. INFORMATION ARCHITECTURE
+
+Primary navigation:
+
+```text
+HOME
+LIBRARY
+PLAYLISTS
+FAVORITES
+SEARCH
+```
+
+Persistent Mini Player:
+
+```text
+Album Art | Track
+           Artist
+           ───────────────
+           ◀   ▶   ▶
+```
+
+Settings and technical tools are accessible through the profile/settings area.
+
+---
+
+# 9. HOME SCREEN
+
+Home must not become a meaningless dashboard.
+
+Sections:
+
+### Continue listening
+
+Last active track.
+
+### Recently added
+
+Tracks discovered recently.
+
+### Recently played
+
+Playback history.
+
+### Favorites
+
+Favorite tracks.
+
+### Albums
+
+Recently added albums.
+
+### Quick actions
+
+```text
+All Songs
+Albums
+Artists
+Folders
+Playlists
+Favorites
+```
+
+### Library status
+
+Example:
+
+```text
+2,481 TRACKS
+184 ALBUMS
+327 ARTISTS
+
+LIBRARY
+READY
+```
+
+---
+
+# 10. LIBRARY
+
+Library tabs:
+
+```text
+Songs
+Albums
+Artists
+Folders
+Genres
+```
+
+Every major collection supports:
+
+* list view
+* grid view
+* sorting
+* filtering
+* searching
+* multi-select
+
+---
+
+# 11. SONGS SCREEN
+
+Each row:
+
+```text
+[ART]  Song Title
+       Artist • Album
+
+       FLAC · 24/96
+                         04:37
+```
+
+Optional technical badge:
+
+```text
+LOSSLESS
+HI-RES
+```
+
+Never use “Hi-Res” merely because the file extension is FLAC.
+
+Define a configurable technical policy for what qualifies as Hi-Res.
+
+---
+
+# 12. SORTING
+
+Songs:
+
+* Recently added
+* Recently played
+* Title A-Z
+* Title Z-A
+* Artist A-Z
+* Album A-Z
+* Duration shortest
+* Duration longest
+* File size
+* Track number
+* Year
+
+Albums:
+
+* Recently added
+* Album A-Z
+* Artist A-Z
+* Release year
+* Track count
+
+Artists:
+
+* Name A-Z
+* Name Z-A
+* Recently played
+* Most played
+
+Playlists:
+
+* Recently modified
+* Name A-Z
+* Track count
+
+Sorting preferences must persist independently per screen.
+
+---
+
+# 13. ALBUM SCREEN
+
+Header:
+
+```text
+[Large Album Art]
+
+ALBUM NAME
+Artist
+
+2024
+12 tracks
+FLAC / 24-bit
+```
+
+Actions:
+
+```text
+PLAY
+SHUFFLE
+ADD TO PLAYLIST
+FAVORITE
+MORE
+```
+
+Track list:
+
+```text
+01  Track One
+02  Track Two
+03  Track Three
+...
+```
+
+Album actions:
+
+* Play album
+* Shuffle album
+* Add album to playlist
+* Add all to queue
+* Favorite album
+* Share
+* Open folder
+* Album information
+
+---
+
+# 14. ARTIST SCREEN
+
+Show:
+
+* artist name
+* artist artwork where available locally
+* album count
+* track count
+* albums
+* songs
+
+Actions:
+
+* Play all
+* Shuffle
+* Add artist songs to playlist
+
+No internet-dependent artist biography should exist in the core experience.
+
+---
+
+# 15. FOLDER BROWSER
+
+Folder browsing must represent actual device storage.
+
+Example:
+
+```text
+Music/
+├── Albums/
+│   ├── Album A/
+│   └── Album B/
+└── Singles/
+```
+
+The application must handle:
+
+* moved folders
+* renamed folders
+* deleted folders
+* inaccessible folders
+* removable storage
+* SAF-selected folders
+
+without crashing.
+
+---
+
+# 16. SEARCH
+
+Global search.
+
+Search simultaneously across:
+
+* tracks
+* artists
+* albums
+* playlists
+* genres
+* folders
+
+Search requirements:
+
+* incremental
+* debounce input
+* indexed search
+* Unicode-aware
+* case-insensitive
+* accent-aware where practical
+* tokenized
+* partial matching
+* fast on 100,000+ tracks
+
+Example:
+
+Searching:
+
+`weeknd blin`
+
+may match:
+
+`The Weeknd — Blinding Lights`
+
+Search should never require a network connection.
+
+---
+
+# 17. PLAYLIST SYSTEM
+
+Support:
+
+### Manual playlists
+
+Unlimited user-created playlists subject to storage/database limits.
+
+Operations:
+
+* create
+* rename
+* delete
+* reorder
+* add
+* remove
+* duplicate
+* export
+* share
+* shuffle
+* play
+
+### Smart playlists
+
+Potential built-ins:
+
+```text
+Recently Added
+Recently Played
+Most Played
+Favorites
+Never Played
+Lossless
+Hi-Res
+Long Tracks
+Short Tracks
+```
+
+Smart playlists must be query-driven rather than duplicated song lists.
+
+---
+
+# 18. FAVORITES
+
+Favorite state is stored locally.
+
+Favorite actions available from:
+
+* song row
+* player
+* album
+* context menu
+* notification action where practical
+
+Favorites must survive:
+
+* process death
+* reboot
+* app update
+* database migration
+
+If the underlying file disappears, favorite metadata should not silently corrupt the database.
+
+---
+
+# 19. NOW PLAYING SCREEN
+
+This is the flagship screen.
+
+Structure:
+
+```text
+<                       ⋮
+
+            [ALBUM ART]
+
+          SONG TITLE
+            ARTIST
+            ALBUM
+
+        02:14 ───────── 04:37
+
+        ♡       ◀     ▶     ▶       ⋮
+
+        ─────────────────────────
+
+       🔀        🔁        ⏱
+```
+
+Technical drawer:
+
+```text
+SOURCE
+FLAC
+24-bit
+96 kHz
+Lossless
+1.4 Mbps
+
+FILE
+4.8 MB
+
+OUTPUT
+48 kHz
+24-bit
+
+DSP
+CODEWAVE EQ
++2.0 dB
+```
+
+---
+
+# 20. MINI PLAYER
+
+The mini player must remain visible above bottom navigation where appropriate.
+
+Gestures:
+
+* tap → Now Playing
+* swipe left → next
+* swipe right → previous
+* play/pause
+* drag progress where appropriate
+
+Do not overload the mini player with ten controls.
+
+---
+
+# 21. QUEUE
+
+Dedicated queue sheet.
+
+Capabilities:
+
+* current track
+* upcoming tracks
+* reorder
+* remove
+* clear
+* save queue as playlist
+* play next
+* add to queue
+
+Queue must survive process death when playback state is restored.
+
+---
+
+# 22. PLAYBACK MODES
+
+Support:
+
+* normal
+* repeat off
+* repeat all
+* repeat one
+* shuffle
+
+Shuffle must be deterministic enough for debugging and fair enough for users.
+
+Avoid repeatedly selecting the same track immediately unless the queue is too small to avoid it.
+
+---
+
+# 23. GAPLESS PLAYBACK
+
+Required for compatible formats and playback paths.
+
+Important for:
+
+* live albums
+* classical albums
+* DJ mixes
+* concept albums
+
+Do not fake gapless playback with a visual transition.
+
+---
+
+# 24. CROSSFADE
+
+Optional user-controlled feature.
+
+Example:
+
+```text
+Crossfade
+0–12 seconds
+```
+
+Default:
+
+OFF
+
+Crossfade must not interfere with:
+
+* gapless mode
+* podcasts
+* spoken-word material
+
+---
+
+# 25. PLAYBACK SPEED
+
+Support:
+
+`0.5x – 2.0x`
+
+Use finer controls where appropriate.
+
+Presets:
+
+```text
+0.75x
+1.0x
+1.25x
+1.5x
+2.0x
+```
+
+Persist globally or per playback context according to explicit product policy.
+
+---
+
+# 26. SLEEP TIMER
+
+Options:
+
+```text
+5 min
+10 min
+15 min
+30 min
+45 min
+60 min
+90 min
+120 min
+End of current track
+End of album
+Custom
+```
+
+Optional:
+
+### Fade out
+
+Final 30–120 seconds gradually reduce gain.
+
+Timer must survive:
+
+* screen off
+* background playback
+* device rotation
+* activity recreation
+
+---
+
+# 27. AUDIO ENGINE
+
+## Primary engine
+
+**Jetpack Media3 ExoPlayer**
+
+Android currently recommends Media3/ExoPlayer for comprehensive playback use cases.
+
+Use:
+
+* Media3 ExoPlayer
+* MediaSession
+* MediaSessionService
+* MediaController
+* custom playback architecture
+
+Media3 supports playlists, playback control, seeking, shuffle, repeat and playback configuration.
+
+---
+
+# 28. BACKGROUND PLAYBACK
+
+Playback engine lives independently from UI.
+
+Conceptually:
+
+```text
+UI
+ │
+ ▼
+MediaController
+ │
+ ▼
+MediaSession
+ │
+ ▼
+MediaSessionService
+ │
+ ▼
+ExoPlayer
+ │
+ ▼
+Audio Output
+```
+
+This separation is mandatory.
+
+The UI must never own the actual playback lifecycle.
+
+Android requires background media playback to use a MediaSession/player housed within a MediaSessionService or MediaLibraryService running as a foreground service.
+
+---
+
+# 29. SYSTEM INTEGRATION
+
+Support:
+
+* lock screen controls
+* notification controls
+* Bluetooth media buttons
+* wired headset controls
+* Android Auto
+* external media controllers
+* audio focus
+* noisy audio events
+* headphone disconnect
+* Bluetooth disconnect
+* Bluetooth reconnect
+* phone calls
+* alarms
+* other apps requesting audio focus
+
+---
+
+# 30. AUDIO FOCUS
+
+Correctly implement:
+
+* permanent focus
+* transient focus
+* ducking
+* pause
+* resume where appropriate
+
+Example:
+
+Music playing → navigation prompt → CODEWAVE ducks → prompt ends → music restores.
+
+Do not simply pause everything.
+
+---
+
+# 31. AUDIO INTERRUPTION MATRIX
+
+Define deterministic behavior for:
+
+| Event                    | Behavior                                     |
+| ------------------------ | -------------------------------------------- |
+| Headphones removed       | Pause                                        |
+| Bluetooth disconnected   | Pause or configurable                        |
+| Incoming call            | Pause                                        |
+| Notification sound       | Duck                                         |
+| Navigation prompt        | Duck                                         |
+| Alarm                    | Pause/duck according to Android focus        |
+| Another music app starts | Release focus                                |
+| Screen locked            | Continue                                     |
+| App swiped from recents  | Continue                                     |
+| Process killed           | Service/state recovery where Android permits |
+
+---
+
+# 32. FORMAT SUPPORT
+
+Target common local formats:
+
+### Lossy
+
+* MP3
+* AAC
+* OGG/Vorbis
+
+### Lossless
+
+* FLAC
+* WAV
+* ALAC where supported by the selected decoder stack
+* other Media3-supported formats
+
+### Optional
+
+* Opus
+* AIFF
+* APE depending on decoder strategy
+
+Do not claim “all formats.”
+
+The UI must expose:
+
+```text
+SUPPORTED
+UNSUPPORTED
+DECODER ERROR
+CORRUPTED FILE
+```
+
+rather than pretending every file is playable.
+
+---
+
+# 33. LOSSLESS AUDIO POLICY
+
+CODEWAVE must preserve the source PCM data whenever the complete playback path supports it.
+
+It must NOT perform:
+
+* unnecessary transcoding
+* lossy conversion
+* hidden normalization that alters source data
+* unnecessary resampling
+
+However, Android hardware/audio routing may impose its own format conversion.
+
+Therefore:
+
+**“Lossless file” ≠ “bit-perfect hardware output.”**
+
+This distinction is mandatory.
+
+---
+
+# 34. AUDIO METADATA
+
+Extract:
+
+* title
+* artist
+* album
+* album artist
+* genre
+* year
+* track number
+* disc number
+* composer
+* comment
+* compilation
+* duration
+* bitrate
+* sample rate
+* bit depth where available
+* codec
+* channel count
+* MIME type
+* file size
+* URI
+* modification timestamp
+
+---
+
+# 35. AUDIO QUALITY BADGES
+
+Use factual badges:
+
+```text
+LOSSLESS
+HI-RES
+24-BIT
+96 KHZ
+320 KBPS
+VBR
+```
+
+Rules must be explicit.
+
+Example:
+
+```text
+FLAC
+24-bit
+96 kHz
+```
+
+→ `LOSSLESS` and `HI-RES`
+
+Example:
+
+```text
+MP3
+320 kbps
+```
+
+→ `320 KBPS`
+
+Never:
+
+`HI-FI`
+
+unless there is a defined technical meaning.
+
+---
+
+# 36. EQUALIZER / DSP
+
+This is where most amateur music-player implementations become garbage.
+
+Do not implement a fake EQ consisting of sliders that don't actually affect the audio path.
+
+Use a dedicated DSP abstraction.
+
+Architecture:
+
+```text
+Source
+  ↓
+Decoder
+  ↓
+PCM
+  ↓
+DSP Pipeline
+  ├── Preamp
+  ├── Parametric/Graphic EQ
+  ├── Bass control
+  ├── Loudness
+  ├── Compressor
+  ├── Limiter
+  └── Optional spatialization
+  ↓
+Audio Output
+```
+
+Android provides `DynamicsProcessing`, which includes EQ, multiband compression and limiting, with realtime-controllable parameters.
+
+Android also provides Equalizer and other AudioEffect APIs, but effects must be attached to the relevant audio session; global session-0 insertion effects are deprecated.
+
+---
+
+# 37. EQ MODES
+
+### Simple mode
+
+10-band graphic EQ:
+
+```text
+31
+62
+125
+250
+500
+1k
+2k
+4k
+8k
+16k
+```
+
+### Advanced mode
+
+Parametric EQ:
+
+* frequency
+* gain
+* Q
+* filter type
+
+Filter types:
+
+* low shelf
+* high shelf
+* bell
+* low pass
+* high pass
+
+Advanced mode should be hidden behind an explicit “Advanced” control.
+
+---
+
+# 38. EQ PRESETS
+
+Built-in:
+
+* Flat
+* Acoustic
+* Bass
+* Bass Reducer
+* Classical
+* Dance
+* Deep
+* Electronic
+* Hip-Hop
+* Jazz
+* Piano
+* Pop
+* Rock
+* Vocal
+* Custom
+
+Presets must have conservative gain levels.
+
+A limiter should protect against clipping when boosting multiple bands.
+
+---
+
+# 39. DSP SAFETY
+
+Avoid:
+
+```text
++12 dB everywhere
+```
+
+without protection.
+
+The DSP pipeline must account for:
+
+* clipping
+* inter-sample peaks
+* gain staging
+* limiter behavior
+* headroom
+
+Display:
+
+```text
+PREAMP
+-4.0 dB
+```
+
+when necessary.
+
+---
+
+# 40. AUDIO EFFECT COMPATIBILITY
+
+Audio effects differ across Android devices.
+
+Therefore:
+
+```text
+DSP status:
+ACTIVE
+LIMITED
+UNAVAILABLE
+```
+
+If the device does not support a requested effect:
+
+* don't crash
+* don't pretend it worked
+* explain the limitation
+* keep playback functional
+
+---
+
+# 41. LIBRARY SCANNER
+
+This is another critical subsystem.
+
+Architecture:
+
+```text
+MediaStore
+   ↓
+Change detection
+   ↓
+Candidate files
+   ↓
+Metadata extraction
+   ↓
+Fingerprint
+   ↓
+Normalization
+   ↓
+Database transaction
+   ↓
+Search index
+   ↓
+UI
+```
+
+The app should not rescan the entire storage after every launch.
+
+---
+
+# 42. FAST DISCOVERY
+
+Primary source:
+
+**MediaStore**
+
+Use incremental change detection.
+
+Maintain:
+
+```text
+mediaStoreId
+contentUri
+dateModified
+size
+duration
+metadataHash
+fileFingerprint
+```
+
+When a new file appears:
+
+1. detect candidate
+2. validate media type
+3. extract metadata
+4. fingerprint
+5. insert/update database
+6. update indexes
+7. update UI
+
+The UI must never block waiting for a full scan.
+
+---
+
+# 43. DOWNLOAD-DETECTION BEHAVIOR
+
+When a music file is downloaded:
+
+```text
+File appears
+      ↓
+MediaStore publishes change
+      ↓
+CODEWAVE receives change
+      ↓
+Candidate queued
+      ↓
+Metadata extracted
+      ↓
+Database updated
+      ↓
+Library UI updates
+```
+
+If MediaStore notification is delayed:
+
+periodic reconciliation must eventually detect the file.
+
+Do not rely on one notification mechanism.
+
+---
+
+# 44. PARTIALLY DOWNLOADED FILES
+
+Critical edge case.
+
+Example:
+
+```text
+song.flac
+```
+
+appears before download completion.
+
+Do NOT immediately treat it as a valid playable song.
+
+State:
+
+```text
+DISCOVERED
+↓
+VALIDATING
+↓
+READY
+```
+
+If file changes while processing:
+
+restart validation.
+
+---
+
+# 45. FILE IDENTITY
+
+Path alone is insufficient.
+
+Files can be:
+
+* renamed
+* moved
+* copied
+* replaced
+* deleted
+
+Maintain stable identity where possible using:
+
+* MediaStore ID
+* URI
+* metadata
+* size
+* modification time
+* lightweight content fingerprint
+
+For ambiguous matches:
+
+do not silently merge.
+
+---
+
+# 46. DATABASE
+
+Recommended:
+
+**Room + SQLite**
+
+Entities:
+
+```text
+Track
+Album
+Artist
+Genre
+Playlist
+PlaylistTrack
+Favorite
+PlaybackHistory
+PlaybackState
+EQPreset
+LibraryRoot
+ScanJob
+```
+
+Use normalized relationships.
+
+Do not store the entire music library as serialized JSON.
+
+---
+
+# 47. SEARCH INDEX
+
+Use SQLite FTS where appropriate.
+
+Index:
+
+```text
+title
+artist
+album
+albumArtist
+genre
+folder
+```
+
+Search must remain fast for very large libraries.
+
+---
+
+# 48. ARCHITECTURE
+
+Recommended architecture:
+
+```text
+Presentation
+│
+├── Compose UI
+├── ViewModels
+└── UI State
+        │
+Domain
+│
+├── Playback
+├── Library
+├── Search
+├── Playlists
+├── Favorites
+├── DSP
+└── Updates
+        │
+Data
+│
+├── Room
+├── MediaStore
+├── Metadata
+├── File/SAF
+└── Preferences
+        │
+Platform
+│
+├── Media3
+├── AudioFocus
+├── Notifications
+├── Bluetooth
+├── Android Auto
+└── Package Installer
+```
+
+---
+
+# 49. PROJECT STRUCTURE
+
+Use feature-oriented modularization.
+
+Conceptual structure:
+
+```text
+app/
+core/
+    model/
+    database/
+    media/
+    audio/
+    ui/
+    common/
+    testing/
+
+feature-home/
+feature-library/
+feature-player/
+feature-search/
+feature-playlists/
+feature-favorites/
+feature-settings/
+feature-equalizer/
+feature-updater/
+```
+
+Avoid a giant:
+
+```text
+utils/
+```
+
+folder.
+
+If everything ends up in `Utils.kt`, the architecture has failed.
+
+---
+
+# 50. STATE MANAGEMENT
+
+Use unidirectional data flow:
+
+```text
+User Action
+   ↓
+Intent
+   ↓
+ViewModel
+   ↓
+Use Case
+   ↓
+Repository
+   ↓
+State
+   ↓
+Compose
+```
+
+UI must not directly manipulate database entities.
+
+---
+
+# 51. SINGLE SOURCE OF TRUTH
+
+Playback state belongs to the playback subsystem.
+
+Library state belongs to the database.
+
+UI observes both.
+
+Never maintain independent competing versions of:
+
+```text
+currentTrack
+isPlaying
+position
+queue
+```
+
+---
+
+# 52. UI PERFORMANCE
+
+Target:
+
+* 60 FPS minimum
+* 90/120 Hz devices should feel native
+* no blocking database operations on main thread
+* no bitmap decoding on main thread
+* no synchronous filesystem scans
+* no unnecessary recomposition
+* stable keys for lazy lists
+* paging/lazy loading for huge libraries
+* bounded image memory
+* artwork caching
+
+---
+
+# 53. ARTWORK PIPELINE
+
+Use:
+
+```text
+memory cache
+    ↓
+disk cache
+    ↓
+embedded artwork
+    ↓
+generated fallback
+```
+
+Do not download artwork in the offline-first core experience.
+
+Fallback artwork should be deterministic.
+
+Example:
+
+```text
+CODEWAVE
+[CW]
+```
+
+or generated album-color geometry.
+
+---
+
+# 54. GRID / LIST SWITCHING
+
+Every major library collection supports:
+
+```text
+LIST
+GRID
+```
+
+Remember the user's preference per content type.
+
+Example:
+
+Albums:
+
+`GRID`
+
+Songs:
+
+`LIST`
+
+Artists:
+
+`LIST`
+
+---
+
+# 55. CONTEXT MENUS
+
+Every song should provide:
+
+```text
+Play
+Play next
+Add to queue
+Add to playlist
+Favorite
+Go to album
+Go to artist
+Open folder
+Track information
+Share
+```
+
+Do not make users hunt for common actions.
+
+---
+
+# 56. MULTI-SELECT
+
+Support multi-selection for:
+
+* songs
+* albums
+* playlists
+
+Actions:
+
+* add to playlist
+* queue
+* favorite
+* remove
+* share
+* delete source file only with explicit confirmation
+
+Never accidentally delete physical music files.
+
+---
+
+# 57. DELETE SAFETY
+
+There are two fundamentally different operations:
+
+### Remove from library
+
+Database operation.
+
+### Delete file
+
+Filesystem operation.
+
+They must never be presented as the same action.
+
+Deletion requires explicit confirmation:
+
+```text
+Delete 12 files?
+
+This permanently removes the files from device storage.
+
+CANCEL
+DELETE FILES
+```
+
+---
+
+# 58. PERMISSIONS
+
+Follow current Android permission/storage rules.
+
+Avoid requesting broad storage access when MediaStore/SAF is sufficient.
+
+Permission states:
+
+```text
+NOT_REQUESTED
+DENIED
+GRANTED
+LIMITED
+REVOKED
+```
+
+Every state must have a useful UI.
+
+---
+
+# 59. EMPTY STATES
+
+Never display blank screens.
+
+Example:
+
+```text
+NO MUSIC YET
+
+CODEWAVE couldn't find any
+supported audio files.
+
+[SCAN LIBRARY]
+[CHOOSE MUSIC FOLDER]
+```
+
+---
+
+# 60. ERROR STATES
+
+Errors should be actionable.
+
+Bad:
+
+```text
+Something went wrong.
+```
+
+Good:
+
+```text
+CAN'T PLAY TRACK
+
+The file is unavailable or
+the decoder rejected this format.
+
+[VIEW DETAILS]
+[REMOVE FROM QUEUE]
+```
+
+---
+
+# 61. CORRUPTED FILE
+
+When decoder fails:
+
+```text
+Playback failed
+
+File:
+Track.flac
+
+Reason:
+Decoder error
+
+The rest of your library is unaffected.
+```
+
+The player automatically advances only if configured to do so.
+
+---
+
+# 62. MISSING FILE
+
+If a queued file disappears:
+
+```text
+TRACK UNAVAILABLE
+```
+
+Do not crash the player.
+
+Remove only the invalid queue item.
+
+---
+
+# 63. DATABASE CORRUPTION
+
+The database layer must have recovery strategy.
+
+Potential sequence:
+
+```text
+detect corruption
+↓
+close database
+↓
+restore valid backup if available
+↓
+otherwise rebuild library index
+↓
+preserve user configuration where possible
+↓
+notify user
+```
+
+The music files themselves must never be modified by database recovery.
+
+---
+
+# 64. PROCESS DEATH
+
+Persist:
+
+* current track
+* queue
+* current index
+* position
+* repeat mode
+* shuffle state
+* volume-related internal state where applicable
+* sleep timer state where meaningful
+* playback timestamp
+
+After restart:
+
+```text
+Restore session
+↓
+Validate files
+↓
+Rebuild invalid queue items
+↓
+Restore player
+```
+
+---
+
+# 65. REBOOT
+
+After device reboot:
+
+* don't automatically start playback unless explicitly configured and Android permits
+* preserve library
+* preserve preferences
+* preserve queue/session state where appropriate
+
+---
+
+# 66. BATTERY OPTIMIZATION
+
+Never run continuous polling.
+
+Use event-driven updates.
+
+Periodic reconciliation should be infrequent and bounded.
+
+Playback must use Android-supported foreground media architecture.
+
+---
+
+# 67. MEMORY MANAGEMENT
+
+Large libraries create serious memory risks.
+
+Never load:
+
+```text
+100,000 album covers
+```
+
+into memory.
+
+Use:
+
+* lazy loading
+* bounded caches
+* thumbnail sizes
+* memory-aware eviction
+* bitmap reuse where applicable
+
+---
+
+# 68. LARGE LIBRARY TARGET
+
+The architecture should be tested against:
+
+```text
+1,000 tracks
+10,000 tracks
+50,000 tracks
+100,000+ tracks
+```
+
+Performance must remain acceptable.
+
+---
+
+# 69. PLAYER STARTUP TARGET
+
+Target:
+
+**Tap → audible playback**
+
+as quickly as practical.
+
+Measure:
+
+```text
+Tap-to-first-audio
+```
+
+rather than pretending the app is “instant.”
+
+Set a performance budget and regression-test it.
+
+---
+
+# 70. LIBRARY PERFORMANCE TARGET
+
+Example target:
+
+For a 10,000-track library on a modern midrange device:
+
+* initial UI appears immediately
+* scanning occurs asynchronously
+* first usable results appear rapidly
+* full indexing completes without blocking UI
+* search remains interactive
+
+Do not hardcode unrealistic universal milliseconds because Android hardware varies dramatically.
+
+---
+
+# 71. SETTINGS
+
+Sections:
+
+## Playback
+
+* gapless
+* crossfade
+* replay behavior
+* autoplay
+* resume playback
+* playback speed
+
+## Audio
+
+* equalizer
+* normalization
+* bass
+* limiter
+* DSP
+
+## Library
+
+* scan
+* folders
+* ignored folders
+* sorting
+* artwork
+* metadata behavior
+
+## Appearance
+
+* theme
+* accent
+* list/grid defaults
+* animations
+* compact mode
+
+## Notifications
+
+* controls
+* artwork
+* persistent notification behavior
+
+## Updates
+
+* GitHub releases
+* automatic check
+* Wi-Fi-only checks
+* prerelease channel
+
+## About
+
+* version
+* licenses
+* diagnostics
+* privacy
+* GitHub
+
+---
+
+# 72. THEMES
+
+Default:
+
+### Obsidian
+
+Additional:
+
+### Light
+
+### Midnight
+
+### Carbon
+
+### OLED Black
+
+Accent selection:
+
+* Blue
+* Cyan
+* Violet
+* Green
+* Amber
+
+Avoid dozens of themes.
+
+---
+
+# 73. ACCESSIBILITY
+
+Required:
+
+* TalkBack labels
+* content descriptions
+* sufficient contrast
+* scalable typography
+* minimum touch targets
+* semantic Compose nodes
+* reduced motion
+* no color-only information
+* accessible slider values
+* accessible playback state
+
+---
+
+# 74. HAPTICS
+
+Use haptics sparingly.
+
+Useful for:
+
+* play/pause confirmation
+* favorite toggle
+* slider boundaries
+* destructive actions
+
+Never vibrate on every scroll.
+
+---
+
+# 75. ANIMATION
+
+Animation principles:
+
+* fast
+* purposeful
+* interruptible
+* physics-consistent
+* reduced-motion aware
+
+Examples:
+
+Album art → player transition.
+
+Mini player → full player.
+
+List → detail.
+
+Avoid:
+
+* constant bouncing
+* rotating album art everywhere
+* infinite wave animations
+* unnecessary particle effects
+
+---
+
+# 76. VISUALIZER
+
+Optional premium feature.
+
+Modes:
+
+* waveform
+* spectrum
+* oscilloscope
+* minimal bars
+
+Visualizer must never consume excessive CPU.
+
+It should automatically reduce quality or disable itself under thermal/battery pressure.
+
+---
+
+# 77. ANDROID WIDGETS
+
+Provide:
+
+### Compact widget
+
+```text
+[ART] Track
+      Artist
+      ◀ ▶ ▶
+```
+
+### Large widget
+
+```text
+Album art
+Track
+Artist
+Progress
+Controls
+```
+
+Widget must work without launching the app.
+
+---
+
+# 78. ANDROID AUTO
+
+Provide a safe browsing hierarchy:
+
+```text
+Songs
+Albums
+Artists
+Playlists
+Favorites
+```
+
+No distracting visual features.
+
+Use MediaLibraryService/MediaSession integration.
+
+---
+
+# 79. WEAR OS
+
+Phase 2.
+
+Support:
+
+* play/pause
+* next/previous
+* seek
+* favorites
+* queue
+* basic library browsing
+
+---
+
+# 80. UPDATE SYSTEM
+
+CODEWAVE supports two update channels.
+
+## Channel A — Google Play
+
+Use official Play update mechanisms when distributed through Google Play. Android's current Play In-App Updates system supports flexible and immediate update flows.
+
+## Channel B — GitHub Releases
+
+For GitHub APK distribution:
+
+```text
+CODEWAVE
+   ↓
+GitHub Releases API
+   ↓
+Latest stable release
+   ↓
+Version comparison
+   ↓
+Release metadata
+   ↓
+User chooses update
+   ↓
+APK download
+   ↓
+SHA-256 verification
+   ↓
+Android package installation flow
+```
+
+GitHub exposes a latest-release API and release assets.
+
+---
+
+# 81. GITHUB UPDATE SECURITY
+
+Never blindly install:
+
+```text
+latest.apk
+```
+
+The release manifest should contain:
+
+```text
+version
+versionCode
+minimumSupportedVersion
+releaseChannel
+releaseNotes
+apkUrl
+sha256
+size
+publishedAt
+```
+
+The client:
+
+1. downloads metadata
+2. validates HTTPS
+3. verifies version
+4. downloads APK
+5. calculates SHA-256
+6. compares hash
+7. only then launches installation
+
+---
+
+# 82. UPDATE CHANNELS
+
+```text
+Stable
+Beta
+Nightly
+```
+
+Default:
+
+`Stable`
+
+Never silently switch channels.
+
+---
+
+# 83. FAILED UPDATE
+
+If update fails:
+
+* keep current app
+* preserve all user data
+* report failure
+* allow retry
+* do not corrupt application state
+
+---
+
+# 84. VERSION COMPATIBILITY
+
+Before update:
+
+```text
+Current version
+Latest version
+Required Android version
+Required architecture
+```
+
+Reject incompatible packages before installation.
+
+---
+
+# 85. SIGNING
+
+Every release must use the same production signing identity.
+
+Never create a new signing key for an update.
+
+CI must fail if signing configuration is invalid.
+
+---
+
+# 86. CI/CD
+
+GitHub Actions pipeline:
+
+```text
+Commit
+ ↓
+Static analysis
+ ↓
+Unit tests
+ ↓
+Lint
+ ↓
+Compile
+ ↓
+Instrumented tests
+ ↓
+UI tests
+ ↓
+Performance checks
+ ↓
+Release build
+ ↓
+APK/AAB signing
+ ↓
+SHA-256
+ ↓
+GitHub Release
+```
+
+No release if a mandatory gate fails.
+
+---
+
+# 87. TESTING PYRAMID
+
+## Unit tests
+
+Test:
+
+* sorting
+* searching
+* playlist logic
+* queue logic
+* shuffle
+* repeat
+* sleep timer
+* metadata parsing
+* file identity
+* database migrations
+* update version comparison
+* DSP parameter validation
+
+## Integration tests
+
+Test:
+
+* MediaStore
+* Room
+* playback service
+* MediaSession
+* scanner
+* update system
+
+## UI tests
+
+Test:
+
+* navigation
+* search
+* player
+* playlist creation
+* favorites
+* sorting
+* grid/list
+* settings
+
+## Device tests
+
+Test physical Android devices.
+
+---
+
+# 88. FAILURE MATRIX
+
+Mandatory test scenarios:
+
+### Storage
+
+* storage unavailable
+* permission denied
+* SD card removed
+* folder renamed
+* file renamed
+* file deleted
+* file replaced
+* insufficient storage
+
+### Audio
+
+* corrupt MP3
+* corrupt FLAC
+* unsupported codec
+* zero-duration file
+* extremely long file
+* huge file
+* malformed metadata
+* missing metadata
+* Unicode metadata
+* duplicate tracks
+
+### Playback
+
+* rapid next/previous
+* seek while buffering/preparing
+* queue modification during playback
+* headset disconnect
+* Bluetooth disconnect
+* phone call
+* alarm
+* another media app starts
+* app process death
+* device reboot
+
+### UI
+
+* rotation
+* configuration change
+* font scaling
+* dark/light theme
+* reduced motion
+* TalkBack
+* very small display
+* tablet
+* foldable
+
+### Library
+
+* 0 songs
+* 1 song
+* 1,000 songs
+* 10,000 songs
+* 100,000 songs
+* duplicate metadata
+* duplicate files
+* same title/artist
+* missing album
+* missing artist
+* compilation albums
+
+---
+
+# 89. CHAOS TESTING
+
+Introduce controlled failures:
+
+* kill playback service
+* kill application process
+* disconnect storage
+* revoke permission
+* delete currently playing file
+* corrupt database copy
+* rapidly modify queue
+* rapidly change tracks
+* repeatedly rotate/recreate UI
+
+Expected result:
+
+**graceful recovery, not crash.**
+
+---
+
+# 90. SECURITY
+
+The app must:
+
+* avoid unnecessary permissions
+* avoid unnecessary network access
+* never upload music
+* never upload metadata
+* validate downloaded update metadata
+* validate update hashes
+* protect internal files
+* avoid unsafe file paths
+* sanitize displayed metadata
+* handle maliciously malformed media metadata safely
+
+---
+
+# 91. PRIVACY
+
+Default network behavior:
+
+```text
+NO NETWORK REQUIRED
+```
+
+Network only for:
+
+* GitHub update checking
+* optional diagnostics if explicitly enabled
+
+No:
+
+* advertising SDK
+* tracking SDK
+* analytics SDK
+* cloud account
+* remote music indexing
+
+---
+
+# 92. OBSERVABILITY
+
+Production builds should have safe diagnostic logging.
+
+Levels:
+
+```text
+ERROR
+WARN
+INFO
+DEBUG
+```
+
+Default production logging:
+
+minimal.
+
+Never log:
+
+* private file contents
+* sensitive filesystem information unnecessarily
+* user data unnecessarily
+
+---
+
+# 93. DESIGN SYSTEM COMPONENTS
+
+Create reusable components:
+
+```text
+CWButton
+CWIconButton
+CWTopBar
+CWBottomBar
+CWMiniPlayer
+CWTrackRow
+CWAlbumCard
+CWArtistRow
+CWPlaylistCard
+CWSectionHeader
+CWQualityBadge
+CWTechnicalBadge
+CWProgressBar
+CWSlider
+CWDialog
+CWSheet
+CWEmptyState
+CWErrorState
+CWSearchField
+CWFilterChip
+CWSortMenu
+CWContextMenu
+```
+
+Every component should have:
+
+* states
+* accessibility semantics
+* dark/light behavior
+* disabled behavior
+* loading behavior
+* error behavior
+* pressed state
+
+---
+
+# 94. DESIGN TOKENS
+
+Centralize:
+
+```text
+spacing
+cornerRadius
+typography
+colors
+elevation
+animation
+icon sizes
+touch targets
+```
+
+Do not scatter magic numbers throughout the UI.
+
+---
+
+# 95. RESPONSIVE DESIGN
+
+Support:
+
+### Phone portrait
+
+Primary target.
+
+### Phone landscape
+
+Player adapts.
+
+### Tablet
+
+Two-pane library/detail layout.
+
+### Foldables
+
+Use available width intelligently.
+
+---
+
+# 96. NAVIGATION RULES
+
+Back behavior must be deterministic.
+
+Examples:
+
+Now Playing → Library
+
+Back → previous navigation destination.
+
+Search open:
+
+Back → close search.
+
+Bottom sheet:
+
+Back → close sheet.
+
+Dialog:
+
+Back → dismiss if non-destructive.
+
+Never unexpectedly exit the app.
+
+---
+
+# 97. FIRST RUN
+
+Do not force a giant onboarding carousel.
+
+First launch:
+
+```text
+CODEWAVE
+
+Your music.
+Locally.
+
+[SCAN MY MUSIC]
+```
+
+Then scan.
+
+If nothing found:
+
+```text
+NO MUSIC FOUND
+
+[CHOOSE FOLDER]
+[TRY AGAIN]
+```
+
+---
+
+# 98. LIBRARY SCAN UI
+
+Example:
+
+```text
+INDEXING LIBRARY
+
+2,841 / 8,219
+
+██████████████░░░░░░
+
+Albums      412
+Artists     293
+Tracks      2,841
+
+You can use CODEWAVE while scanning.
+```
+
+Scanning must not block the application.
+
+---
+
+# 99. TECHNICAL TRACK DETAILS
+
+Show:
+
+```text
+TITLE
+ARTIST
+ALBUM
+ALBUM ARTIST
+GENRE
+YEAR
+TRACK
+DISC
+
+FORMAT
+FLAC
+
+CODEC
+FLAC
+
+SAMPLE RATE
+96 kHz
+
+BIT DEPTH
+24-bit
+
+CHANNELS
+Stereo
+
+BITRATE
+Variable / source dependent
+
+DURATION
+04:37
+
+FILE SIZE
+148 MB
+
+PATH
+...
+```
+
+---
+
+# 100. FILE MANAGEMENT
+
+Never assume all media is under:
+
+```text
+/Music
+```
+
+Media can come from:
+
+* Music folders
+* Downloads
+* messaging apps
+* file managers
+* SD cards
+* user-selected SAF folders
+
+The user can configure ignored locations.
+
+---
+
+# 101. DUPLICATE DETECTION
+
+Do not automatically delete duplicates.
+
+Detect:
+
+```text
+Possible duplicate
+```
+
+Compare:
+
+* size
+* duration
+* metadata
+* content fingerprint
+
+Then allow the user to decide.
+
+---
+
+# 102. METADATA CONFLICT POLICY
+
+When metadata differs between MediaStore and embedded metadata:
+
+Define a deterministic priority.
+
+Example:
+
+```text
+embedded metadata
+        ↓
+normalized metadata
+        ↓
+database representation
+```
+
+But allow user edits if metadata editing is implemented.
+
+---
+
+# 103. METADATA EDITOR
+
+Phase 2.
+
+Fields:
+
+* title
+* artist
+* album
+* album artist
+* genre
+* year
+* track
+* disc
+* composer
+
+Never modify the physical file unless the user explicitly chooses:
+
+**Write metadata to file**
+
+That operation must be transactional as far as the selected format allows.
+
+---
+
+# 104. IMPORT
+
+Optional manual import:
+
+```text
+IMPORT AUDIO
+```
+
+Use Android's Storage Access Framework.
+
+After selection:
+
+```text
+validate
+copy/reference
+index
+```
+
+Never duplicate huge files unnecessarily.
+
+---
+
+# 105. PERFORMANCE BUDGETS
+
+Define measurable budgets:
+
+### UI
+
+No obvious frame drops during normal navigation.
+
+### Search
+
+Search should remain interactive for large libraries.
+
+### Startup
+
+Cold startup must be measured on representative low/mid/high devices.
+
+### Memory
+
+No unbounded artwork cache.
+
+### CPU
+
+Idle library must not continuously consume meaningful CPU.
+
+### Battery
+
+No continuous polling.
+
+---
+
+# 106. ANTI-PATTERNS FOR THE AI AGENT
+
+Antigravity must NOT:
+
+* put everything in one Activity
+* use one giant ViewModel
+* use global mutable state everywhere
+* scan filesystem synchronously
+* store library in SharedPreferences
+* load all artwork into memory
+* use path strings as the only track identity
+* run ExoPlayer from Compose UI
+* fake an EQ
+* fake Hi-Res status
+* silently delete files
+* silently install APK updates
+* hardcode device-specific assumptions
+* catch every exception and ignore it
+* create a `Utils` dumping ground
+* introduce dependencies without justification
+* add network services to an offline feature
+* use Firebase merely because it is convenient
+* add analytics by default
+
+---
+
+# 107. AI AGENT DEVELOPMENT RULE
+
+Antigravity must work in vertical slices.
+
+Do NOT generate the entire application in one pass.
+
+Order:
+
+### Phase 1
+
+Project foundation.
+
+### Phase 2
+
+Design system.
+
+### Phase 3
+
+MediaStore scanner.
+
+### Phase 4
+
+Database.
+
+### Phase 5
+
+Playback engine.
+
+### Phase 6
+
+Now Playing.
+
+### Phase 7
+
+Library.
+
+### Phase 8
+
+Playlists/favorites.
+
+### Phase 9
+
+Search.
+
+### Phase 10
+
+DSP.
+
+### Phase 11
+
+System integration.
+
+### Phase 12
+
+Update system.
+
+### Phase 13
+
+Testing.
+
+### Phase 14
+
+Performance optimization.
+
+### Phase 15
+
+Release hardening.
+
+---
+
+# 108. DEFINITION OF DONE
+
+A feature is NOT done when:
+
+```text
+the screen renders.
+```
+
+It is done only when:
+
+```text
+UI
++
+state
++
+persistence
++
+error handling
++
+accessibility
++
+performance
++
+process death
++
+configuration changes
++
+tests
++
+documentation
+```
+
+have been validated.
+
+---
+
+# 109. RELEASE GATE
+
+A production release requires:
+
+```text
+✓ Debug build
+✓ Release build
+✓ Lint clean
+✓ Unit tests passing
+✓ Integration tests passing
+✓ UI tests passing
+✓ No known P0/P1 bugs
+✓ Database migration tested
+✓ Playback stress tested
+✓ Large-library tested
+✓ Background playback tested
+✓ Bluetooth tested
+✓ Notification tested
+✓ Storage changes tested
+✓ Update mechanism tested
+✓ APK hash verified
+✓ Signing verified
+✓ Proguard/R8 verified
+✓ Accessibility smoke-tested
+✓ Performance regression tested
+```
+
+---
+
+# 110. PRIORITY CLASSIFICATION
+
+## P0
+
+Required for release.
+
+Examples:
+
+* playback
+* scanning
+* library
+* queue
+* background playback
+* favorites
+* playlists
+* search
+* basic EQ
+* system controls
+* crash recovery
+
+## P1
+
+Important.
+
+Examples:
+
+* Android Auto
+* widgets
+* advanced DSP
+* smart playlists
+* GitHub updater
+* advanced visualizer
+
+## P2
+
+Later.
+
+Examples:
+
+* Wear OS
+* metadata editor
+* advanced statistics
+* themes marketplace
+* advanced waveform visualization
+
+---
+
+# 111. RECOMMENDED TECH STACK
+
+## Language
+
+**Kotlin**
+
+## UI
+
+**Jetpack Compose**
+
+Android's current Media3 documentation explicitly encourages a Compose-first approach for media UIs.
+
+## Design
+
+**Material 3 foundation + custom CODEWAVE design system**
+
+Do not ship stock Material 3 screens with different colors.
+
+## Playback
+
+**AndroidX Media3 ExoPlayer**
+
+## Media session
+
+**Media3 MediaSession / MediaSessionService**
+
+## Database
+
+**Room / SQLite**
+
+## Preferences
+
+**DataStore**
+
+## Background work
+
+**WorkManager**, only where appropriate.
+
+## Image loading
+
+**Coil**
+
+## Dependency injection
+
+**Hilt**
+
+## Navigation
+
+**Navigation Compose**
+
+## Build
+
+**Gradle Kotlin DSL**
+
+## Static analysis
+
+**Detekt**
+
+## Formatting
+
+**Ktlint**
+
+## Testing
+
+* JUnit
+* AndroidX Test
+* Compose UI testing
+* Media3 testing utilities
+* Macrobenchmark
+* Baseline Profiles
+
+## CI/CD
+
+**GitHub Actions**
+
+## Distribution
+
+* Google Play
+* GitHub Releases APK channel
+
+---
+
+# 112. WHY NOT FLUTTER / REACT NATIVE?
+
+Do not use them.
+
+This product is deeply Android-specific.
+
+It needs:
+
+* Media3
+* MediaSession
+* MediaStore
+* Android audio focus
+* foreground media service
+* Android Auto
+* Bluetooth media controls
+* Android permissions
+* Storage Access Framework
+* Android DSP APIs
+
+Native Kotlin gives the cleanest access to the platform.
+
+The UI does not justify adding a cross-platform abstraction layer.
+
+---
+
+# 113. WHY COMPOSE?
+
+Because the product needs:
+
+* highly custom UI
+* animation
+* reusable components
+* responsive layouts
+* state-driven rendering
+* accessibility semantics
+* custom player surfaces
+
+Compose should be the presentation layer.
+
+It should NOT own the media engine.
+
+---
+
+# 114. SYSTEM DESIGN PRINCIPLE
+
+The most important architectural boundary:
+
+```text
+UI ≠ PLAYER
+```
+
+and:
+
+```text
+DATABASE ≠ FILESYSTEM
+```
+
+and:
+
+```text
+SOURCE QUALITY ≠ OUTPUT QUALITY
+```
+
+and:
+
+```text
+LIBRARY STATE ≠ PLAYBACK STATE
+```
+
+and:
+
+```text
+UPDATE DISCOVERY ≠ UPDATE INSTALLATION
+```
+
+These distinctions prevent entire classes of bugs.
+
+---
+
+# 115. BEGINNER EXAMPLE
+
+A beginner should be able to understand the main flow:
+
+```text
+Phone has song
+       ↓
+MediaStore finds song
+       ↓
+CODEWAVE reads metadata
+       ↓
+Room stores metadata
+       ↓
+Library displays song
+       ↓
+User presses Play
+       ↓
+Media3 plays song
+       ↓
+MediaSession exposes controls
+       ↓
+Notification controls player
+```
+
+---
+
+# 116. EXPERIENCED-ENGINEER EXAMPLE
+
+An experienced implementation should reason about:
+
+```text
+MediaStore mutation
+       ↓
+incremental invalidation
+       ↓
+repository reconciliation
+       ↓
+transactional Room update
+       ↓
+FTS update
+       ↓
+immutable Track identity
+       ↓
+MediaItem mapping
+       ↓
+MediaController command
+       ↓
+MediaSessionService
+       ↓
+ExoPlayer lifecycle
+       ↓
+audio focus transition
+       ↓
+DSP session binding
+       ↓
+output-route change
+       ↓
+persistent playback state
+```
+
+Every boundary needs explicit contracts.
+
+---
+
+# 117. ANTIGRAVITY MASTER IMPLEMENTATION DIRECTIVE
+
+Before modifying the repository:
+
+1. Inspect the entire project.
+2. Identify existing architecture.
+3. Do not overwrite working infrastructure blindly.
+4. Produce an architecture map.
+5. Produce a dependency map.
+6. Produce a risk register.
+7. Establish the design token system.
+8. Establish the testing infrastructure.
+9. Implement one vertical slice.
+10. Run tests.
+11. Fix failures.
+12. Continue to the next slice.
+
+For every implementation step:
+
+```text
+PLAN
+→ IMPLEMENT
+→ COMPILE
+→ TEST
+→ INSPECT
+→ OPTIMIZE
+→ DOCUMENT
+```
+
+Never:
+
+```text
+PLAN
+→ GENERATE 50,000 LINES
+→ HOPE
+```
+
+---
+
+# 118. ANTIGRAVITY QUALITY RULE
+
+Whenever the agent encounters an ambiguity, it must prefer:
+
+1. platform correctness
+2. data safety
+3. playback reliability
+4. deterministic behavior
+5. accessibility
+6. performance
+7. visual polish
+
+in that order.
+
+---
+
+# 119. FINAL PRODUCT TEST
+
+The final application should be tested as if the user is actively trying to break it:
+
+```text
+Download 10,000 songs
+↓
+Start scanning
+↓
+Start playing one
+↓
+Kill app
+↓
+Delete current file
+↓
+Reconnect Bluetooth
+↓
+Open another app
+↓
+Return
+↓
+Search
+↓
+Create playlist
+↓
+Add 500 songs
+↓
+Switch grid/list
+↓
+Sort
+↓
+Rotate device
+↓
+Enable EQ
+↓
+Seek rapidly
+↓
+Enable sleep timer
+↓
+Lock phone
+↓
+Receive call
+↓
+Resume
+↓
+Reboot
+↓
+Run updater
+```
+
+The application must recover at every stage without data loss or undefined state.
+
+---
+
+# 120. SUCCESS CRITERIA
+
+CODEWAVE succeeds when a technically sophisticated Android user can install it, point it at a large local music collection, and immediately feel:
+
+> “This isn't another MP3 player.”
+
+The product should feel:
+
+**fast**
+
+**technical**
+
+**quiet**
+
+**precise**
+
+**premium**
+
+**offline**
+
+**reliable**
+
+**transparent about audio quality**
+
+and **deliberately engineered rather than feature-stuffed.**
+
+---
+
+# 121. NON-NEGOTIABLE PRODUCT RULE
+
+Do not optimize for the number of features.
+
+Optimize for:
+
+```text
+correctness × responsiveness × clarity × reliability
+```
+
+A music player with 100 badly implemented features is inferior to a player with 30 features that behave flawlessly.
+
+CODEWAVE should earn its premium feel through engineering quality, not decoration.
