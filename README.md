@@ -1,97 +1,88 @@
-# CodeWave
+<p align="center">
+  <img src="app-icon.png" width="128" height="128" alt="CodeWave App Icon" />
+</p>
 
-### Industry-Grade Offline Hi-Res Music Player for Android
+<h1 align="center">CodeWave</h1>
 
-**CODEWAVE** is an offline-first local music player engineered for audiophiles and power users who own their music library. Built with a VS-Code-inspired developer workstation aesthetic ("Obsidian" dark theme, technical monospaced telemetry, and the signature Track Inspector), it pairs local library management with Jetpack Media3 ExoPlayer, real hardware DSP/dynamics processing, and uncompromising transparency regarding audio quality.
+<p align="center">
+  <strong>Industry-Grade Offline Hi-Res Audio Workstation for Android</strong>
+</p>
 
----
-
-## Key Features
-
-- **Offline-First Local Ownership**: No accounts, no cloud library, no streaming, no ads, and zero analytics. Your music remains strictly on your device.
-- **Developer Workstation Aesthetic**: Built with the Obsidian color palette (`#0B0D10`), crisp borders, and technical monospaced telemetry font for sample rates, bit depths, and codecs.
-- **Audio Transparency (Never Lie About Quality)**: Factual separation between file **SOURCE** format (`FLAC · 24-bit / 96 kHz`) and actual hardware **OUTPUT** path (`48 kHz · 24-bit · PCM Stereo`).
-- **Signature Track Inspector**: Deep-dive technical sheet for any song displaying verified source properties, physical audio routing, latency, and DSP status.
-- **10-Band Hardware Dynamics Processing (DSP)**: Powered by Android `DynamicsProcessing` with 10 bands (`31Hz` to `16kHz`), PreEQ gain staging, limiter anti-clipping protection, and fallback to Android `Equalizer`.
-- **Fast Incremental Scanner**: Powered by `MediaStore` and continuous `ContentObserver` change detection, with candidate validation to protect against partial downloads, and content fingerprinting to survive file renames and moves.
-- **SQLite FTS Full-Text Search**: Instant, debounced Unicode-aware search across tracks, albums, artists, and folders.
-- **Audio Interruption Matrix**: Automatic ducking during notifications, pause on phone calls, and instant pause on headphone unplug (`ACTION_AUDIO_BECOMING_NOISY`).
-- **Sideload GitHub Release Discovery**: Optional, user-triggered update check querying GitHub Releases with SHA-256 hash verification.
+<p align="center">
+  <a href="https://github.com/santjsx/CodeWave/releases/latest"><img src="https://img.shields.io/github/v/release/santjsx/CodeWave?color=00E5FF&label=Release&style=flat-square" alt="Latest Release" /></a>
+  <img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-00E676?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/Audio%20Engine-Media3%20ExoPlayer-2979FF?style=flat-square" alt="Audio Engine" />
+  <img src="https://img.shields.io/badge/DSP-Float32%20DynamicsProcessing-8A2BE2?style=flat-square" alt="DSP" />
+  <img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20%C2%B7%20Zero%20Ads-FFD600?style=flat-square" alt="Privacy" />
+</p>
 
 ---
 
-## Architecture
+## ⚡ Why CodeWave?
 
-Built using Clean Architecture and Android modern guidelines:
+There are hundreds of music players on Android. Most are either ad-bloated generic clones or complex legacy apps with cluttered, outdated UIs. **CodeWave was built to solve this:**
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   PRESENTATION LAYER                   │
-│   Jetpack Compose · Material 3 · Obsidian Theme Tokens │
-│   Screens: Home · Library · Player · Search · EQ       │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│                      DOMAIN LAYER                      │
-│   Models: Track · Album · Artist · Playlist · AudioSpec│
-└─────────────┬────────────────────────────┬─────────────┘
-              │                            │
-┌─────────────▼──────────────┐ ┌───────────▼─────────────┐
-│         DATA LAYER         │ │      PLATFORM & AUDIO   │
-│  Room DB (SQLite + FTS)    │ │  Media3 ExoPlayer       │
-│  MediaStore Scanner        │ │  MediaSessionService    │
-│  DataStore Preferences     │ │  DspEngine (10-Band EQ) │
-│  Repositories              │ │  AudioFocusManager      │
-└────────────────────────────┘ └─────────────────────────┘
-```
+1. **Unfiltered Audio Transparency (Zero Placebo)**  
+   Most players slap a "Hi-Res" badge on a lossy MP3 or hide that Android is downsampling your 96 kHz FLAC to 48 kHz. CodeWave’s **Signature Track Inspector** reveals the real technical pipeline: true file **SOURCE** decoding vs. actual hardware **OUTPUT** device routing, sample rate, bit depth, and buffer latency.
+2. **True 32-Bit Studio Dynamics Processing (DSP)**  
+   No muddy software EQ filters. CodeWave drives Android's hardware `DynamicsProcessing` engine with 10 studio bands (`31 Hz` to `16 kHz`), a calibrated center-zero Master Preamp gain, and transparent limiter anti-clipping protection.
+3. **100% Offline Ownership & Absolute Privacy**  
+   No accounts, no cloud sync, no tracking, no analytics, and zero ads. Your music library remains strictly yours on your device.
+4. **Developer-Grade Obsidian Aesthetic**  
+   Designed with an IDE workstation theme: deep dark palette (`#0B0D10`), illuminated neon telemetry, physical console faders, and 3D glass vitrine playlist containers.
+5. **Instant SQLite FTS4 Search & Smart Library**  
+   Sub-millisecond full-text search across thousands of tracks, with auto-generated dynamic smart collections (*Lossless & Hi-Res*, *Favorites*, *Recently Added*).
 
 ---
 
-## Tech Stack
+## 🎧 Core Features
 
-- **Language**: Kotlin 2.3
-- **Build System**: Gradle 9.1 with Kotlin DSL & Version Catalog (`libs.versions.toml`)
-- **UI Toolkit**: Jetpack Compose BOM 2026.03 + Material 3
-- **Audio Engine**: AndroidX Media3 ExoPlayer 1.5.1 + `MediaSessionService`
-- **Database**: Room 2.8.5 with KSP (Kotlin Symbol Processing) + SQLite FTS4
-- **Image Loading**: Coil 2.7.0 (with bounded 20% memory cache & 128MB disk cache)
-- **Preferences**: Jetpack DataStore Preferences
+- **Float32 Master DSP Console**: 10-band studio graphic EQ, center-zero bipolar master preamp slider (`-12 dB` to `+12 dB`), zero patchy fader artifacts, and 12 tuned acoustic sound profiles with real-time mini-curves.
+- **Glass Vitrine Playlist Containers**: Physical shelf display aesthetic featuring album sleeves nested deeply inside photorealistic frosted glass containers with specular reflections and chrome hardware.
+- **Track Inspector Sheet**: Deep technical inspection for every song showing audio container format, bit depth, physical routing, and DSP processing status.
+- **Incremental MediaStore Scanner**: Rapid background discovery with ContentObserver updates, surviving file renames, SD card moves, and partial downloads.
+- **Seamless In-App OTA Updater**: GitHub Releases discovery with specular download progress bar, live speed telemetry (`MB/s`), and direct APK installation.
 
 ---
 
-## Building & Testing
+## 🛠️ Architecture & Tech Stack
 
-### Prerequisites
-- JDK 17 or JDK 21 (e.g. Amazon Corretto 21)
-- Android SDK (API 26 to API 35)
+| Layer | Technologies |
+|---|---|
+| **UI & Presentation** | Jetpack Compose (BOM 2026), Material 3, Custom Canvas Shaders, Obsidian Design System |
+| **Audio Engine** | AndroidX Media3 ExoPlayer 1.5.1, `MediaSessionService`, `AudioFocusManager` |
+| **DSP & Equalizer** | Android `DynamicsProcessing` (32-bit float), PreEQ Gain Staging, Limiter Guard |
+| **Database & Cache** | Room 2.8.5 with SQLite FTS4, DataStore Preferences, Coil 2.7 |
+| **Language & Build** | Kotlin 2.3, Gradle 9.1 Kotlin DSL, R8 Full Mode Shrinking (`~4.4 MB` APK) |
 
-### Run Unit Tests
+---
+
+## 📥 Download & Installation
+
+Grab the latest signed production APK directly from **[GitHub Releases](https://github.com/santjsx/CodeWave/releases/latest)**:
+
+1. Download **`app-release.apk`**.
+2. Tap the downloaded file to install (enable "Install unknown apps" if prompted).
+3. CodeWave updates itself seamlessly through its built-in OTA updater.
+
+---
+
+## 🏗️ Building from Source
+
 ```bash
-./gradlew testDebugUnitTest
-```
+# Clone repository
+git clone https://github.com/santjsx/CodeWave.git
+cd CodeWave
 
-### Build Production Release APK
-```bash
+# Build debug APK
+./gradlew assembleDebug
+
+# Build optimized release APK
 ./gradlew assembleRelease
 ```
-The optimized, minified (R8), and signed release APK will be located at:
-```
-release/v1.0.0/codewave-v1.0.0-release.apk
-app/build/outputs/apk/release/app-release.apk
-```
-
-### Release Integrity & Verification (v1.0.0)
-- **Min SDK**: API 26 (Android 8.0) · **Target SDK**: API 35 (Android 15)
-- **Size**: `4.25 MB` (4,254,388 bytes — 83% reduction via R8 & resource shrinking)
-- **Signatures**: Verified APK Signature Scheme v2 & Scheme v3
-- **Signer SHA-256**: `9dac2bf05606ca9c9408debabb90d1b81ecdd45c1b55c57b18e4b08ca10a81db`
-- **Package SHA-256**:
-  ```
-  67b9bb5d12843fdd665cb430b25c0a56808c37c33ae9f17fbb4b59312922449c
-  ```
 
 ---
 
-## License
+## 📄 License
 
-All rights reserved. Designed and developed with care.
+Designed and developed with care. Open source under the Apache License 2.0.
