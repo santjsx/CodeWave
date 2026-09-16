@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,8 +56,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -93,17 +96,22 @@ fun PlaylistsScreen(
     val favorites by viewModel.favoriteTracks.collectAsState()
     val playlistCovers by viewModel.playlistCovers.collectAsState()
 
-    var selectedCategory by remember { mutableStateOf(PlaylistCategory.ALL) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
     var playlistToRename by remember { mutableStateOf<Playlist?>(null) }
     var renameText by remember { mutableStateOf("") }
     var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
+
+    var selectedCategory by remember { mutableStateOf(PlaylistCategory.ALL) }
     var selectedTarget by remember { mutableStateOf<CollectionTarget?>(null) }
+
+    // Intercept hardware/gesture back press when Detail Sheet is open
+    BackHandler(enabled = selectedTarget != null) {
+        selectedTarget = null
+    }
 
     val currentTarget = selectedTarget
     if (currentTarget != null) {
-        BackHandler { selectedTarget = null }
         CollectionDetailSheet(
             target = currentTarget,
             libraryRepository = viewModel.libraryRepository,
@@ -116,7 +124,6 @@ fun PlaylistsScreen(
         return
     }
 
-    // Filter items based on selected category (Favorites is uniquely represented by the dedicated card)
     val showFavorites = selectedCategory == PlaylistCategory.ALL || selectedCategory == PlaylistCategory.FAVORITES
     val nonFavoritePlaylists = remember(playlists) {
         playlists.filter { it.smartType != "FAVORITES" && !it.name.equals("Favorites", ignoreCase = true) }
@@ -137,11 +144,11 @@ fun PlaylistsScreen(
             .fillMaxSize()
             .background(CWColors.Background)
     ) {
-        // 1. Header (Title + Add Button)
+        // 1. Studio Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 10.dp),
+                .padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -150,39 +157,43 @@ fun PlaylistsScreen(
                     text = "Playlists",
                     style = CWTypography.AppTypography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = CWColors.TextPrimary,
-                    letterSpacing = (-0.5).sp
+                    color = CWColors.TextPrimary
                 )
+                Spacer(modifier = Modifier.height(2.dp))
+                val totalCollections = playlists.size + (if (favorites.isNotEmpty()) 1 else 0)
                 Text(
-                    text = "${nonFavoritePlaylists.size + 1} Collections in Library",
+                    text = "$totalCollections Collections in Library",
                     style = CWTypography.TechTelemetry,
-                    color = CWColors.TextTertiary,
-                    fontSize = 11.sp
+                    color = CWColors.TextSecondary,
+                    fontSize = 11.5.sp
                 )
             }
 
+            // Create Playlist Action Button
             IconButton(
                 onClick = { showCreateDialog = true },
                 modifier = Modifier
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(CWColors.SurfaceElevated)
+                    .border(1.dp, CWColors.BorderSubtle, CircleShape)
                     .tactilePress()
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Create Playlist",
+                    contentDescription = "New Playlist",
                     tint = CWColors.AccentCyan,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
 
-        // 2. Category Filter Chips (Inspired by "My Books" All, Romance, Fantasy...)
+        // 2. Filter Category Pills (All, Favorites, Custom, Smart Query)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 20.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -192,11 +203,11 @@ fun PlaylistsScreen(
                     modifier = Modifier
                         .clip(RoundedCornerShape(CWShapes.RadiusFull))
                         .background(
-                            if (isSelected) CWColors.TextPrimary else CWColors.SurfaceElevated
+                            if (isSelected) CWColors.AccentCyan else CWColors.SurfacePrimary
                         )
                         .border(
                             width = 1.dp,
-                            color = if (isSelected) CWColors.TextPrimary else CWColors.BorderSubtle,
+                            color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
                             shape = RoundedCornerShape(CWShapes.RadiusFull)
                         )
                         .clickable { selectedCategory = category }
@@ -216,12 +227,12 @@ fun PlaylistsScreen(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // 3. 2-Column Physical Pocket Grid (The "My Books" Shelf Aesthetic)
+        // 3. 2-Column Physical Glass Container Vitrine Grid
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 110.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 120.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             // Favorites Card (Rendered as physical shelf pocket card)
@@ -437,85 +448,154 @@ private fun CollectionPocketCard(
             .fillMaxWidth()
             .tactileClickable(onClick = onClick)
     ) {
-        // Physical pocket & fanned sleeves container
+        // Physical Glass Container Display (Taller 204.dp, Sleeker Aspect Ratio)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(168.dp),
+                .height(204.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
-            // --- BACK LAYER: 3 FAN-SHAPED ALBUM SLEEVES ---
+            // --- BACK DEPTH CASING: Rear inner shadow & tinted glass enclosure ---
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(156.dp)
+                    .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF13171F), Color(0xFF0D1016))
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(CWShapes.RadiusLarge)
+                    )
+            )
+
+            // --- NESTED ALBUM SLEEVES (Sitting deeply inside the Glass Container) ---
             val safeGradients = remember(paletteSeed) {
                 getAestheticBookGradients(paletteSeed, isFavorite)
             }
 
-            // Left Sleeve (-13° tilt)
+            // Left Sleeve (-12° tilt, nestled in the container)
             AlbumSleeve(
                 coverUri = coverUris.getOrNull(0),
                 gradient = safeGradients[0],
                 title = title,
-                rotationZ = -13f,
-                offsetX = (-20).dp,
-                offsetY = (-14).dp,
+                rotationZ = -12f,
+                offsetX = (-22).dp,
+                offsetY = (-10).dp,
                 modifier = Modifier.align(Alignment.Center)
             )
 
-            // Right Sleeve (+13° tilt)
+            // Right Sleeve (+12° tilt, nestled in the container)
             AlbumSleeve(
                 coverUri = coverUris.getOrNull(2) ?: coverUris.getOrNull(0),
                 gradient = safeGradients[2],
                 title = title,
-                rotationZ = 13f,
-                offsetX = 20.dp,
-                offsetY = (-14).dp,
+                rotationZ = 12f,
+                offsetX = 22.dp,
+                offsetY = (-10).dp,
                 modifier = Modifier.align(Alignment.Center)
             )
 
-            // Center Sleeve (Upright 0°, drawn in front of left and right)
+            // Center Sleeve (Upright 0°, sitting front and center inside the glass container)
             AlbumSleeve(
                 coverUri = coverUris.getOrNull(1) ?: coverUris.getOrNull(0),
                 gradient = safeGradients[1],
                 title = title,
                 rotationZ = 0f,
                 offsetX = 0.dp,
-                offsetY = (-18).dp,
+                offsetY = (-14).dp,
                 isCenter = true,
                 modifier = Modifier.align(Alignment.Center)
             )
 
-            // --- FRONT LAYER: FROSTED ACRYLIC POCKET WITH 4 METALLIC PINS ---
+            // --- FRONT GLASS PANE: Frosted glass container with specular reflection & bevel ---
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(86.dp)
-                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                    .background(CWColors.SurfaceElevated.copy(alpha = 0.68f))
+                    .height(148.dp)
+                    .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                    .background(Color(0x73151A24))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.16f),
+                                Color.White.copy(alpha = 0.03f)
+                            )
+                        )
+                    )
                     .border(
                         width = 1.dp,
-                        color = Color.White.copy(alpha = 0.16f),
-                        shape = RoundedCornerShape(CWShapes.RadiusMedium)
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.38f),
+                                Color.White.copy(alpha = 0.08f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(CWShapes.RadiusLarge)
                     )
-                    .padding(6.dp)
             ) {
-                // Pin 1: Top-Left
-                MetallicRivet(modifier = Modifier.align(Alignment.TopStart))
+                // Diagonal Specular Reflection Light Beam (Physical Glass Sheen)
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val path = Path()
+                    path.moveTo(w * 0.18f, 0f)
+                    path.lineTo(w * 0.52f, 0f)
+                    path.lineTo(w * 0.12f, h)
+                    path.lineTo(0f, h)
+                    path.close()
 
-                // Pin 2: Top-Right
-                MetallicRivet(modifier = Modifier.align(Alignment.TopEnd))
+                    drawPath(
+                        path = path,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.14f),
+                                Color.White.copy(alpha = 0.03f),
+                                Color.Transparent
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(w, h)
+                        )
+                    )
+                }
 
-                // Pin 3: Bottom-Left
-                MetallicRivet(modifier = Modifier.align(Alignment.BottomStart))
+                // Polished Top Rim Bevel (Illuminated Glass Lip)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.15f),
+                                    Color.White.copy(alpha = 0.70f),
+                                    Color.White.copy(alpha = 0.15f)
+                                )
+                            )
+                        )
+                        .align(Alignment.TopCenter)
+                )
 
-                // Pin 4: Bottom-Right
-                MetallicRivet(modifier = Modifier.align(Alignment.BottomEnd))
+                // 4 Precision Metallic Standoff Pins / Rivets
+                MetallicRivet(modifier = Modifier.align(Alignment.TopStart).padding(start = 7.dp, top = 8.dp))
+                MetallicRivet(modifier = Modifier.align(Alignment.TopEnd).padding(end = 7.dp, top = 8.dp))
+                MetallicRivet(modifier = Modifier.align(Alignment.BottomStart).padding(start = 7.dp, bottom = 7.dp))
+                MetallicRivet(modifier = Modifier.align(Alignment.BottomEnd).padding(end = 7.dp, bottom = 7.dp))
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // --- BOTTOM METADATA (Title & Subtitle) ---
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -523,17 +603,17 @@ private fun CollectionPocketCard(
                 Text(
                     text = title,
                     style = CWTypography.AppTypography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = CWColors.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(1.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
                     style = CWTypography.TechTelemetry,
                     color = CWColors.TextSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 11.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -614,8 +694,8 @@ private fun AlbumSleeve(
     isCenter: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val width = if (isCenter) 82.dp else 78.dp
-    val height = if (isCenter) 112.dp else 106.dp
+    val width = if (isCenter) 88.dp else 82.dp
+    val height = if (isCenter) 120.dp else 114.dp
 
     Box(
         modifier = modifier
@@ -626,15 +706,15 @@ private fun AlbumSleeve(
             }
             .size(width = width, height = height)
             .shadow(
-                elevation = if (isCenter) 8.dp else 4.dp,
+                elevation = if (isCenter) 10.dp else 5.dp,
                 shape = RoundedCornerShape(CWShapes.RadiusSmall),
                 clip = false
             )
             .clip(RoundedCornerShape(CWShapes.RadiusSmall))
             .background(gradient)
             .border(
-                width = 0.5.dp,
-                color = Color.White.copy(alpha = 0.22f),
+                width = 0.75.dp,
+                color = Color.White.copy(alpha = 0.28f),
                 shape = RoundedCornerShape(CWShapes.RadiusSmall)
             ),
         contentAlignment = Alignment.Center
