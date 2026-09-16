@@ -3,6 +3,7 @@ package com.codewave.player.core.designsystem.component
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,7 +80,7 @@ fun CWMiniPlayer(
                 .padding(horizontal = 8.dp, vertical = 4.dp)
                 .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                 .background(CWColors.SurfaceElevated)
-                .border(0.75.dp, CWColors.BorderFocus, RoundedCornerShape(CWShapes.RadiusMedium))
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
                 .draggable(
                     state = draggableState,
                     orientation = Orientation.Horizontal,
@@ -141,6 +145,8 @@ fun CWMiniPlayer(
                         ) {
                             if (track.isHiRes) {
                                 CWQualityBadge(text = "HI-RES", isHiRes = true, modifier = Modifier.padding(end = 4.dp))
+                            } else if (track.isLossless) {
+                                CWQualityBadge(text = "LOSSLESS", isLossless = true, modifier = Modifier.padding(end = 4.dp))
                             }
                             Text(
                                 text = track.artist,
@@ -192,15 +198,38 @@ fun CWMiniPlayer(
                     }
                 }
 
-                // Progress Indicator
-                LinearProgressIndicator(
-                    progress = { progress.coerceIn(0f, 1f) },
+                // High-Definition Progress Bar (Prominent, High-Contrast & Beautiful)
+                val safeProgress = progress.coerceIn(0f, 1f)
+                val accentColor = CWColors.AccentCyan
+                val secondaryAccent = CWColors.AccentBlue
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(2.dp),
-                    color = CWColors.AccentCyan,
-                    trackColor = CWColors.SurfaceOverlay
-                )
+                        .height(3.5.dp)
+                        .clip(RoundedCornerShape(bottomStart = CWShapes.RadiusMedium, bottomEnd = CWShapes.RadiusMedium))
+                        .background(Color(0xFF0D1117))
+                ) {
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        val barWidth = size.width * safeProgress
+                        if (barWidth > 0f) {
+                            // Glowing gradient fill
+                            drawRect(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(secondaryAccent, accentColor)
+                                ),
+                                size = Size(barWidth, size.height)
+                            )
+
+                            // Leading edge glow pulse
+                            drawCircle(
+                                color = Color.White.copy(alpha = 0.85f),
+                                radius = size.height * 0.75f,
+                                center = Offset(barWidth, size.height / 2f)
+                            )
+                        }
+                    }
+                }
             }
         }
     }

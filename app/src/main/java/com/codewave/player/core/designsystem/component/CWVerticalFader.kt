@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -54,12 +56,17 @@ fun CWVerticalFader(
         localGain = gainDb
     }
 
+    val isActive = localGain != 0f && enabled
+
     Column(
         modifier = modifier
-            .width(58.dp)
-            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-            .background(CWColors.SurfacePrimary)
-            .border(0.75.dp, if (localGain != 0f && enabled) CWColors.BorderFocus else CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+            .background(if (isActive) CWColors.SurfaceElevated else CWColors.SurfacePrimary)
+            .border(
+                0.75.dp,
+                if (isActive) CWColors.AccentCyan.copy(alpha = 0.5f) else CWColors.BorderSubtle,
+                RoundedCornerShape(CWShapes.RadiusSmall)
+            )
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
                 detectTapGestures(
@@ -69,48 +76,50 @@ fun CWVerticalFader(
                     }
                 )
             }
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = 6.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Gain Readout (Double tap anywhere on fader card to reset to 0 dB)
+        // Gain Readout (VS Code monospace telemetry)
         Text(
             text = if (localGain == 0f) "0.0" else "%+.1f".format(localGain),
             style = CWTypography.TechTelemetry,
-            fontSize = 11.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
-            color = if (localGain != 0f && enabled) CWColors.AccentCyan else CWColors.TextSecondary
+            color = if (isActive) CWColors.AccentCyan else CWColors.TextSecondary,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Fader Track & Knob Container with Unified Gestures
         BoxWithConstraints(
             modifier = Modifier
-                .height(134.dp)
-                .width(46.dp),
+                .fillMaxWidth()
+                .height(124.dp),
             contentAlignment = Alignment.Center
         ) {
             val trackHeightPx = constraints.maxHeight.toFloat()
-            val knobHeightDp = 22.dp
+            val knobHeightDp = 16.dp
             val knobHeightPx = with(density) { knobHeightDp.toPx() }
             val travelRangePx = (trackHeightPx - knobHeightPx).coerceAtLeast(1f)
 
             // Center vertical track groove
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(134.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(CWColors.SurfaceElevated)
-                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(2.dp))
+                    .width(3.dp)
+                    .height(124.dp)
+                    .clip(RoundedCornerShape(1.5.dp))
+                    .background(CWColors.SurfaceOverlay)
+                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(1.5.dp))
             )
 
             // Center 0 dB Reference Tick Notch
             Box(
                 modifier = Modifier
-                    .width(20.dp)
-                    .height(1.5.dp)
-                    .background(CWColors.BorderFocus.copy(alpha = 0.6f))
+                    .width(14.dp)
+                    .height(1.dp)
+                    .background(CWColors.BorderFocus.copy(alpha = 0.7f))
             )
 
             // Fader Knob
@@ -119,29 +128,29 @@ fun CWVerticalFader(
 
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(0.9f)
                     .offset { IntOffset(0, knobOffsetPx - (travelRangePx / 2).roundToInt()) }
                     .height(knobHeightDp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(if (enabled) CWColors.SurfaceOverlay else CWColors.SurfaceElevated)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (enabled) CWColors.SurfaceElevated else CWColors.SurfacePrimary)
                     .border(
                         1.dp,
-                        if (enabled) CWColors.BorderFocus else CWColors.BorderSubtle,
-                        RoundedCornerShape(4.dp)
+                        if (isActive) CWColors.AccentCyan else CWColors.BorderFocus,
+                        RoundedCornerShape(3.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 // Tactile grip line
                 Box(
                     modifier = Modifier
-                        .width(22.dp)
-                        .height(2.5.dp)
+                        .fillMaxWidth(0.65f)
+                        .height(2.dp)
                         .clip(RoundedCornerShape(1.dp))
-                        .background(if (enabled) CWColors.AccentCyan else CWColors.TextTertiary)
+                        .background(if (isActive) CWColors.AccentCyan else CWColors.TextTertiary)
                 )
             }
 
-            // Dedicated Unified Touch Gesture Overlay
+            // Touch Gesture Overlay (Full Column Capture)
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -158,9 +167,7 @@ fun CWVerticalFader(
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                 if (!change.pressed) {
-                                    // Pointer released
-                                    if (!isDragging && System.currentTimeMillis() - downTime < 300L) {
-                                        // Tap on track groove directly positions the knob
+                                    if (!isDragging && System.currentTimeMillis() - downTime < 280L) {
                                         val knobRadius = knobHeightPx / 2f
                                         val clampedY = (startY - knobRadius).coerceIn(0f, travelRangePx)
                                         val fraction = (clampedY / travelRangePx).coerceIn(0f, 1f)
@@ -173,7 +180,7 @@ fun CWVerticalFader(
                                 }
 
                                 val deltaY = change.position.y - currentY
-                                if (!isDragging && kotlin.math.abs(change.position.y - startY) > 6f) {
+                                if (!isDragging && abs(change.position.y - startY) > 5f) {
                                     isDragging = true
                                 }
 
@@ -191,14 +198,17 @@ fun CWVerticalFader(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
-        // Frequency Label
+        // Frequency Label (VS Code syntax tag)
         Text(
             text = label,
             style = CWTypography.TechBadge,
-            color = if (enabled) CWColors.TextPrimary else CWColors.TextTertiary,
-            textAlign = TextAlign.Center
+            color = if (isActive) CWColors.AccentCyan else CWColors.TextSecondary,
+            fontSize = 9.sp,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
     }
 }

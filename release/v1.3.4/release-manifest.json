@@ -1,0 +1,11 @@
+{
+  "version": "1.3.4",
+  "versionCode": 8,
+  "minimumSupportedVersion": "1.0.0",
+  "releaseChannel": "Stable",
+  "releaseNotes": "CodeWave v1.3.4: Enhanced Lossless & Hi-Res explainer popup with plain-English fidelity breakdowns and resolution tier ladder, eliminated app icon black borders and double squircles with full-bleed adaptive framing, upgraded miniplayer with prominent high-contrast 3.5dp progress bar and leading glow pulse, and completely overhauled the Equalizer into a clean, unique VS Code-inspired workstation with zero horizontal scrolling for sliders and presets and a live parametric frequency curve.",
+  "apkUrl": "https://github.com/santjsx/CodeWave/releases/download/v1.3.4/CodeWave-v1.3.4.apk",
+  "sha256": "a2127d9e2bd7a8225560baf9669fc16fe1dd55ad94a2a04aaf14a3fa9dde46c9",
+  "size": 4380041,
+  "publishedAt": "2026-09-16T04:35:00.000000+00:00"
+}
