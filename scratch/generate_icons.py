@@ -2,7 +2,8 @@ import os
 from PIL import Image, ImageDraw, ImageFilter
 import numpy as np
 
-src_path = r"c:\Users\heysa\Documents\Dev\CodeWave\ChatGPT Image Sep 16, 2026, 03_39_32 AM.png"
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, "app-icon.png")
 res_dir = r"c:\Users\heysa\Documents\Dev\CodeWave\app\src\main\res"
 
 img = Image.open(src_path).convert("RGBA")
