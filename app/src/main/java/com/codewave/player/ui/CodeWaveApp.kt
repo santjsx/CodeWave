@@ -98,6 +98,19 @@ fun CodeWaveApp(
             container.otaUpdateManager
         )
     )
+    val streamViewModel: com.codewave.player.ui.stream.StreamViewModel = viewModel(
+        factory = com.codewave.player.ui.stream.StreamViewModel.provideFactory(
+            container.streamRepository,
+            container.playbackRepository,
+            container.downloadRepository
+        )
+    )
+    val downloadViewModel: com.codewave.player.ui.download.DownloadViewModel = viewModel(
+        factory = com.codewave.player.ui.download.DownloadViewModel.provideFactory(
+            container.downloadRepository,
+            container.streamRepository
+        )
+    )
 
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
@@ -202,7 +215,9 @@ fun CodeWaveApp(
                     onNavigateToSettings = { currentScreen = Screen.Settings },
                     onTrackInspect = { inspectedTrack = it },
                     onOpenThemes = { isThemeSheetOpen = true },
-                    onTrackOptions = { selectedTrackForOptions = it }
+                    onTrackOptions = { selectedTrackForOptions = it },
+                    onNavigateToStream = { currentScreen = Screen.Stream },
+                    onNavigateToDownloads = { currentScreen = Screen.Downloads }
                 )
                 Screen.Library -> LibraryScreen(
                     viewModel = libraryViewModel,
@@ -215,7 +230,8 @@ fun CodeWaveApp(
                     onTrackInspect = { inspectedTrack = it },
                     onTrackOptions = { selectedTrackForOptions = it },
                     onNavigateToAlbum = { album -> activeCollectionTarget = CollectionTarget.AlbumTarget(album) },
-                    onNavigateToArtist = { artist -> activeCollectionTarget = CollectionTarget.ArtistTarget(artist) }
+                    onNavigateToArtist = { artist -> activeCollectionTarget = CollectionTarget.ArtistTarget(artist) },
+                    onNavigateToStream = { currentScreen = Screen.Stream }
                 )
                 Screen.Playlists -> PlaylistsScreen(
                     viewModel = playlistsViewModel,
@@ -227,6 +243,14 @@ fun CodeWaveApp(
                 )
                 Screen.Settings -> SettingsScreen(
                     viewModel = settingsViewModel,
+                    onBack = { currentScreen = Screen.Home }
+                )
+                Screen.Stream -> com.codewave.player.ui.stream.StreamExploreScreen(
+                    viewModel = streamViewModel,
+                    onNavigateToDownloads = { currentScreen = Screen.Downloads }
+                )
+                Screen.Downloads -> com.codewave.player.ui.download.DownloadCenterScreen(
+                    viewModel = downloadViewModel,
                     onBack = { currentScreen = Screen.Home }
                 )
             }

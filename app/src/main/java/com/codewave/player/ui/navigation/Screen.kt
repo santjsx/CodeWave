@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -16,6 +18,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Playlists : Screen("playlists", "Playlists", Icons.Default.PlaylistPlay)
     data object Equalizer : Screen("equalizer", "DSP / EQ", Icons.Default.Equalizer)
     data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+    data object Stream : Screen("stream", "Stream", Icons.Default.CloudQueue)
+    data object Downloads : Screen("downloads", "Downloads", Icons.Default.Download)
 
     companion object {
         val bottomNavItems: List<Screen>

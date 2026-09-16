@@ -15,6 +15,9 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val playbackRepository: PlaybackRepository
     val otaUpdateManager: com.codewave.player.core.ota.OtaUpdateManager
+    val streamRepository: StreamRepository
+    val downloadRepository: DownloadRepository
+    val downloadManager: com.codewave.player.core.download.DownloadManager
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
@@ -64,5 +67,48 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val otaUpdateManager: com.codewave.player.core.ota.OtaUpdateManager by lazy {
         com.codewave.player.core.ota.OtaUpdateManager(context)
+    }
+
+    private val innerTubeClient by lazy {
+        com.codewave.player.core.network.innertube.InnerTubeClient()
+    }
+
+    private val metadataResolver by lazy {
+        com.codewave.player.core.network.resolver.MetadataResolver()
+    }
+
+    private val lyricsProvider by lazy {
+        com.codewave.player.core.media.LrclibLyricsProvider()
+    }
+
+    private val losslessSourceProvider by lazy {
+        com.codewave.player.core.network.downloader.LosslessSourceProvider(
+            innerTubeClient = innerTubeClient,
+            metadataResolver = metadataResolver
+        )
+    }
+
+    override val downloadManager: com.codewave.player.core.download.DownloadManager by lazy {
+        com.codewave.player.core.download.DownloadManager(
+            context = context,
+            downloadDao = database.downloadDao(),
+            losslessSourceProvider = losslessSourceProvider,
+            audioScanner = audioScanner
+        )
+    }
+
+    override val streamRepository: StreamRepository by lazy {
+        DefaultStreamRepository(
+            innerTubeClient = innerTubeClient,
+            metadataResolver = metadataResolver,
+            lyricsProvider = lyricsProvider
+        )
+    }
+
+    override val downloadRepository: DownloadRepository by lazy {
+        DefaultDownloadRepository(
+            downloadManager = downloadManager,
+            settingsRepository = settingsRepository
+        )
     }
 }

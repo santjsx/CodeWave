@@ -60,9 +60,14 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .build()
 
+        val cacheDataSourceFactory = Media3CacheManager.createCacheDataSourceFactory(this)
+        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(this)
+            .setDataSourceFactory(cacheDataSourceFactory)
+
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, false) // Managed via our custom AudioFocusManager
             .setHandleAudioBecomingNoisy(false) // Managed via our custom AudioBecomingNoisyReceiver
+            .setMediaSourceFactory(mediaSourceFactory)
             .build()
 
         val eqRepo = (application as CodeWaveApplication).container.equalizerRepository

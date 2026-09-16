@@ -123,7 +123,15 @@ fun NowPlayingScreen(
     androidx.compose.runtime.LaunchedEffect(track.id, track.path) {
         lyricsResult = LyricsResult.Loading
         withContext(Dispatchers.IO) {
-            val res = LrcParser.loadLyricsForTrack(track.path)
+            var res = LrcParser.loadLyricsForTrack(track.path)
+            if (res == LyricsResult.Unavailable) {
+                try {
+                    val onlineLyrics = com.codewave.player.core.media.LrclibLyricsProvider().fetchLyrics(track)
+                    if (onlineLyrics is LyricsResult.Synchronized || onlineLyrics is LyricsResult.Plain) {
+                        res = onlineLyrics
+                    }
+                } catch (_: Exception) {}
+            }
             lyricsResult = res
         }
     }

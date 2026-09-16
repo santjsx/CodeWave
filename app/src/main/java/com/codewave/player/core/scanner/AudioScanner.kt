@@ -239,6 +239,119 @@ class AudioScanner(
         candidates.size
     }
 
+    /**
+     * Immediately scans a single newly-downloaded audio file into the Room database
+     * so it surfaces in the user's library without waiting for a full MediaStore batch scan.
+     */
+    suspend fun scanSingleFile(context: Context, fileUri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            var mediaStoreId = -1L
+            var path = fileUri.path.orEmpty()
+            var titleFallback = "Downloaded Audio"
+            var artistFallback = "Unknown Artist"
+            var albumFallback = "Unknown Album"
+            var size = 0L
+            var dateAdded = System.currentTimeMillis() / 1000
+            var mimeType = "audio/flac"
+
+            var albumId = -1L
+
+            if (fileUri.scheme == "content") {
+                val proj = arrayOf(
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.DATA,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.ALBUM,
+                    MediaStore.Audio.Media.ALBUM_ID,
+                    MediaStore.Audio.Media.SIZE,
+                    MediaStore.Audio.Media.MIME_TYPE
+                )
+                context.contentResolver.query(fileUri, proj, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        mediaStoreId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID))
+                        path = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)).orEmpty()
+                        titleFallback = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)).orEmpty()
+                        artistFallback = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)).orEmpty()
+                        albumFallback = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)).orEmpty()
+                        val albumIdCol = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
+                        if (albumIdCol != -1) albumId = cursor.getLong(albumIdCol)
+                        size = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE))
+                        mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)).orEmpty()
+                    }
+                }
+            } else if (fileUri.scheme == "file") {
+                val file = java.io.File(fileUri.path.orEmpty())
+                if (file.exists()) {
+                    size = file.length()
+                    titleFallback = file.nameWithoutExtension
+                }
+            }
+
+            val metadata = MetadataExtractor.extract(
+                context = context,
+                uri = fileUri,
+                path = path,
+                mimeType = mimeType,
+                fallbackTitle = titleFallback,
+                fallbackArtist = artistFallback,
+                fallbackAlbum = albumFallback,
+                fallbackDuration = 0L
+            )
+
+            val fingerprint = AudioFingerprint.compute(
+                fileSize = size,
+                durationMs = metadata.durationMs,
+                title = metadata.title,
+                artist = metadata.artist
+            )
+
+            val albumArtUri = if (albumId > 0L) {
+                ContentUris.withAppendedId(
+                    Uri.parse("content://media/external/audio/albumart"),
+                    albumId
+                ).toString()
+            } else null
+
+            val entity = TrackEntity(
+                mediaStoreId = if (mediaStoreId != -1L) mediaStoreId else System.currentTimeMillis(),
+                uri = fileUri.toString(),
+                path = path,
+                title = metadata.title,
+                artist = metadata.artist,
+                album = metadata.album,
+                albumArtist = metadata.albumArtist,
+                genre = metadata.genre,
+                year = metadata.year,
+                trackNumber = metadata.trackNumber,
+                discNumber = metadata.discNumber,
+                durationMs = metadata.durationMs,
+                fileSize = size,
+                dateAdded = dateAdded,
+                dateModified = dateAdded,
+                mimeType = mimeType,
+                format = metadata.format.name,
+                codec = metadata.codec,
+                sampleRate = metadata.sampleRate,
+                bitDepth = metadata.bitDepth,
+                channels = metadata.channels,
+                bitrateKbps = metadata.bitrateKbps,
+                isLossless = metadata.isLossless,
+                isHiRes = metadata.isHiRes,
+                albumArtUri = albumArtUri,
+                fingerprint = fingerprint,
+                isFavorite = false,
+                playCount = 0,
+                lastPlayedTimestamp = null
+            )
+
+            trackDao.insertTrack(entity)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun startObservingMediaStore(coroutineScope: CoroutineScope) {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             private var debounceJob: Job? = null
