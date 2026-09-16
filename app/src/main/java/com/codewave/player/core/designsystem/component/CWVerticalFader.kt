@@ -63,7 +63,6 @@ fun CWVerticalFader(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-            .background(if (isActive) CWColors.AccentCyan.copy(alpha = 0.08f) else Color.Transparent)
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
                 detectTapGestures(

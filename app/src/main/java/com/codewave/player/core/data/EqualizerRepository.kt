@@ -13,11 +13,14 @@ import com.codewave.player.core.model.EqualizerBand
 import com.codewave.player.core.model.EqualizerConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -41,6 +44,8 @@ class DefaultEqualizerRepository(
 ) : EqualizerRepository {
 
     private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var preampPersistJob: Job? = null
+    private var bandGainPersistJob: Job? = null
 
     private object PreferencesKeys {
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
@@ -55,27 +60,26 @@ class DefaultEqualizerRepository(
 
     init {
         repoScope.launch {
-            context.eqDataStore.data.collect { prefs ->
-                val enabled = prefs[PreferencesKeys.EQ_ENABLED] ?: false
-                val preamp = prefs[PreferencesKeys.PREAMP_GAIN] ?: 0f
-                val limiter = prefs[PreferencesKeys.LIMITER_ENABLED] ?: true
-                val preset = prefs[PreferencesKeys.ACTIVE_PRESET] ?: "Flat"
-                val gainsStr = prefs[PreferencesKeys.BAND_GAINS] ?: "0,0,0,0,0,0,0,0,0,0"
+            val prefs = context.eqDataStore.data.first()
+            val enabled = prefs[PreferencesKeys.EQ_ENABLED] ?: false
+            val preamp = prefs[PreferencesKeys.PREAMP_GAIN] ?: 0f
+            val limiter = prefs[PreferencesKeys.LIMITER_ENABLED] ?: true
+            val preset = prefs[PreferencesKeys.ACTIVE_PRESET] ?: "Flat"
+            val gainsStr = prefs[PreferencesKeys.BAND_GAINS] ?: "0,0,0,0,0,0,0,0,0,0"
 
-                val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }
-                val defaultBands = EqualizerConfig.defaultBands()
-                val bands = defaultBands.mapIndexed { index, band ->
-                    band.copy(gainDb = gains.getOrElse(index) { 0f })
-                }
-
-                _equalizerConfig.value = EqualizerConfig(
-                    isEnabled = enabled,
-                    preampGainDb = preamp,
-                    isLimiterEnabled = limiter,
-                    activePresetName = preset,
-                    bands = bands
-                )
+            val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }
+            val defaultBands = EqualizerConfig.defaultBands()
+            val bands = defaultBands.mapIndexed { index, band ->
+                band.copy(gainDb = gains.getOrElse(index) { 0f })
             }
+
+            _equalizerConfig.value = EqualizerConfig(
+                isEnabled = enabled,
+                preampGainDb = preamp,
+                isLimiterEnabled = limiter,
+                activePresetName = preset,
+                bands = bands
+            )
         }
     }
 
@@ -101,7 +105,9 @@ class DefaultEqualizerRepository(
 
     override suspend fun setPreampGain(gainDb: Float) {
         _equalizerConfig.update { it.copy(preampGainDb = gainDb) }
-        repoScope.launch {
+        preampPersistJob?.cancel()
+        preampPersistJob = repoScope.launch {
+            delay(250)
             context.eqDataStore.edit { it[PreferencesKeys.PREAMP_GAIN] = gainDb }
         }
     }
@@ -123,7 +129,9 @@ class DefaultEqualizerRepository(
                 bands = updatedBands
             )
         }
-        repoScope.launch {
+        bandGainPersistJob?.cancel()
+        bandGainPersistJob = repoScope.launch {
+            delay(250)
             val gains = _equalizerConfig.value.bands.map { it.gainDb }
             context.eqDataStore.edit { prefs ->
                 prefs[PreferencesKeys.BAND_GAINS] = gains.joinToString(",")
@@ -144,6 +152,8 @@ class DefaultEqualizerRepository(
                 bands = updatedBands
             )
         }
+        preampPersistJob?.cancel()
+        bandGainPersistJob?.cancel()
         repoScope.launch {
             context.eqDataStore.edit { prefs ->
                 prefs[PreferencesKeys.ACTIVE_PRESET] = preset.name

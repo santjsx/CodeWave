@@ -4,15 +4,19 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,8 +36,6 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -55,6 +57,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -62,7 +66,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWVerticalFader
-import com.codewave.player.core.designsystem.component.tactilePress
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
@@ -245,7 +248,7 @@ fun EqualizerScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 3. Unified 10-Band Studio Console Chassis (No Cluttered 10 Individual Box Outlines)
+        // 3. Seamless 10-Band Studio Console Chassis (Uniform, Non-Patchy Backplate)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -275,158 +278,7 @@ fun EqualizerScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 4. Sound Profile & Preset Selection (ZERO Text Truncation)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Active Sound Profile Hero Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(CWShapes.RadiusLarge))
-                    .background(CWColors.SurfacePrimary)
-                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.45f), RoundedCornerShape(CWShapes.RadiusLarge))
-                    .clickable { isPresetSheetOpen = true }
-                    .padding(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(CWColors.AccentCyan.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = CWColors.AccentCyan,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "ACTIVE SOUND PROFILE",
-                                style = CWTypography.TechBadge,
-                                color = CWColors.TextTertiary,
-                                fontSize = 9.sp
-                            )
-                            Text(
-                                text = config.activePresetName,
-                                style = CWTypography.AppTypography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = CWColors.TextPrimary
-                            )
-                            val activePreset = presets.find { it.name == config.activePresetName }
-                            if (activePreset != null) {
-                                Text(
-                                    text = activePreset.profileSubtitle,
-                                    style = CWTypography.AppTypography.bodySmall,
-                                    color = CWColors.TextSecondary,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-
-                    // Browse All trigger button
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-                            .background(CWColors.SurfaceElevated)
-                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "BROWSE ALL",
-                                style = CWTypography.TechBadge,
-                                color = CWColors.AccentCyan,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ExpandMore,
-                                contentDescription = null,
-                                tint = CWColors.AccentCyan,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Horizontal Scrollable Sound Profile Strip (Every name is 100% visible, zero truncation!)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                presets.forEach { preset ->
-                    val isSelected = config.activePresetName == preset.name
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(CWShapes.RadiusFull))
-                            .background(
-                                if (isSelected) CWColors.AccentCyan else CWColors.SurfacePrimary
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
-                                shape = RoundedCornerShape(CWShapes.RadiusFull)
-                            )
-                            .clickable { viewModel.applyPreset(preset) }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = CWColors.Background,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                            }
-                            Text(
-                                text = preset.name,
-                                style = CWTypography.TechBadge,
-                                fontSize = 10.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) CWColors.Background else CWColors.TextSecondary,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 5. Preamp Gain & Limiter Protection Strip (Studio Hardware Rack)
+        // 4. Studio Master Preamp Gain Console (Bipolar Center-Zero Hardware Slider)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -460,49 +312,112 @@ fun EqualizerScreen(
                         )
                     }
                     Text(
-                        text = "%+.1f dB".format(config.preampGainDb),
+                        text = if (config.preampGainDb == 0f) "0.0 dB" else "%+.1f dB".format(config.preampGainDb),
                         style = CWTypography.TechTelemetry,
-                        color = CWColors.AccentCyan,
+                        color = when {
+                            !config.isEnabled -> CWColors.TextTertiary
+                            config.preampGainDb > 0f -> CWColors.AccentCyan
+                            config.preampGainDb < 0f -> Color(0xFFFF8A65)
+                            else -> CWColors.TextPrimary
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
 
-                var localPreamp by remember(config.preampGainDb) { mutableFloatStateOf(config.preampGainDb) }
-                LaunchedEffect(config.preampGainDb) {
-                    localPreamp = config.preampGainDb
-                }
+                Spacer(modifier = Modifier.height(6.dp))
 
-                Slider(
-                    value = localPreamp,
-                    onValueChange = {
-                        localPreamp = (it * 2).roundToInt() / 2f
-                        viewModel.setPreampGain(localPreamp)
-                    },
-                    valueRange = -12f..12f,
-                    enabled = config.isEnabled,
-                    colors = SliderDefaults.colors(
-                        thumbColor = CWColors.AccentCyan,
-                        activeTrackColor = CWColors.AccentCyan,
-                        inactiveTrackColor = CWColors.SurfaceOverlay
-                    )
+                // Custom Studio Bipolar Slider
+                StudioBipolarSlider(
+                    value = config.preampGainDb,
+                    onValueChange = { viewModel.setPreampGain(it) },
+                    enabled = config.isEnabled
                 )
 
+                // Quick dB Jump Chips (Fixed Row, Zero Horizontal Scrolling)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val quickGains = listOf(-6.0f, -3.0f, 0.0f, 3.0f, 6.0f)
+                    quickGains.forEach { targetGain ->
+                        val isCurrent = kotlin.math.abs(config.preampGainDb - targetGain) < 0.25f
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(
+                                    if (isCurrent && config.isEnabled) CWColors.AccentCyan.copy(alpha = 0.15f)
+                                    else CWColors.SurfaceElevated
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isCurrent && config.isEnabled) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                    shape = RoundedCornerShape(CWShapes.RadiusSmall)
+                                )
+                                .clickable(enabled = config.isEnabled) {
+                                    viewModel.setPreampGain(targetGain)
+                                }
+                                .padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (targetGain == 0f) "0 dB" else "%+.0f dB".format(targetGain),
+                                style = CWTypography.TechBadge,
+                                color = if (isCurrent && config.isEnabled) CWColors.AccentCyan else CWColors.TextSecondary,
+                                fontSize = 9.5.sp,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Limiter Anti-Clipping Guard (ZERO Truncation with weight(1f))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "Limiter Anti-Clipping Guard",
-                            style = CWTypography.AppTypography.bodyMedium,
-                            color = CWColors.TextPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Limiter Anti-Clipping Guard",
+                                style = CWTypography.AppTypography.bodyMedium,
+                                color = CWColors.TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (config.isLimiterEnabled && config.isEnabled) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(CWShapes.RadiusFull))
+                                        .background(CWColors.Success.copy(alpha = 0.15f))
+                                        .border(0.5.dp, CWColors.Success.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusFull))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "PROTECTED",
+                                        style = CWTypography.TechBadge,
+                                        color = CWColors.Success,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "Protects 32-bit floating-point audio engine against digital clipping",
                             style = CWTypography.AppTypography.bodySmall,
@@ -521,6 +436,261 @@ fun EqualizerScreen(
                             uncheckedThumbColor = CWColors.TextTertiary,
                             uncheckedTrackColor = CWColors.SurfaceOverlay
                         )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 5. Studio Sound Profile Hub (ZERO Horizontal Scrolling, Full Visibility)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Active Sound Profile Hero Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                    .background(CWColors.SurfacePrimary)
+                    .border(
+                        1.dp,
+                        if (config.isEnabled) CWColors.AccentCyan.copy(alpha = 0.45f) else CWColors.BorderSubtle,
+                        RoundedCornerShape(CWShapes.RadiusLarge)
+                    )
+                    .clickable { isPresetSheetOpen = true }
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(CWColors.AccentCyan.copy(alpha = 0.15f))
+                                .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.3f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = CWColors.AccentCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "ACTIVE SOUND PROFILE",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.TextTertiary,
+                                    fontSize = 8.5.sp
+                                )
+                                val activePreset = presets.find { it.name == config.activePresetName }
+                                if (activePreset?.isBuiltIn == true) {
+                                    Text(
+                                        text = "STUDIO",
+                                        style = CWTypography.TechBadge,
+                                        color = CWColors.AccentCyan,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = config.activePresetName,
+                                style = CWTypography.AppTypography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = CWColors.TextPrimary
+                            )
+                            val activePreset = presets.find { it.name == config.activePresetName }
+                            if (activePreset != null) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = activePreset.profileSubtitle,
+                                    style = CWTypography.AppTypography.bodySmall,
+                                    color = CWColors.TextSecondary,
+                                    fontSize = 11.sp,
+                                    maxLines = 2,
+                                    softWrap = true,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    // Browse All action trigger
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "BROWSE (${presets.size})",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.AccentCyan,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = CWColors.AccentCyan,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Fixed Studio Preset Matrix (Row 1: 3 items, Row 2: 3 items — ZERO Horizontal Scrolling!)
+            val row1 = listOf("Flat", "Bass Boost", "Vocal Clarity")
+            val row2 = listOf("Electronic", "Rock")
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row1.forEach { presetName ->
+                    val preset = presets.find { it.name.equals(presetName, ignoreCase = true) }
+                    val isSelected = config.activePresetName.equals(presetName, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                            .background(
+                                if (isSelected) CWColors.AccentCyan.copy(alpha = 0.18f) else CWColors.SurfacePrimary
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                shape = RoundedCornerShape(CWShapes.RadiusMedium)
+                            )
+                            .clickable {
+                                preset?.let { viewModel.applyPreset(it) }
+                            }
+                            .padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = CWColors.AccentCyan,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                            }
+                            Text(
+                                text = presetName,
+                                style = CWTypography.TechBadge,
+                                fontSize = 9.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) CWColors.AccentCyan else CWColors.TextSecondary,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row2.forEach { presetName ->
+                    val preset = presets.find { it.name.equals(presetName, ignoreCase = true) }
+                    val isSelected = config.activePresetName.equals(presetName, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                            .background(
+                                if (isSelected) CWColors.AccentCyan.copy(alpha = 0.18f) else CWColors.SurfacePrimary
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                shape = RoundedCornerShape(CWShapes.RadiusMedium)
+                            )
+                            .clickable {
+                                preset?.let { viewModel.applyPreset(it) }
+                            }
+                            .padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = CWColors.AccentCyan,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                            }
+                            Text(
+                                text = presetName,
+                                style = CWTypography.TechBadge,
+                                fontSize = 9.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) CWColors.AccentCyan else CWColors.TextSecondary,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                // 6th Slot: "MORE (12)..." opens bottom sheet
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                        .background(CWColors.SurfaceElevated)
+                        .border(
+                            width = 1.dp,
+                            color = CWColors.BorderSubtle,
+                            shape = RoundedCornerShape(CWShapes.RadiusMedium)
+                        )
+                        .clickable { isPresetSheetOpen = true }
+                        .padding(vertical = 9.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "MORE (${presets.size})...",
+                        style = CWTypography.TechBadge,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CWColors.AccentCyan,
+                        maxLines = 1
                     )
                 }
             }
@@ -647,9 +817,217 @@ fun EqualizerScreen(
 }
 
 /**
+ * Studio Bipolar Slider:
+ * - Calibrated center-zero (0.0 dB) detent notch
+ * - Cuts (< 0 dB) fill left in warm Coral (0xFFFF8A65)
+ * - Boosts (> 0 dB) fill right in studio Cyan (0xFF00E5FF)
+ * - Double-tap anywhere snaps immediately to 0.0 dB
+ * - Smooth drag with 0.5 dB quantization
+ */
+@Composable
+private fun StudioBipolarSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = -12f..12f,
+    enabled: Boolean = true
+) {
+    val density = LocalDensity.current
+    var localVal by remember(value) { mutableFloatStateOf(value) }
+    LaunchedEffect(value) {
+        localVal = value
+    }
+
+    val minVal = valueRange.start
+    val maxVal = valueRange.endInclusive
+    val span = maxVal - minVal
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onDoubleTap = {
+                        localVal = 0f
+                        onValueChange(0f)
+                    }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        val widthPx = constraints.maxWidth.toFloat()
+        val knobDiameterDp = 22.dp
+        val knobRadiusPx = with(density) { (knobDiameterDp / 2).toPx() }
+        val usableWidthPx = (widthPx - knobRadiusPx * 2).coerceAtLeast(1f)
+        val centerRatio = (-minVal) / span
+        val centerPosPx = knobRadiusPx + centerRatio * usableWidthPx
+
+        val currentRatio = ((localVal - minVal) / span).coerceIn(0f, 1f)
+        val currentKnobPx = knobRadiusPx + currentRatio * usableWidthPx
+
+        // Track Canvas: Groove, center detent tick, and dynamic bipolar fill
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val h = size.height
+            val cy = h / 2f
+            val trackHeight = 6.dp.toPx()
+            val trackCorner = 3.dp.toPx()
+
+            // Groove background
+            drawRoundRect(
+                color = Color(0xFF0F1318),
+                topLeft = Offset(knobRadiusPx, cy - trackHeight / 2),
+                size = androidx.compose.ui.geometry.Size(usableWidthPx, trackHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner)
+            )
+
+            // Groove border
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.1f),
+                topLeft = Offset(knobRadiusPx, cy - trackHeight / 2),
+                size = androidx.compose.ui.geometry.Size(usableWidthPx, trackHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner),
+                style = Stroke(width = 1f)
+            )
+
+            // Center 0 dB Detent Notch
+            drawLine(
+                color = if (localVal == 0f && enabled) CWColors.AccentCyan else Color.White.copy(alpha = 0.35f),
+                start = Offset(centerPosPx, cy - 8.dp.toPx()),
+                end = Offset(centerPosPx, cy + 8.dp.toPx()),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+
+            // Bipolar Fill from Center to Knob
+            if (enabled && localVal != 0f) {
+                if (localVal > 0f) {
+                    val fillStart = centerPosPx
+                    val fillWidth = (currentKnobPx - centerPosPx).coerceAtLeast(0f)
+                    if (fillWidth > 1f) {
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(CWColors.AccentCyan.copy(alpha = 0.7f), CWColors.AccentCyan),
+                                startX = fillStart,
+                                endX = fillStart + fillWidth
+                            ),
+                            topLeft = Offset(fillStart, cy - trackHeight / 2),
+                            size = androidx.compose.ui.geometry.Size(fillWidth, trackHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner)
+                        )
+                    }
+                } else {
+                    val fillStart = currentKnobPx
+                    val fillWidth = (centerPosPx - currentKnobPx).coerceAtLeast(0f)
+                    if (fillWidth > 1f) {
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(Color(0xFFFF8A65), Color(0xFFFF8A65).copy(alpha = 0.7f)),
+                                startX = fillStart,
+                                endX = fillStart + fillWidth
+                            ),
+                            topLeft = Offset(fillStart, cy - trackHeight / 2),
+                            size = androidx.compose.ui.geometry.Size(fillWidth, trackHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Hardware Knob
+        val knobOffsetDp = with(density) { (currentKnobPx - knobRadiusPx).toDp() }
+        Box(
+            modifier = Modifier
+                .offset(x = knobOffsetDp)
+                .size(knobDiameterDp)
+                .clip(CircleShape)
+                .background(
+                    if (!enabled) CWColors.SurfacePrimary
+                    else Color(0xFF1E2530)
+                )
+                .border(
+                    width = 1.5.dp,
+                    color = when {
+                        !enabled -> CWColors.BorderSubtle
+                        localVal > 0f -> CWColors.AccentCyan
+                        localVal < 0f -> Color(0xFFFF8A65)
+                        else -> Color.White.copy(alpha = 0.4f)
+                    },
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            // Illuminated Center LED Indicator
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            !enabled -> CWColors.TextTertiary
+                            localVal > 0f -> CWColors.AccentCyan
+                            localVal < 0f -> Color(0xFFFF8A65)
+                            else -> Color.White.copy(alpha = 0.6f)
+                        }
+                    )
+            )
+        }
+
+        // Touch Gesture Capture (Drag and Tap)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(enabled) {
+                    if (!enabled) return@pointerInput
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val downTime = System.currentTimeMillis()
+                        val startX = down.position.x
+                        var isDragging = false
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                if (!isDragging && System.currentTimeMillis() - downTime < 300L) {
+                                    val relX = (startX - knobRadiusPx).coerceIn(0f, usableWidthPx)
+                                    val frac = relX / usableWidthPx
+                                    val targetVal = minVal + frac * span
+                                    val snapped = ((targetVal * 2).roundToInt() / 2f).coerceIn(minVal, maxVal)
+                                    localVal = snapped
+                                    onValueChange(snapped)
+                                }
+                                break
+                            }
+
+                            if (!isDragging && kotlin.math.abs(change.position.x - startX) > 4f) {
+                                isDragging = true
+                            }
+
+                            if (isDragging) {
+                                change.consume()
+                                val relX = (change.position.x - knobRadiusPx).coerceIn(0f, usableWidthPx)
+                                val frac = relX / usableWidthPx
+                                val targetVal = minVal + frac * span
+                                val snapped = ((targetVal * 2).roundToInt() / 2f).coerceIn(minVal, maxVal)
+                                if (snapped != localVal) {
+                                    localVal = snapped
+                                    onValueChange(snapped)
+                                }
+                            }
+                        }
+                    }
+                }
+        )
+    }
+}
+
+/**
  * Studio Parametric Curve Canvas:
  * - Acoustic frequency zones (SUB, BASS, MID, HIGH-MID, PRESENCE, AIR)
- * - Dotted gridlines at +12, +6, 0, -6, -12 dB
+ * - Horizontal dB gridlines (+12, +6, 0, -6, -12 dB)
  * - Smooth cubic Bezier response curve with glowing vertical gradient illumination
  * - 10 illuminated frequency node points along the curve with dynamic halo on active gains
  */

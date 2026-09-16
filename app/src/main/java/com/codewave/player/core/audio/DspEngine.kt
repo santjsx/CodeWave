@@ -86,12 +86,15 @@ class DspEngine {
             try {
                 dp.enabled = config.isEnabled
                 if (config.isEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    // Set native master input gain (preamp) across all channels without warping EQ band filters
+                    dp.setInputGainAllChannelsTo(config.preampGainDb)
+
                     val preEq = DynamicsProcessing.Eq(true, true, config.bands.size)
                     config.bands.forEachIndexed { index, band ->
                         val eqBand = DynamicsProcessing.EqBand(
                             true,
                             band.centerFreqHz.toFloat(),
-                            band.gainDb + config.preampGainDb
+                            band.gainDb
                         )
                         preEq.setBand(index, eqBand)
                     }
