@@ -14,8 +14,12 @@ import com.codewave.player.core.scanner.AudioScanner
 import com.codewave.player.core.scanner.ScanProgress
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 interface LibraryRepository {
     val scanProgress: StateFlow<ScanProgress>
@@ -173,7 +177,8 @@ class DefaultLibraryRepository(
                     id = idx.toLong() + 1,
                     name = artistName,
                     trackCount = tracks.size,
-                    albumCount = tracks.map { it.album }.distinct().size
+                    albumCount = tracks.map { it.album }.distinct().size,
+                    artworkUri = tracks.firstOrNull { !it.albumArtUri.isNullOrEmpty() }?.albumArtUri
                 )
             }
 
@@ -198,12 +203,35 @@ class DefaultLibraryRepository(
     override fun getLibraryStats(): Flow<LibraryStats> = trackDao.getLibraryStatsFlow()
 
     override fun getAllPlaylists(): Flow<List<Playlist>> {
-        return playlistDao.getAllPlaylistsFlow().map { entities ->
+        return combine(
+            playlistDao.getAllPlaylistsFlow(),
+            trackDao.getLibraryStatsFlow(),
+            trackDao.getFavoriteTracksFlow(),
+            playlistDao.getPlaylistTrackCountsFlow()
+        ) { entities, stats, favorites, customCounts ->
+            val customCountsMap = customCounts.associate { it.playlistId to it.trackCount }
             entities.map { entity ->
+                val count = when {
+                    entity.isSmart && (entity.smartType == "FAVORITES" || entity.name.equals("Favorites", ignoreCase = true)) -> {
+                        favorites.size
+                    }
+                    entity.isSmart && (entity.smartType == "RECENT_ADDED" || entity.name.contains("Recent", ignoreCase = true)) -> {
+                        minOf(30, stats.trackCount)
+                    }
+                    entity.isSmart && (entity.smartType == "HI_RES" || entity.smartType == "LOSSLESS" || entity.name.contains("Lossless", ignoreCase = true)) -> {
+                        stats.losslessCount + stats.hiResCount
+                    }
+                    entity.isSmart -> {
+                        minOf(30, stats.trackCount)
+                    }
+                    else -> {
+                        customCountsMap[entity.id] ?: 0
+                    }
+                }
                 Playlist(
                     id = entity.id,
                     name = entity.name,
-                    trackCount = 0,
+                    trackCount = count,
                     createdAt = entity.createdAt,
                     modifiedAt = entity.modifiedAt,
                     isSmart = entity.isSmart,
@@ -227,9 +255,29 @@ class DefaultLibraryRepository(
         playlistDao.deletePlaylistById(playlistId)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun getTracksForPlaylist(playlistId: Long): Flow<List<Track>> {
-        return playlistDao.getTracksForPlaylistFlow(playlistId).map { entities ->
-            entities.map { it.toDomain() }
+        return playlistDao.getPlaylistByIdFlow(playlistId).flatMapLatest { entity ->
+            if (entity == null) {
+                flowOf(emptyList())
+            } else if (entity.isSmart) {
+                when {
+                    entity.smartType == "FAVORITES" || entity.name.equals("Favorites", ignoreCase = true) -> {
+                        trackDao.getFavoriteTracksFlow().map { list -> list.map { it.toDomain() } }
+                    }
+                    entity.smartType == "RECENT_ADDED" || entity.name.contains("Recent", ignoreCase = true) -> {
+                        trackDao.getRecentlyAddedFlow(limit = 30).map { list -> list.map { it.toDomain() } }
+                    }
+                    entity.smartType == "HI_RES" || entity.smartType == "LOSSLESS" || entity.name.contains("Lossless", ignoreCase = true) -> {
+                        trackDao.getLosslessTracksFlow().map { list -> list.map { it.toDomain() } }
+                    }
+                    else -> {
+                        trackDao.getRecentlyAddedFlow(limit = 30).map { list -> list.map { it.toDomain() } }
+                    }
+                }
+            } else {
+                playlistDao.getTracksForPlaylistFlow(playlistId).map { list -> list.map { it.toDomain() } }
+            }
         }
     }
 

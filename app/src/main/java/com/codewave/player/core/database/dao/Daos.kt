@@ -112,6 +112,9 @@ interface TrackDao {
     """)
     suspend fun searchTracks(query: String): List<TrackEntity>
 
+    @Query("SELECT * FROM tracks WHERE isLossless = 1 OR isHiRes = 1 ORDER BY dateAdded DESC")
+    fun getLosslessTracksFlow(): Flow<List<TrackEntity>>
+
     @Query("""
         SELECT 
             COUNT(*) as trackCount,
@@ -124,6 +127,11 @@ interface TrackDao {
     fun getLibraryStatsFlow(): Flow<LibraryStats>
 }
 
+data class PlaylistTrackCount(
+    val playlistId: Long,
+    val trackCount: Int
+)
+
 @Dao
 interface PlaylistDao {
 
@@ -132,6 +140,9 @@ interface PlaylistDao {
 
     @Query("SELECT * FROM playlists WHERE id = :id LIMIT 1")
     suspend fun getPlaylistById(id: Long): PlaylistEntity?
+
+    @Query("SELECT * FROM playlists WHERE id = :id LIMIT 1")
+    fun getPlaylistByIdFlow(id: Long): Flow<PlaylistEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylist(playlist: PlaylistEntity): Long
@@ -164,6 +175,13 @@ interface PlaylistDao {
 
     @Query("SELECT COUNT(*) FROM playlist_tracks WHERE playlistId = :playlistId")
     fun getPlaylistTrackCountFlow(playlistId: Long): Flow<Int>
+
+    @Query("""
+        SELECT playlistId, COUNT(*) as trackCount
+        FROM playlist_tracks
+        GROUP BY playlistId
+    """)
+    fun getPlaylistTrackCountsFlow(): Flow<List<PlaylistTrackCount>>
 }
 
 @Dao

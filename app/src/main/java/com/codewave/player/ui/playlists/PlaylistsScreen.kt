@@ -116,13 +116,16 @@ fun PlaylistsScreen(
         return
     }
 
-    // Filter items based on selected category
+    // Filter items based on selected category (Favorites is uniquely represented by the dedicated card)
     val showFavorites = selectedCategory == PlaylistCategory.ALL || selectedCategory == PlaylistCategory.FAVORITES
+    val nonFavoritePlaylists = remember(playlists) {
+        playlists.filter { it.smartType != "FAVORITES" && !it.name.equals("Favorites", ignoreCase = true) }
+    }
     val filteredPlaylists = when (selectedCategory) {
-        PlaylistCategory.ALL -> playlists
+        PlaylistCategory.ALL -> nonFavoritePlaylists
         PlaylistCategory.FAVORITES -> emptyList()
-        PlaylistCategory.CUSTOM -> playlists.filter { !it.isSmart }
-        PlaylistCategory.SMART -> playlists.filter { it.isSmart }
+        PlaylistCategory.CUSTOM -> nonFavoritePlaylists.filter { !it.isSmart }
+        PlaylistCategory.SMART -> nonFavoritePlaylists.filter { it.isSmart }
     }
 
     val favoriteCoverUris = remember(favorites) {
@@ -151,7 +154,7 @@ fun PlaylistsScreen(
                     letterSpacing = (-0.5).sp
                 )
                 Text(
-                    text = "${playlists.size + if (favorites.isNotEmpty()) 1 else 0} Collections in Library",
+                    text = "${nonFavoritePlaylists.size + 1} Collections in Library",
                     style = CWTypography.TechTelemetry,
                     color = CWColors.TextTertiary,
                     fontSize = 11.sp
@@ -248,16 +251,19 @@ fun PlaylistsScreen(
                     isSmart = playlist.isSmart,
                     paletteSeed = playlist.name.hashCode(),
                     onClick = { selectedTarget = CollectionTarget.PlaylistTarget(playlist) },
-                    onOptionsClick = {
-                        playlistToRename = null
-                        playlistToDelete = null
-                        // Trigger menu options
-                        renameText = playlist.name
-                        playlistToRename = playlist
-                    },
-                    onDeleteClick = {
-                        playlistToDelete = playlist
-                    }
+                    onOptionsClick = if (!playlist.isSmart) {
+                        {
+                            playlistToRename = null
+                            playlistToDelete = null
+                            renameText = playlist.name
+                            playlistToRename = playlist
+                        }
+                    } else null,
+                    onDeleteClick = if (!playlist.isSmart) {
+                        {
+                            playlistToDelete = playlist
+                        }
+                    } else null
                 )
             }
 

@@ -213,7 +213,9 @@ fun CodeWaveApp(
                 Screen.Search -> SearchScreen(
                     viewModel = searchViewModel,
                     onTrackInspect = { inspectedTrack = it },
-                    onTrackOptions = { selectedTrackForOptions = it }
+                    onTrackOptions = { selectedTrackForOptions = it },
+                    onNavigateToAlbum = { album -> activeCollectionTarget = CollectionTarget.AlbumTarget(album) },
+                    onNavigateToArtist = { artist -> activeCollectionTarget = CollectionTarget.ArtistTarget(artist) }
                 )
                 Screen.Playlists -> PlaylistsScreen(
                     viewModel = playlistsViewModel,
