@@ -34,8 +34,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWButton
 import com.codewave.player.core.designsystem.component.CWButtonVariant
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
@@ -52,12 +54,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.InstallMobile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import com.codewave.player.core.ota.UpdateStatus
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -457,8 +474,35 @@ fun SettingsScreen(
                     is UpdateStatus.Downloading -> {
                         val animatedProgress by animateFloatAsState(
                             targetValue = (status.progressPercent / 100f).coerceIn(0f, 1f),
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
                             label = "ota_progress"
                         )
+                        val infiniteTransition = rememberInfiniteTransition(label = "settings_ota_anim")
+                        val shimmerOffset by infiniteTransition.animateFloat(
+                            initialValue = -0.5f,
+                            targetValue = 1.5f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 1400, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "shimmer_offset"
+                        )
+                        val pulseAlpha by infiniteTransition.animateFloat(
+                            initialValue = 0.35f,
+                            targetValue = 0.9f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "pulse_alpha"
+                        )
+
+                        val speedText = when {
+                            status.bytesPerSec <= 0L && status.progressPercent < 100 -> "CONNECTING..."
+                            status.bytesPerSec < 1024 * 1024 -> String.format(Locale.US, "%.0f KB/s", status.bytesPerSec / 1024.0)
+                            else -> String.format(Locale.US, "%.1f MB/s", status.bytesPerSec / (1024.0 * 1024.0))
+                        }
+
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -490,32 +534,100 @@ fun SettingsScreen(
                                     )
                                 }
                                 Text(
-                                    text = "${status.progressPercent}%",
+                                    text = "${(animatedProgress * 100).toInt()}%",
                                     style = CWTypography.TechBadge,
-                                    color = CWColors.AccentCyan
+                                    color = CWColors.AccentCyan,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            LinearProgressIndicator(
-                                progress = { animatedProgress },
+                            Canvas(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = CWColors.AccentCyan,
-                                trackColor = CWColors.SurfacePrimary
-                            )
+                                    .height(7.dp)
+                                    .clip(RoundedCornerShape(3.5.dp))
+                            ) {
+                                val totalWidth = size.width
+                                val barHeight = size.height
+                                val filledWidth = totalWidth * animatedProgress
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                                drawRoundRect(
+                                    color = Color(0xFF161B22),
+                                    size = size,
+                                    cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                                )
 
-                            Text(
-                                text = String.format("%.2f MB / %.2f MB", status.downloadedMb, status.totalMb),
-                                style = CWTypography.TechTelemetry,
-                                color = CWColors.TextSecondary,
-                                modifier = Modifier.align(Alignment.End)
-                            )
+                                if (filledWidth > 0f) {
+                                    val fillBrush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color(0xFF00E5FF),
+                                            Color(0xFF2979FF)
+                                        ),
+                                        startX = 0f,
+                                        endX = totalWidth
+                                    )
+                                    drawRoundRect(
+                                        brush = fillBrush,
+                                        size = Size(filledWidth, barHeight),
+                                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                                    )
+
+                                    val shimmerWidth = (filledWidth * 0.5f).coerceIn(30.dp.toPx(), 120.dp.toPx())
+                                    val shimmerStart = (shimmerOffset * filledWidth) - (shimmerWidth / 2f)
+                                    val shimmerBrush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.55f),
+                                            Color.Transparent
+                                        ),
+                                        startX = shimmerStart,
+                                        endX = shimmerStart + shimmerWidth
+                                    )
+                                    drawRoundRect(
+                                        brush = shimmerBrush,
+                                        size = Size(filledWidth, barHeight),
+                                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                                    )
+
+                                    if (filledWidth > barHeight * 0.5f) {
+                                        val clampedCenterX = filledWidth.coerceIn(barHeight / 2f, totalWidth - barHeight / 2f)
+                                        drawCircle(
+                                            color = Color(0xFF00E5FF).copy(alpha = pulseAlpha * 0.45f),
+                                            radius = barHeight * 1.5f,
+                                            center = Offset(clampedCenterX, barHeight / 2f)
+                                        )
+                                        drawCircle(
+                                            color = Color.White,
+                                            radius = barHeight * 0.65f,
+                                            center = Offset(clampedCenterX, barHeight / 2f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = speedText,
+                                    style = CWTypography.TechTelemetry,
+                                    color = CWColors.TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "%.2f MB / %.2f MB", status.downloadedMb, status.totalMb),
+                                    style = CWTypography.TechTelemetry,
+                                    color = CWColors.TextPrimary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                     is UpdateStatus.ReadyToInstall -> {

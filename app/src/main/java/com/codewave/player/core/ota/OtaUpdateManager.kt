@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.codewave.player.MainActivity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,7 +47,12 @@ sealed interface UpdateStatus {
     data object Checking : UpdateStatus
     data class UpdateAvailable(val info: UpdateInfo) : UpdateStatus
     data class UpToDate(val version: String) : UpdateStatus
-    data class Downloading(val progressPercent: Int, val downloadedMb: Double, val totalMb: Double) : UpdateStatus
+    data class Downloading(
+        val progressPercent: Int,
+        val downloadedMb: Double,
+        val totalMb: Double,
+        val bytesPerSec: Long = 0L
+    ) : UpdateStatus
     data class ReadyToInstall(val apkFile: File) : UpdateStatus
     data class Error(val message: String) : UpdateStatus
 }
@@ -277,8 +283,13 @@ class OtaUpdateManager(private val context: Context) {
                     }
 
                     val rawContentLength = responseBody.contentLength()
-                    val contentLength = if (rawContentLength > 0L) rawContentLength else info.apkSizeBytes
-                    val finalTotalMb = if (contentLength > 0L) contentLength.toDouble() / (1024.0 * 1024.0) else totalSizeMb
+                    val contentLength = when {
+                        rawContentLength > 0L -> rawContentLength
+                        info.apkSizeBytes > 0L -> info.apkSizeBytes
+                        totalSizeMb > 0.1 -> (totalSizeMb * 1024.0 * 1024.0).toLong()
+                        else -> 4_500_000L
+                    }
+                    val finalTotalMb = contentLength.toDouble() / (1024.0 * 1024.0)
 
                     val inputStream: InputStream = responseBody.byteStream()
                     val outputStream = FileOutputStream(targetFile)
@@ -288,6 +299,10 @@ class OtaUpdateManager(private val context: Context) {
                     var totalBytesRead = 0L
                     var lastEmitTime = 0L
                     var lastEmitPercent = -1
+
+                    var speedCalcTime = System.currentTimeMillis()
+                    var speedCalcBytes = 0L
+                    var currentSpeedBytesPerSec = 0L
 
                     while (true) {
                         bytesRead = inputStream.read(buffer)
@@ -304,10 +319,24 @@ class OtaUpdateManager(private val context: Context) {
                         val downloadedMb = totalBytesRead.toDouble() / (1024.0 * 1024.0)
 
                         val now = System.currentTimeMillis()
-                        if (percent != lastEmitPercent && (now - lastEmitTime >= 30L || percent == 100)) {
+                        val speedDeltaTime = now - speedCalcTime
+                        if (speedDeltaTime >= 400L) {
+                            val bytesDelta = totalBytesRead - speedCalcBytes
+                            currentSpeedBytesPerSec = (bytesDelta * 1000L) / speedDeltaTime
+                            speedCalcTime = now
+                            speedCalcBytes = totalBytesRead
+                        }
+
+                        // Emit smoothly every 50ms or when percent changes / completes
+                        if (percent == 100 || (now - lastEmitTime >= 50L && (percent != lastEmitPercent || now - lastEmitTime >= 100L))) {
                             lastEmitTime = now
                             lastEmitPercent = percent
-                            _updateStatus.value = UpdateStatus.Downloading(percent, downloadedMb, finalTotalMb)
+                            _updateStatus.value = UpdateStatus.Downloading(
+                                progressPercent = percent,
+                                downloadedMb = downloadedMb,
+                                totalMb = finalTotalMb,
+                                bytesPerSec = currentSpeedBytesPerSec
+                            )
                         }
                     }
 
@@ -321,6 +350,15 @@ class OtaUpdateManager(private val context: Context) {
                         targetFile.delete()
                         return@withContext
                     }
+
+                    // Smooth 100% completion tick before moving to ReadyToInstall
+                    _updateStatus.value = UpdateStatus.Downloading(
+                        progressPercent = 100,
+                        downloadedMb = finalTotalMb,
+                        totalMb = finalTotalMb,
+                        bytesPerSec = 0L
+                    )
+                    delay(350)
 
                     _updateStatus.value = UpdateStatus.ReadyToInstall(targetFile)
                 } catch (e: Exception) {

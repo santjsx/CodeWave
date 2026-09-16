@@ -31,26 +31,42 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import com.codewave.player.core.scanner.ScanProgress
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,6 +100,30 @@ fun HomeScreen(
     val lastPositionMs by viewModel.lastPlayedPositionMs.collectAsState()
     val lastTrackId by viewModel.lastPlayedTrackId.collectAsState()
     val continueListeningTrack by viewModel.continueListeningTrack.collectAsState()
+
+    var showBanner by remember { mutableStateOf(false) }
+    var isCompleted by remember { mutableStateOf(false) }
+    var rememberedTotalCount by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(scanProgress.isScanning) {
+        if (scanProgress.isScanning) {
+            showBanner = true
+            isCompleted = false
+        } else if (showBanner) {
+            if (rememberedTotalCount > 0) {
+                isCompleted = true
+                delay(1200)
+            }
+            showBanner = false
+            isCompleted = false
+        }
+    }
+
+    LaunchedEffect(scanProgress.totalCount) {
+        if (scanProgress.totalCount > 0) {
+            rememberedTotalCount = scanProgress.totalCount
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -135,10 +175,18 @@ fun HomeScreen(
             }
         }
 
-        // Library Scan Banner (active only during scanning)
-        if (scanProgress.isScanning) {
-            item {
-                IndexingBannerCard(scanProgress = scanProgress)
+        // Library Scan Banner (smooth expansion, spring damping & graceful completion hold)
+        item(key = "indexing_banner") {
+            AnimatedVisibility(
+                visible = showBanner,
+                enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+                exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
+            ) {
+                IndexingBannerCard(
+                    scanProgress = scanProgress,
+                    isCompleted = isCompleted,
+                    finalTotalCount = rememberedTotalCount
+                )
             }
         }
 
@@ -364,20 +412,29 @@ private fun QuickActionButton(
 }
 
 @Composable
-private fun IndexingBannerCard(scanProgress: ScanProgress) {
-    val targetProgress = if (scanProgress.totalCount > 0)
-        (scanProgress.processedCount.toFloat() / scanProgress.totalCount.toFloat()).coerceIn(0f, 1f)
-    else 0f
+private fun IndexingBannerCard(
+    scanProgress: ScanProgress,
+    isCompleted: Boolean,
+    finalTotalCount: Int
+) {
+    val isDiscovering = scanProgress.totalCount == 0 && !isCompleted
+    val targetProgress = when {
+        isCompleted -> 1f
+        scanProgress.totalCount > 0 -> (scanProgress.processedCount.toFloat() / scanProgress.totalCount.toFloat()).coerceIn(0f, 1f)
+        else -> 0f
+    }
 
     val animatedProgress by animateFloatAsState(
         targetValue = targetProgress,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        animationSpec = tween(
+            durationMillis = if (isCompleted) 250 else 200,
+            easing = LinearOutSlowInEasing
+        ),
         label = "indexing_progress"
     )
 
     val infiniteTransition = rememberInfiniteTransition(label = "indexing_anim")
 
-    // Shimmer beam sweep across progress track
     val shimmerOffset by infiniteTransition.animateFloat(
         initialValue = -0.5f,
         targetValue = 1.5f,
@@ -388,7 +445,6 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
         label = "shimmer_offset"
     )
 
-    // Breathing glow pulse for leading dot and border
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.35f,
         targetValue = 0.85f,
@@ -428,16 +484,18 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
         label = "bar3"
     )
 
+    val borderColor = when {
+        isCompleted -> CWColors.Success.copy(alpha = 0.6f)
+        else -> CWColors.AccentCyan.copy(alpha = pulseAlpha)
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(CWShapes.RadiusMedium),
         colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            CWColors.AccentCyan.copy(alpha = pulseAlpha)
-        )
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -447,42 +505,66 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    // Animated 3-bar audio spectrum icon
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.height(16.dp)
-                    ) {
+                    if (isCompleted) {
                         Box(
                             modifier = Modifier
-                                .width(3.dp)
-                                .height(bar1Height.dp)
-                                .clip(RoundedCornerShape(1.5.dp))
-                                .background(CWColors.AccentCyan)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(bar2Height.dp)
-                                .clip(RoundedCornerShape(1.5.dp))
-                                .background(Color(0xFF2979FF))
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(3.dp)
-                                .height(bar3Height.dp)
-                                .clip(RoundedCornerShape(1.5.dp))
-                                .background(Color(0xFF9D4EDD))
-                        )
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(CWColors.Success.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = CWColors.Success,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    } else {
+                        // Animated 3-bar audio spectrum icon
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            modifier = Modifier.height(16.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(bar1Height.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(CWColors.AccentCyan)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(bar2Height.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(Color(0xFF2979FF))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(bar3Height.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(Color(0xFF9D4EDD))
+                            )
+                        }
                     }
 
                     Text(
-                        text = "INDEXING AUDIO PIPELINE...",
+                        text = when {
+                            isCompleted -> "LIBRARY SYNCHRONIZED"
+                            isDiscovering -> "DISCOVERING AUDIO FILES..."
+                            else -> "INDEXING AUDIO PIPELINE..."
+                        },
                         style = CWTypography.TechBadge,
-                        color = CWColors.AccentCyan,
-                        letterSpacing = 0.75.sp
+                        color = if (isCompleted) CWColors.Success else CWColors.AccentCyan,
+                        letterSpacing = 0.75.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -491,13 +573,21 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "${(animatedProgress * 100).toInt()}%",
+                        text = when {
+                            isCompleted -> "100%"
+                            isDiscovering -> "SCANNING"
+                            else -> "${(animatedProgress * 100).toInt()}%"
+                        },
                         style = CWTypography.TechBadge,
-                        color = CWColors.AccentCyan,
+                        color = if (isCompleted) CWColors.Success else CWColors.AccentCyan,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${scanProgress.processedCount}/${scanProgress.totalCount}",
+                        text = when {
+                            isCompleted -> "$finalTotalCount tracks"
+                            isDiscovering -> "..."
+                            else -> "${scanProgress.processedCount}/${scanProgress.totalCount}"
+                        },
                         style = CWTypography.TechTelemetry,
                         color = CWColors.TextSecondary,
                         fontFamily = FontFamily.Monospace
@@ -507,7 +597,7 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Custom Animated Multi-Gradient Progress Bar with Shimmer & Glowing Pulse Head
+            // Specular Progress Bar with Indeterminate and Determinate Modes
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -516,7 +606,6 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
             ) {
                 val totalWidth = size.width
                 val barHeight = size.height
-                val filledWidth = totalWidth * animatedProgress
 
                 // Track background
                 drawRoundRect(
@@ -525,76 +614,117 @@ private fun IndexingBannerCard(scanProgress: ScanProgress) {
                     cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
                 )
 
-                if (filledWidth > 0f) {
-                    // Filled Progress with Multi-Tone Neon Gradient
-                    val fillBrush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xFF00E5FF), // Cyan
-                            Color(0xFF2979FF), // Vivid Blue
-                            Color(0xFF9D4EDD)  // Purple
-                        ),
-                        startX = 0f,
-                        endX = totalWidth
-                    )
-
-                    drawRoundRect(
-                        brush = fillBrush,
-                        size = Size(filledWidth, barHeight),
-                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
-                    )
-
-                    // Sweeping Specular Shimmer Wave
-                    val shimmerWidth = totalWidth * 0.4f
-                    val shimmerStart = (shimmerOffset * totalWidth) - (shimmerWidth / 2f)
-                    val shimmerBrush = Brush.horizontalGradient(
+                if (isDiscovering) {
+                    // Sweeping radar beam across the entire track
+                    val radarBeamWidth = totalWidth * 0.4f
+                    val radarStart = (shimmerOffset * totalWidth) - (radarBeamWidth / 2f)
+                    val radarBrush = Brush.horizontalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            Color.White.copy(alpha = 0.5f),
+                            Color(0xFF00E5FF).copy(alpha = 0.8f),
+                            Color(0xFF2979FF).copy(alpha = 0.8f),
                             Color.Transparent
                         ),
-                        startX = shimmerStart,
-                        endX = shimmerStart + shimmerWidth
+                        startX = radarStart,
+                        endX = radarStart + radarBeamWidth
                     )
-
                     drawRoundRect(
-                        brush = shimmerBrush,
-                        size = Size(filledWidth, barHeight),
+                        brush = radarBrush,
+                        size = size,
                         cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
                     )
+                } else {
+                    val filledWidth = totalWidth * animatedProgress
+                    if (filledWidth > 0f) {
+                        val fillBrush = Brush.horizontalGradient(
+                            colors = if (isCompleted) {
+                                listOf(Color(0xFF00E676), Color(0xFF00B0FF))
+                            } else {
+                                listOf(
+                                    Color(0xFF00E5FF), // Cyan
+                                    Color(0xFF2979FF), // Vivid Blue
+                                    Color(0xFF9D4EDD)  // Purple
+                                )
+                            },
+                            startX = 0f,
+                            endX = totalWidth
+                        )
 
-                    // Glowing Head Pulse Dot
-                    drawCircle(
-                        color = Color(0xFF00E5FF).copy(alpha = pulseAlpha * 0.4f),
-                        radius = barHeight * 1.6f,
-                        center = Offset(filledWidth.coerceAtLeast(barHeight), barHeight / 2f)
-                    )
-                    drawCircle(
-                        color = Color.White,
-                        radius = barHeight * 0.7f,
-                        center = Offset(filledWidth.coerceAtLeast(barHeight), barHeight / 2f)
-                    )
+                        drawRoundRect(
+                            brush = fillBrush,
+                            size = Size(filledWidth, barHeight),
+                            cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                        )
+
+                        if (!isCompleted) {
+                            // Sweeping Specular Light Wave across filled region
+                            val shimmerWidth = (filledWidth * 0.5f).coerceIn(30.dp.toPx(), 120.dp.toPx())
+                            val shimmerStart = (shimmerOffset * filledWidth) - (shimmerWidth / 2f)
+                            val shimmerBrush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.55f),
+                                    Color.Transparent
+                                ),
+                                startX = shimmerStart,
+                                endX = shimmerStart + shimmerWidth
+                            )
+
+                            drawRoundRect(
+                                brush = shimmerBrush,
+                                size = Size(filledWidth, barHeight),
+                                cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                            )
+
+                            // Glowing Head Pulse Dot
+                            if (filledWidth > barHeight * 0.5f) {
+                                val clampedCenterX = filledWidth.coerceIn(barHeight / 2f, totalWidth - barHeight / 2f)
+                                drawCircle(
+                                    color = Color(0xFF00E5FF).copy(alpha = pulseAlpha * 0.45f),
+                                    radius = barHeight * 1.5f,
+                                    center = Offset(clampedCenterX, barHeight / 2f)
+                                )
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = barHeight * 0.65f,
+                                    center = Offset(clampedCenterX, barHeight / 2f)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Subtitle status ticker
+            // Subtitle status ticker & current file activity
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Analyzing metadata, sample rates & FLAC/ALAC tags",
+                    text = when {
+                        isCompleted -> "All acoustic tags, bitrates & album art ready"
+                        isDiscovering -> "Analyzing local storage for audio files..."
+                        scanProgress.currentFile.isNotBlank() -> scanProgress.currentFile
+                        else -> "Extracting sample rates & FLAC/ALAC tags..."
+                    },
                     style = CWTypography.TechTelemetry,
-                    color = CWColors.TextTertiary,
-                    fontSize = 10.sp
+                    color = if (isCompleted) CWColors.Success.copy(alpha = 0.8f) else CWColors.TextTertiary,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
                         .size(5.dp)
                         .clip(CircleShape)
-                        .background(CWColors.AccentCyan.copy(alpha = pulseAlpha))
+                        .background(
+                            if (isCompleted) CWColors.Success else CWColors.AccentCyan.copy(alpha = pulseAlpha)
+                        )
                 )
             }
         }

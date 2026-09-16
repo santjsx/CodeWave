@@ -138,15 +138,21 @@ class AudioScanner(
         val batchEntities = mutableListOf<TrackEntity>()
         var processed = 0
 
+        var lastProgressEmit = 0L
+
         for (candidate in candidates) {
             // Check if track modified or already present
             val existing = trackDao.getTrackByMediaStoreId(candidate.mediaStoreId)
             if (existing != null && existing.dateModified == candidate.dateModified && existing.fileSize == candidate.size) {
                 processed++
-                _scanProgress.value = _scanProgress.value.copy(
-                    processedCount = processed,
-                    currentFile = candidate.fallbackTitle
-                )
+                val now = System.currentTimeMillis()
+                if (processed == candidates.size || processed % 10 == 0 || now - lastProgressEmit >= 50L) {
+                    lastProgressEmit = now
+                    _scanProgress.value = _scanProgress.value.copy(
+                        processedCount = processed,
+                        currentFile = candidate.fallbackTitle
+                    )
+                }
                 continue
             }
 
@@ -204,10 +210,14 @@ class AudioScanner(
             batchEntities.add(entity)
             processed++
 
-            _scanProgress.value = _scanProgress.value.copy(
-                processedCount = processed,
-                currentFile = metadata.title
-            )
+            val now = System.currentTimeMillis()
+            if (processed == candidates.size || processed % 10 == 0 || now - lastProgressEmit >= 50L) {
+                lastProgressEmit = now
+                _scanProgress.value = _scanProgress.value.copy(
+                    processedCount = processed,
+                    currentFile = metadata.title
+                )
+            }
 
             // Commit in batches of 50 to maintain UI interactivity (PRD Section 42, 52)
             if (batchEntities.size >= 50) {
@@ -221,7 +231,11 @@ class AudioScanner(
             batchEntities.clear()
         }
 
-        _scanProgress.value = _scanProgress.value.copy(isScanning = false)
+        _scanProgress.value = _scanProgress.value.copy(
+            processedCount = candidates.size,
+            totalCount = candidates.size,
+            isScanning = false
+        )
         candidates.size
     }
 

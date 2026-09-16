@@ -4,6 +4,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -36,9 +46,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -128,25 +144,37 @@ fun OtaUpdateDialog(
             }
         },
         text = {
+            val stage = when (status) {
+                is UpdateStatus.UpdateAvailable -> 0
+                is UpdateStatus.Downloading -> 1
+                is UpdateStatus.ReadyToInstall -> 2
+                else -> -1
+            }
+
             AnimatedContent(
-                targetState = status,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                targetState = stage,
+                transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(200)) },
                 label = "ota_dialog_content"
-            ) { currentStatus ->
-                when (currentStatus) {
-                    is UpdateStatus.UpdateAvailable -> {
-                        UpdateAvailableContent(
-                            info = currentStatus.info
-                        )
+            ) { currentStage ->
+                when (currentStage) {
+                    0 -> {
+                        val info = (status as? UpdateStatus.UpdateAvailable)?.info
+                        if (info != null) {
+                            UpdateAvailableContent(
+                                info = info
+                            )
+                        }
                     }
-                    is UpdateStatus.Downloading -> {
+                    1 -> {
+                        val downloading = status as? UpdateStatus.Downloading
                         DownloadingContent(
-                            progressPercent = currentStatus.progressPercent,
-                            downloadedMb = currentStatus.downloadedMb,
-                            totalMb = currentStatus.totalMb
+                            progressPercent = downloading?.progressPercent ?: 0,
+                            downloadedMb = downloading?.downloadedMb ?: 0.0,
+                            totalMb = downloading?.totalMb ?: 4.5,
+                            bytesPerSec = downloading?.bytesPerSec ?: 0L
                         )
                     }
-                    is UpdateStatus.ReadyToInstall -> {
+                    2 -> {
                         ReadyToInstallContent()
                     }
                     else -> Unit
@@ -359,8 +387,42 @@ private fun UpdateAvailableContent(info: UpdateInfo) {
 private fun DownloadingContent(
     progressPercent: Int,
     downloadedMb: Double,
-    totalMb: Double
+    totalMb: Double,
+    bytesPerSec: Long = 0L
 ) {
+    val targetProgress = (progressPercent / 100f).coerceIn(0f, 1f)
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
+        label = "ota_download_progress"
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "ota_anim")
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = -0.5f,
+        targetValue = 1.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ota_shimmer"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ota_pulse"
+    )
+
+    val speedText = when {
+        bytesPerSec <= 0L && progressPercent < 100 -> "CONNECTING..."
+        bytesPerSec < 1024 * 1024 -> String.format(Locale.US, "%.0f KB/s", bytesPerSec / 1024.0)
+        else -> String.format(Locale.US, "%.1f MB/s", bytesPerSec / (1024.0 * 1024.0))
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -373,7 +435,7 @@ private fun DownloadingContent(
             color = CWColors.TextSecondary
         )
 
-        // Progress Bar
+        // Progress Chassis Card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -388,32 +450,126 @@ private fun DownloadingContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "PROGRESS: $progressPercent%",
-                    style = CWTypography.TechBadge,
-                    color = CWColors.AccentCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "PROGRESS:",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.TextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = "${(animatedProgress * 100).toInt()}%",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.AccentCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+
                 Text(
                     text = String.format(Locale.US, "%.1f / %.1f MB", downloadedMb, totalMb),
                     style = CWTypography.TechTelemetry,
-                    color = CWColors.TextSecondary,
+                    color = CWColors.TextPrimary,
+                    fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp
                 )
             }
 
-            val animatedProgress = (progressPercent / 100f).coerceIn(0f, 1f)
-            LinearProgressIndicator(
-                progress = { animatedProgress },
+            // Specular Shimmer Animated Progress Bar
+            Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = CWColors.AccentCyan,
-                trackColor = CWColors.BorderSubtle,
-                strokeCap = StrokeCap.Round
-            )
+                    .clip(RoundedCornerShape(4.dp))
+            ) {
+                val totalWidth = size.width
+                val barHeight = size.height
+                val filledWidth = totalWidth * animatedProgress
+
+                // Track background
+                drawRoundRect(
+                    color = Color(0xFF161B22),
+                    size = size,
+                    cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                )
+
+                if (filledWidth > 0f) {
+                    // Filled Neon Gradient
+                    val fillBrush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF00E5FF), // Cyan
+                            Color(0xFF2979FF)  // Vivid Blue
+                        ),
+                        startX = 0f,
+                        endX = totalWidth
+                    )
+                    drawRoundRect(
+                        brush = fillBrush,
+                        size = Size(filledWidth, barHeight),
+                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                    )
+
+                    // Sweeping Specular Light Wave
+                    val shimmerWidth = (filledWidth * 0.5f).coerceIn(40.dp.toPx(), 140.dp.toPx())
+                    val shimmerStart = (shimmerOffset * filledWidth) - (shimmerWidth / 2f)
+                    val shimmerBrush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.55f),
+                            Color.Transparent
+                        ),
+                        startX = shimmerStart,
+                        endX = shimmerStart + shimmerWidth
+                    )
+                    drawRoundRect(
+                        brush = shimmerBrush,
+                        size = Size(filledWidth, barHeight),
+                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                    )
+
+                    // Glowing Head Pulse Dot at leading edge
+                    if (filledWidth > barHeight * 0.5f) {
+                        val clampedCenterX = filledWidth.coerceIn(barHeight / 2f, totalWidth - barHeight / 2f)
+                        drawCircle(
+                            color = Color(0xFF00E5FF).copy(alpha = pulseAlpha * 0.45f),
+                            radius = barHeight * 1.5f,
+                            center = Offset(clampedCenterX, barHeight / 2f)
+                        )
+                        drawCircle(
+                            color = Color.White,
+                            radius = barHeight * 0.65f,
+                            center = Offset(clampedCenterX, barHeight / 2f)
+                        )
+                    }
+                }
+            }
+
+            // Status ticker & Speed telemetry
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when {
+                        progressPercent >= 100 -> "Verifying release package..."
+                        downloadedMb > 0.05 -> "Streaming payload from CDN..."
+                        else -> "Connecting to GitHub Releases..."
+                    },
+                    style = CWTypography.TechTelemetry,
+                    color = CWColors.TextTertiary,
+                    fontSize = 10.sp
+                )
+                Text(
+                    text = speedText,
+                    style = CWTypography.TechBadge,
+                    color = CWColors.AccentCyan,
+                    fontSize = 10.sp
+                )
+            }
         }
 
         Text(
