@@ -50,6 +50,14 @@ import com.codewave.player.ui.search.SearchScreen
 import com.codewave.player.ui.search.SearchViewModel
 import com.codewave.player.ui.settings.SettingsScreen
 import com.codewave.player.ui.settings.SettingsViewModel
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import com.codewave.player.core.model.Album
+import com.codewave.player.core.model.Artist
+import com.codewave.player.ui.collection.CollectionDetailSheet
+import com.codewave.player.ui.collection.CollectionTarget
+import com.codewave.player.ui.collection.TrackActionMenuSheet
+import com.codewave.player.ui.playlists.AddToPlaylistSheet
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,9 +99,13 @@ fun CodeWaveApp(
         )
     )
 
+    val context = LocalContext.current
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
     var inspectedTrack by remember { mutableStateOf<Track?>(null) }
+    var selectedTrackForOptions by remember { mutableStateOf<Track?>(null) }
+    var selectedTrackForPlaylist by remember { mutableStateOf<Track?>(null) }
+    var activeCollectionTarget by remember { mutableStateOf<CollectionTarget?>(null) }
     var libraryInitialTab by remember { mutableIntStateOf(0) }
     var isThemeSheetOpen by remember { mutableStateOf(false) }
 
@@ -103,8 +115,10 @@ fun CodeWaveApp(
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Back handling (PRD Section 96)
-    BackHandler(enabled = isNowPlayingExpanded || currentScreen != Screen.Home) {
-        if (isNowPlayingExpanded) {
+    BackHandler(enabled = activeCollectionTarget != null || isNowPlayingExpanded || currentScreen != Screen.Home) {
+        if (activeCollectionTarget != null) {
+            activeCollectionTarget = null
+        } else if (isNowPlayingExpanded) {
             isNowPlayingExpanded = false
         } else if (currentScreen != Screen.Home) {
             currentScreen = Screen.Home
@@ -187,20 +201,24 @@ fun CodeWaveApp(
                     },
                     onNavigateToSettings = { currentScreen = Screen.Settings },
                     onTrackInspect = { inspectedTrack = it },
-                    onOpenThemes = { isThemeSheetOpen = true }
+                    onOpenThemes = { isThemeSheetOpen = true },
+                    onTrackOptions = { selectedTrackForOptions = it }
                 )
                 Screen.Library -> LibraryScreen(
                     viewModel = libraryViewModel,
                     initialTab = libraryInitialTab,
-                    onTrackInspect = { inspectedTrack = it }
+                    onTrackInspect = { inspectedTrack = it },
+                    onTrackOptions = { selectedTrackForOptions = it }
                 )
                 Screen.Search -> SearchScreen(
                     viewModel = searchViewModel,
-                    onTrackInspect = { inspectedTrack = it }
+                    onTrackInspect = { inspectedTrack = it },
+                    onTrackOptions = { selectedTrackForOptions = it }
                 )
                 Screen.Playlists -> PlaylistsScreen(
                     viewModel = playlistsViewModel,
-                    onTrackInspect = { inspectedTrack = it }
+                    onTrackInspect = { inspectedTrack = it },
+                    onTrackOptions = { selectedTrackForOptions = it }
                 )
                 Screen.Equalizer -> EqualizerScreen(
                     viewModel = equalizerViewModel
@@ -220,7 +238,8 @@ fun CodeWaveApp(
                 NowPlayingScreen(
                     playbackRepository = container.playbackRepository,
                     onCollapse = { isNowPlayingExpanded = false },
-                    onToggleFavorite = { track -> homeViewModel.toggleFavorite(track) }
+                    onToggleFavorite = { track -> homeViewModel.toggleFavorite(track) },
+                    onOpenTrackOptions = { selectedTrackForOptions = it }
                 )
             }
 
@@ -231,6 +250,83 @@ fun CodeWaveApp(
                     outputInfo = playbackState.outputInfo,
                     dspStatus = playbackState.dspStatus,
                     onDismiss = { inspectedTrack = null }
+                )
+            }
+
+            // Track Action Options Bottom Sheet (Play Next, Add to Queue, Add to Playlist, Go to Album, Go to Artist, Specs)
+            selectedTrackForOptions?.let { track ->
+                TrackActionMenuSheet(
+                    track = track,
+                    onPlayNext = {
+                        container.playbackRepository.playNext(track)
+                        Toast.makeText(context, "Playing next: ${track.title}", Toast.LENGTH_SHORT).show()
+                        selectedTrackForOptions = null
+                    },
+                    onAddToQueue = {
+                        container.playbackRepository.addToQueue(track)
+                        Toast.makeText(context, "Added to queue: ${track.title}", Toast.LENGTH_SHORT).show()
+                        selectedTrackForOptions = null
+                    },
+                    onAddToPlaylist = {
+                        val t = track
+                        selectedTrackForOptions = null
+                        selectedTrackForPlaylist = t
+                    },
+                    onGoToAlbum = {
+                        val album = Album(
+                            id = 0L,
+                            title = track.album,
+                            artist = track.artist,
+                            trackCount = 1,
+                            year = track.year,
+                            artworkUri = track.albumArtUri,
+                            isHiRes = track.isHiRes,
+                            isLossless = track.isLossless
+                        )
+                        selectedTrackForOptions = null
+                        isNowPlayingExpanded = false
+                        activeCollectionTarget = CollectionTarget.AlbumTarget(album)
+                    },
+                    onGoToArtist = {
+                        val artist = Artist(
+                            id = 0L,
+                            name = track.artist,
+                            trackCount = 1,
+                            albumCount = 1,
+                            artworkUri = track.albumArtUri
+                        )
+                        selectedTrackForOptions = null
+                        isNowPlayingExpanded = false
+                        activeCollectionTarget = CollectionTarget.ArtistTarget(artist)
+                    },
+                    onInspectTrack = {
+                        val t = track
+                        selectedTrackForOptions = null
+                        inspectedTrack = t
+                    },
+                    onDismiss = { selectedTrackForOptions = null }
+                )
+            }
+
+            // Add To Playlist Sheet
+            selectedTrackForPlaylist?.let { track ->
+                AddToPlaylistSheet(
+                    track = track,
+                    libraryRepository = container.libraryRepository,
+                    onDismiss = { selectedTrackForPlaylist = null }
+                )
+            }
+
+            // Global Collection Detail Overlay (Album / Artist target from anywhere in app)
+            activeCollectionTarget?.let { target ->
+                BackHandler { activeCollectionTarget = null }
+                CollectionDetailSheet(
+                    target = target,
+                    libraryRepository = container.libraryRepository,
+                    playbackRepository = container.playbackRepository,
+                    onBack = { activeCollectionTarget = null },
+                    onTrackInspect = { inspectedTrack = it },
+                    onTrackOptions = { selectedTrackForOptions = it }
                 )
             }
 

@@ -83,6 +83,7 @@ fun CollectionDetailSheet(
     playbackRepository: PlaybackRepository,
     onBack: () -> Unit,
     onTrackInspect: (Track) -> Unit,
+    onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -369,7 +370,7 @@ fun CollectionDetailSheet(
                         onFavoriteClick = {
                             playbackRepository.toggleFavorite(track)
                         },
-                        onMoreClick = { onTrackInspect(track) }
+                        onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
                     )
                 }
             }

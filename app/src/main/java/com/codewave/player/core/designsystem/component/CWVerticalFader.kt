@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
@@ -61,12 +63,7 @@ fun CWVerticalFader(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-            .background(if (isActive) CWColors.SurfaceElevated else CWColors.SurfacePrimary)
-            .border(
-                0.75.dp,
-                if (isActive) CWColors.AccentCyan.copy(alpha = 0.5f) else CWColors.BorderSubtle,
-                RoundedCornerShape(CWShapes.RadiusSmall)
-            )
+            .background(if (isActive) CWColors.AccentCyan.copy(alpha = 0.08f) else Color.Transparent)
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
                 detectTapGestures(
@@ -76,16 +73,21 @@ fun CWVerticalFader(
                     }
                 )
             }
-            .padding(vertical = 6.dp, horizontal = 2.dp),
+            .padding(vertical = 4.dp, horizontal = 1.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Gain Readout (VS Code monospace telemetry)
+        // Gain Readout (Studio monospace telemetry with color coding)
         Text(
             text = if (localGain == 0f) "0.0" else "%+.1f".format(localGain),
             style = CWTypography.TechTelemetry,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isActive) CWColors.AccentCyan else CWColors.TextSecondary,
+            fontSize = 8.5.sp,
+            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+            color = when {
+                !enabled -> CWColors.TextTertiary
+                localGain > 0f -> CWColors.AccentCyan
+                localGain < 0f -> Color(0xFFFF8A65)
+                else -> CWColors.TextTertiary
+            },
             fontFamily = FontFamily.Monospace,
             maxLines = 1
         )
@@ -96,57 +98,88 @@ fun CWVerticalFader(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(124.dp),
+                .height(130.dp),
             contentAlignment = Alignment.Center
         ) {
             val trackHeightPx = constraints.maxHeight.toFloat()
-            val knobHeightDp = 16.dp
+            val knobHeightDp = 18.dp
             val knobHeightPx = with(density) { knobHeightDp.toPx() }
             val travelRangePx = (trackHeightPx - knobHeightPx).coerceAtLeast(1f)
 
             // Center vertical track groove
             Box(
                 modifier = Modifier
-                    .width(3.dp)
-                    .height(124.dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(CWColors.SurfaceOverlay)
-                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(1.5.dp))
+                    .width(4.dp)
+                    .height(130.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFF0F1318))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(2.dp))
             )
 
-            // Center 0 dB Reference Tick Notch
+            // 0 dB Center Zero Line Notch
             Box(
                 modifier = Modifier
-                    .width(14.dp)
+                    .width(16.dp)
                     .height(1.dp)
-                    .background(CWColors.BorderFocus.copy(alpha = 0.7f))
+                    .background(CWColors.BorderFocus.copy(alpha = 0.8f))
             )
 
-            // Fader Knob
             val normPos = ((maxGainDb - localGain) / (maxGainDb - minGainDb)).coerceIn(0f, 1f)
             val knobOffsetPx = (normPos * travelRangePx).roundToInt()
 
+            // Active LED Level Fill from 0 dB to Knob Position
+            val centerPosPx = travelRangePx / 2f
+            val currentKnobCenterPx = knobOffsetPx.toFloat()
+            val fillHeightPx = abs(currentKnobCenterPx - centerPosPx)
+            val fillOffsetPx = (minOf(currentKnobCenterPx, centerPosPx) - (travelRangePx / 2f)).roundToInt()
+
+            if (isActive && fillHeightPx > 2f) {
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(with(density) { fillHeightPx.toDp() })
+                        .offset { IntOffset(0, fillOffsetPx + with(density) { (fillHeightPx / 2f).toDp().roundToPx() }) }
+                        .clip(RoundedCornerShape(1.5.dp))
+                        .background(
+                            if (localGain > 0f) Brush.verticalGradient(listOf(CWColors.AccentCyan, CWColors.AccentCyan.copy(alpha = 0.3f)))
+                            else Brush.verticalGradient(listOf(Color(0xFFFF8A65).copy(alpha = 0.3f), Color(0xFFFF8A65)))
+                        )
+                )
+            }
+
+            // High-End Studio Fader Cap
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
+                    .fillMaxWidth(0.92f)
                     .offset { IntOffset(0, knobOffsetPx - (travelRangePx / 2).roundToInt()) }
                     .height(knobHeightDp)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(if (enabled) CWColors.SurfaceElevated else CWColors.SurfacePrimary)
+                    .background(
+                        if (!enabled) CWColors.SurfacePrimary
+                        else if (isActive) Color(0xFF1E2530)
+                        else Color(0xFF181C22)
+                    )
                     .border(
                         1.dp,
-                        if (isActive) CWColors.AccentCyan else CWColors.BorderFocus,
+                        if (isActive && enabled) CWColors.AccentCyan else Color.White.copy(alpha = 0.18f),
                         RoundedCornerShape(3.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // Tactile grip line
+                // Precision Illuminated Center Tick
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.65f)
-                        .height(2.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(2.5.dp)
                         .clip(RoundedCornerShape(1.dp))
-                        .background(if (isActive) CWColors.AccentCyan else CWColors.TextTertiary)
+                        .background(
+                            when {
+                                !enabled -> CWColors.TextTertiary
+                                localGain > 0f -> CWColors.AccentCyan
+                                localGain < 0f -> Color(0xFFFF8A65)
+                                else -> Color.White.copy(alpha = 0.6f)
+                            }
+                        )
                 )
             }
 

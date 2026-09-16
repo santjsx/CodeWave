@@ -86,6 +86,7 @@ private enum class PlaylistCategory(val title: String) {
 fun PlaylistsScreen(
     viewModel: PlaylistsViewModel,
     onTrackInspect: (Track) -> Unit,
+    onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val playlists by viewModel.playlists.collectAsState()
@@ -109,6 +110,7 @@ fun PlaylistsScreen(
             playbackRepository = viewModel.playbackRepository,
             onBack = { selectedTarget = null },
             onTrackInspect = onTrackInspect,
+            onTrackOptions = onTrackOptions,
             modifier = modifier
         )
         return

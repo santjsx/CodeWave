@@ -39,6 +39,8 @@ interface PlaybackRepository {
     val playbackState: StateFlow<PlaybackState>
     fun playTrack(track: Track, queue: List<Track> = listOf(track), startPositionMs: Long = 0L)
     fun playQueue(queue: List<Track>, startIndex: Int = 0, startPositionMs: Long = 0L)
+    fun playNext(track: Track)
+    fun addToQueue(track: Track)
     fun togglePlayPause()
     fun seekTo(positionMs: Long)
     fun skipNext()
@@ -338,6 +340,53 @@ class DefaultPlaybackRepository(
         if (startPositionMs > 0L) {
             scope.launch { settingsRepository?.setLastPlayed(track.id, startPositionMs) }
         }
+    }
+
+    private fun createMediaItem(track: Track): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artist)
+            .setAlbumTitle(track.album)
+            .setArtworkUri(track.albumArtUri?.let { Uri.parse(it) })
+            .build()
+
+        return MediaItem.Builder()
+            .setUri(track.uri)
+            .setMediaId(track.id.toString())
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
+    override fun playNext(track: Track) {
+        if (currentQueue.isEmpty()) {
+            playTrack(track)
+            return
+        }
+        val player = controller
+        val currentIndex = player?.currentMediaItemIndex ?: _playbackState.value.queueIndex
+        val insertIndex = if (currentIndex >= 0 && currentIndex < currentQueue.size) currentIndex + 1 else currentQueue.size
+
+        val newQueue = currentQueue.toMutableList()
+        newQueue.add(insertIndex, track)
+        currentQueue = newQueue
+        _playbackState.update { it.copy(queue = newQueue) }
+
+        val mediaItem = createMediaItem(track)
+        player?.addMediaItem(insertIndex, mediaItem)
+    }
+
+    override fun addToQueue(track: Track) {
+        if (currentQueue.isEmpty()) {
+            playTrack(track)
+            return
+        }
+        val newQueue = currentQueue.toMutableList()
+        newQueue.add(track)
+        currentQueue = newQueue
+        _playbackState.update { it.copy(queue = newQueue) }
+
+        val mediaItem = createMediaItem(track)
+        controller?.addMediaItem(mediaItem)
     }
 
     override fun togglePlayPause() {

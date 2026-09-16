@@ -47,6 +47,7 @@ import com.codewave.player.core.model.Track
 fun SearchScreen(
     viewModel: SearchViewModel,
     onTrackInspect: (Track) -> Unit,
+    onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val query by viewModel.query.collectAsState()
@@ -154,7 +155,7 @@ fun SearchScreen(
                             track = track,
                             onTrackClick = { viewModel.playTrack(track) },
                             onFavoriteClick = { viewModel.toggleFavorite(track) },
-                            onMoreClick = { onTrackInspect(track) }
+                            onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
                         )
                     }
                 }

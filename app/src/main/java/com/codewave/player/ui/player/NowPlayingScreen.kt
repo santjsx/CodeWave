@@ -88,6 +88,8 @@ import com.codewave.player.core.media.LyricsResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+import androidx.compose.material.icons.filled.MoreVert
+
 enum class NowPlayingCenterView {
     ARTWORK,
     LYRICS
@@ -99,6 +101,7 @@ fun NowPlayingScreen(
     playbackRepository: PlaybackRepository,
     onCollapse: () -> Unit,
     onToggleFavorite: (Track) -> Unit,
+    onOpenTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     androidx.activity.compose.BackHandler { onCollapse() }
@@ -188,13 +191,23 @@ fun NowPlayingScreen(
                 }
             }
 
-            IconButton(onClick = { isInspectorOpen = true }) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = "Track Inspector",
-                    tint = CWColors.AccentCyan,
-                    modifier = Modifier.size(24.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { isInspectorOpen = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Track Inspector",
+                        tint = CWColors.AccentCyan,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = { onOpenTrackOptions?.invoke(track) }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Track Options",
+                        tint = CWColors.TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 
@@ -288,13 +301,23 @@ fun NowPlayingScreen(
                 )
             }
 
-            IconButton(onClick = { onToggleFavorite(track) }) {
-                Icon(
-                    imageVector = if (track.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (track.isFavorite) CWColors.Danger else CWColors.TextSecondary,
-                    modifier = Modifier.size(26.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { onToggleFavorite(track) }) {
+                    Icon(
+                        imageVector = if (track.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (track.isFavorite) CWColors.Danger else CWColors.TextSecondary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                IconButton(onClick = { onOpenTrackOptions?.invoke(track) }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Track Options",
+                        tint = CWColors.TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 

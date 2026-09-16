@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -88,27 +90,23 @@ fun EqualizerScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 120.dp)
     ) {
-        // 1. VS Code Breadcrumb Header Bar
+        // 1. Studio Master Header Console
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "CODEWAVE // EQUALIZER & DSP",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextTertiary,
-                        letterSpacing = 1.sp
-                    )
-                }
-                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "CODEWAVE STUDIO DSP",
+                    style = CWTypography.TechBadge,
+                    color = CWColors.TextSecondary,
+                    letterSpacing = 1.2.sp,
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(3.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -130,14 +128,14 @@ fun EqualizerScreen(
                     Text(
                         text = if (!config.isEnabled) "BYPASSED (BIT-PERFECT DIRECT)"
                         else when (dspStatus) {
-                            DSPStatus.ACTIVE -> "DYNAMICS PROCESSING (ACTIVE · FLOAT32)"
-                            DSPStatus.LIMITED -> "LEGACY EQUALIZER (FALLBACK)"
+                            DSPStatus.ACTIVE -> "FLOAT32 MASTER DSP · ACTIVE"
+                            DSPStatus.LIMITED -> "LEGACY EQUALIZER FALLBACK"
                             DSPStatus.BYPASSED -> "BYPASSED (BIT-PERFECT DIRECT)"
-                            DSPStatus.UNAVAILABLE -> "HARDWARE EFFECTS UNAVAILABLE"
+                            DSPStatus.UNAVAILABLE -> "HARDWARE DSP UNAVAILABLE"
                         },
-                        style = CWTypography.TechBadge,
+                        style = CWTypography.TechTelemetry,
                         color = if (config.isEnabled) CWColors.AccentCyan else CWColors.TextTertiary,
-                        fontSize = 9.sp,
+                        fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -145,7 +143,7 @@ fun EqualizerScreen(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Flat / Reset Action
                 Box(
@@ -154,7 +152,7 @@ fun EqualizerScreen(
                         .background(CWColors.SurfacePrimary)
                         .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
                         .clickable { viewModel.resetAll() }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .padding(horizontal = 9.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -168,7 +166,7 @@ fun EqualizerScreen(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "RESET",
+                            text = "FLAT",
                             style = CWTypography.TechBadge,
                             color = CWColors.TextPrimary,
                             fontSize = 9.sp
@@ -190,202 +188,15 @@ fun EqualizerScreen(
             }
         }
 
-        // 2. Real-Time Parametric Response Curve Canvas (VS Code Frequency Graph)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                .background(CWColors.SurfacePrimary)
-                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
-                .padding(top = 10.dp, bottom = 6.dp, start = 12.dp, end = 12.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "REAL-TIME FREQUENCY RESPONSE CURVE",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextTertiary,
-                        fontSize = 8.5.sp
-                    )
-                    Text(
-                        text = "±12 dB DYNAMIC RANGE",
-                        style = CWTypography.TechTelemetry,
-                        color = CWColors.AccentCyan.copy(alpha = 0.8f),
-                        fontSize = 8.5.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                RealTimeEQCurveCanvas(
-                    bands = config.bands,
-                    enabled = config.isEnabled,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(72.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 3. 10-Band Frequency Spectrum (ZERO HORIZONTAL SCROLL - All 10 bands on screen simultaneously!)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            config.bands.forEachIndexed { index, band ->
-                CWVerticalFader(
-                    label = band.frequencyLabel,
-                    gainDb = band.gainDb,
-                    enabled = config.isEnabled,
-                    onGainChange = { newGain ->
-                        viewModel.setBandGain(index, newGain)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 4. VS Code Command Bar & Preset Quick-Pick (ZERO HORIZONTAL SCROLL)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            // Interactive VS Code Command Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                    .background(CWColors.SurfacePrimary)
-                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.4f), RoundedCornerShape(CWShapes.RadiusMedium))
-                    .clickable { isPresetSheetOpen = true }
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.GraphicEq,
-                            contentDescription = null,
-                            tint = CWColors.AccentCyan,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "SOUND PROFILE",
-                                style = CWTypography.TechBadge,
-                                color = CWColors.TextTertiary,
-                                fontSize = 8.5.sp
-                            )
-                            Text(
-                                text = config.activePresetName,
-                                style = CWTypography.AppTypography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = CWColors.TextPrimary
-                            )
-                        }
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val activePreset = presets.find { it.name == config.activePresetName }
-                        if (activePreset != null && activePreset.preampGainDb != 0f) {
-                            Text(
-                                text = "%+.1f dB".format(activePreset.preampGainDb),
-                                style = CWTypography.TechTelemetry,
-                                color = CWColors.AccentCyan,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-                                .background(CWColors.SurfaceElevated)
-                                .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Text(
-                                    text = "SELECT",
-                                    style = CWTypography.TechBadge,
-                                    color = CWColors.AccentCyan,
-                                    fontSize = 9.sp
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ExpandMore,
-                                    contentDescription = null,
-                                    tint = CWColors.AccentCyan,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Compact 2-Row Micro-Chip Grid (No horizontal scrolling, clean 1-tap switching)
-            // Row 1: 6 popular presets
-            val row1 = listOf("Flat", "Bass Boost", "Bass Reducer", "Vocal Clarity", "Rock", "Pop")
-            // Row 2: 6 genre presets
-            val row2 = listOf("Dance", "Electronic", "Jazz", "Acoustic", "Hip-Hop", "Classical")
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                PresetChipRow(
-                    presetNames = row1,
-                    activePreset = config.activePresetName,
-                    allPresets = presets,
-                    onSelect = { viewModel.applyPreset(it) }
-                )
-                PresetChipRow(
-                    presetNames = row2,
-                    activePreset = config.activePresetName,
-                    allPresets = presets,
-                    onSelect = { viewModel.applyPreset(it) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 5. Preamp Gain & Limiter Protection Strip (VS Code Inspector Style)
+        // 2. Studio Parametric Frequency Visualizer
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                .background(CWColors.SurfacePrimary)
-                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
-                .padding(14.dp)
+                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                .background(Color(0xFF0D1117))
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
+                .padding(top = 10.dp, bottom = 8.dp, start = 12.dp, end = 12.dp)
         ) {
             Column {
                 Row(
@@ -396,6 +207,244 @@ fun EqualizerScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = CWColors.AccentCyan,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "PARAMETRIC FREQUENCY RESPONSE",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.TextSecondary,
+                            fontSize = 9.sp,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    Text(
+                        text = "±12 dB DYNAMIC RANGE",
+                        style = CWTypography.TechTelemetry,
+                        color = CWColors.AccentCyan.copy(alpha = 0.8f),
+                        fontSize = 8.5.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                RealTimeEQCurveCanvas(
+                    bands = config.bands,
+                    enabled = config.isEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(92.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 3. Unified 10-Band Studio Console Chassis (No Cluttered 10 Individual Box Outlines)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                .background(CWColors.SurfacePrimary)
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
+                .padding(vertical = 10.dp, horizontal = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                config.bands.forEachIndexed { index, band ->
+                    CWVerticalFader(
+                        label = band.frequencyLabel,
+                        gainDb = band.gainDb,
+                        enabled = config.isEnabled,
+                        onGainChange = { newGain ->
+                            viewModel.setBandGain(index, newGain)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 4. Sound Profile & Preset Selection (ZERO Text Truncation)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Active Sound Profile Hero Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                    .background(CWColors.SurfacePrimary)
+                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.45f), RoundedCornerShape(CWShapes.RadiusLarge))
+                    .clickable { isPresetSheetOpen = true }
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(CWColors.AccentCyan.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = CWColors.AccentCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "ACTIVE SOUND PROFILE",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.TextTertiary,
+                                fontSize = 9.sp
+                            )
+                            Text(
+                                text = config.activePresetName,
+                                style = CWTypography.AppTypography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = CWColors.TextPrimary
+                            )
+                            val activePreset = presets.find { it.name == config.activePresetName }
+                            if (activePreset != null) {
+                                Text(
+                                    text = activePreset.profileSubtitle,
+                                    style = CWTypography.AppTypography.bodySmall,
+                                    color = CWColors.TextSecondary,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    // Browse All trigger button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "BROWSE ALL",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.AccentCyan,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = CWColors.AccentCyan,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Horizontal Scrollable Sound Profile Strip (Every name is 100% visible, zero truncation!)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                presets.forEach { preset ->
+                    val isSelected = config.activePresetName == preset.name
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusFull))
+                            .background(
+                                if (isSelected) CWColors.AccentCyan else CWColors.SurfacePrimary
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                shape = RoundedCornerShape(CWShapes.RadiusFull)
+                            )
+                            .clickable { viewModel.applyPreset(preset) }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = CWColors.Background,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                            Text(
+                                text = preset.name,
+                                style = CWTypography.TechBadge,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) CWColors.Background else CWColors.TextSecondary,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 5. Preamp Gain & Limiter Protection Strip (Studio Hardware Rack)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                .background(CWColors.SurfacePrimary)
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
+                .padding(14.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tune,
@@ -443,7 +492,7 @@ fun EqualizerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 2.dp),
+                        .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -455,7 +504,7 @@ fun EqualizerScreen(
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Prevents digital distortion at high output levels",
+                            text = "Protects 32-bit floating-point audio engine against digital clipping",
                             style = CWTypography.AppTypography.bodySmall,
                             color = CWColors.TextTertiary,
                             fontSize = 11.sp
@@ -478,7 +527,7 @@ fun EqualizerScreen(
         }
     }
 
-    // Modal Sheet: Full VS Code Command Palette Presets List
+    // Modal Sheet: Full Presets List with Mini Curve Previews
     if (isPresetSheetOpen) {
         ModalBottomSheet(
             onDismissRequest = { isPresetSheetOpen = false },
@@ -498,18 +547,17 @@ fun EqualizerScreen(
                     Text(
                         text = "SOUND PROFILES (${presets.size} AVAILABLE)",
                         style = CWTypography.TechBadge,
-                        color = CWColors.TextSecondary,
+                        color = CWColors.AccentCyan,
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = "SELECT TO APPLY",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.AccentCyan,
-                        fontSize = 9.sp
+                        text = "Tap to audition profile",
+                        style = CWTypography.TechTelemetry,
+                        color = CWColors.TextTertiary
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 LazyColumn(
                     modifier = Modifier
@@ -517,13 +565,13 @@ fun EqualizerScreen(
                         .height(380.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(presets, key = { it.name }) { preset ->
+                    items(presets, key = { it.id }) { preset ->
                         val isSelected = config.activePresetName == preset.name
-                        Box(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                                .background(if (isSelected) CWColors.SurfaceOverlay else CWColors.SurfacePrimary)
+                                .background(if (isSelected) CWColors.AccentCyan.copy(alpha = 0.15f) else CWColors.SurfacePrimary)
                                 .border(
                                     1.dp,
                                     if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
@@ -533,55 +581,60 @@ fun EqualizerScreen(
                                     viewModel.applyPreset(preset)
                                     isPresetSheetOpen = false
                                 }
-                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = CWColors.AccentCyan,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    } else {
-                                        Box(modifier = Modifier.size(18.dp))
-                                    }
-
-                                    Column {
+                                    Text(
+                                        text = preset.name,
+                                        style = CWTypography.AppTypography.titleSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) CWColors.AccentCyan else CWColors.TextPrimary
+                                    )
+                                    if (preset.isBuiltIn) {
                                         Text(
-                                            text = preset.name,
-                                            style = CWTypography.AppTypography.titleMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) CWColors.AccentCyan else CWColors.TextPrimary
+                                            text = "STUDIO",
+                                            style = CWTypography.TechBadge,
+                                            color = CWColors.TextTertiary,
+                                            fontSize = 8.sp
                                         )
-                                        if (preset.preampGainDb != 0f) {
-                                            Text(
-                                                text = "Preamp Offset: %+.1f dB".format(preset.preampGainDb),
-                                                style = CWTypography.TechBadge,
-                                                color = CWColors.TextTertiary,
-                                                fontSize = 9.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
                                     }
                                 }
+                                Text(
+                                    text = preset.profileSubtitle,
+                                    style = CWTypography.AppTypography.bodySmall,
+                                    color = CWColors.TextSecondary,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
 
-                                // Mini Curve Thumbnail for Preset
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
                                 PresetMiniCurve(
                                     bandGains = preset.bandGainsDb,
                                     isSelected = isSelected,
                                     modifier = Modifier
-                                        .width(70.dp)
+                                        .width(52.dp)
                                         .height(26.dp)
                                 )
+
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Active",
+                                        tint = CWColors.AccentCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -593,52 +646,13 @@ fun EqualizerScreen(
     }
 }
 
-@Composable
-private fun PresetChipRow(
-    presetNames: List<String>,
-    activePreset: String,
-    allPresets: List<EQPreset>,
-    onSelect: (EQPreset) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        presetNames.forEach { name ->
-            val preset = allPresets.find { it.name.equals(name, ignoreCase = true) }
-            val isSelected = activePreset.equals(name, ignoreCase = true)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(28.dp)
-                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-                    .background(if (isSelected) CWColors.AccentCyan else CWColors.SurfacePrimary)
-                    .border(
-                        0.75.dp,
-                        if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
-                        RoundedCornerShape(CWShapes.RadiusSmall)
-                    )
-                    .clickable(enabled = preset != null) {
-                        preset?.let { onSelect(it) }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = name.replace(" ", "\n").take(8),
-                    style = CWTypography.TechBadge,
-                    fontSize = 8.5.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) CWColors.Background else CWColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
+/**
+ * Studio Parametric Curve Canvas:
+ * - Acoustic frequency zones (SUB, BASS, MID, HIGH-MID, PRESENCE, AIR)
+ * - Dotted gridlines at +12, +6, 0, -6, -12 dB
+ * - Smooth cubic Bezier response curve with glowing vertical gradient illumination
+ * - 10 illuminated frequency node points along the curve with dynamic halo on active gains
+ */
 @Composable
 private fun RealTimeEQCurveCanvas(
     bands: List<EqualizerBand>,
@@ -653,44 +667,44 @@ private fun RealTimeEQCurveCanvas(
         val h = size.height
         val centerY = h / 2f
 
-        // Center 0 dB Reference Line
-        drawLine(
-            color = Color.White.copy(alpha = 0.12f),
-            start = Offset(0f, centerY),
-            end = Offset(w, centerY),
-            strokeWidth = 1f
-        )
+        // Acoustic Frequency Zones Guidelines
+        val zoneLines = listOf(0.18f, 0.38f, 0.62f, 0.82f)
+        zoneLines.forEach { frac ->
+            drawLine(
+                color = Color.White.copy(alpha = 0.04f),
+                start = Offset(w * frac, 0f),
+                end = Offset(w * frac, h),
+                strokeWidth = 0.75f
+            )
+        }
 
-        // ±12 dB Bound Lines
-        drawLine(
-            color = Color.White.copy(alpha = 0.05f),
-            start = Offset(0f, 4f),
-            end = Offset(w, 4f),
-            strokeWidth = 0.5f
-        )
-        drawLine(
-            color = Color.White.copy(alpha = 0.05f),
-            start = Offset(0f, h - 4f),
-            end = Offset(w, h - 4f),
-            strokeWidth = 0.5f
-        )
+        // Horizontal dB Gridlines (+12, +6, 0, -6, -12 dB)
+        val gridLevels = listOf(0.08f, 0.28f, 0.5f, 0.72f, 0.92f)
+        gridLevels.forEachIndexed { idx, frac ->
+            val y = h * frac
+            val isCenter = idx == 2
+            drawLine(
+                color = if (isCenter) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.05f),
+                start = Offset(0f, y),
+                end = Offset(w, y),
+                strokeWidth = if (isCenter) 1.2f else 0.6f
+            )
+        }
 
         if (bands.isEmpty()) return@Canvas
 
         val n = bands.size
         val points = mutableListOf<Offset>()
 
-        // Map bands to canvas points
         for (i in 0 until n) {
             val band = bands[i]
             val x = (i + 0.5f) * (w / n.toFloat())
-            // gainDb ranges from -12 to +12
             val normGain = (band.gainDb / 12f).coerceIn(-1f, 1f)
-            val y = centerY - (normGain * (centerY - 6f))
+            val y = centerY - (normGain * (centerY - 8f))
             points.add(Offset(x, y))
         }
 
-        // Build Smooth Cubic Bezier Path
+        // Smooth Cubic Bezier Path
         val path = Path()
         path.moveTo(0f, points.first().y)
         path.lineTo(points.first().x, points.first().y)
@@ -703,7 +717,7 @@ private fun RealTimeEQCurveCanvas(
         }
         path.lineTo(w, points.last().y)
 
-        // Gradient Fill Under Curve
+        // Gradient Fill Under Response Curve
         val fillPath = Path()
         fillPath.addPath(path)
         fillPath.lineTo(w, h)
@@ -714,31 +728,53 @@ private fun RealTimeEQCurveCanvas(
             path = fillPath,
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    accentColor.copy(alpha = if (enabled) 0.25f else 0.05f),
-                    secondaryColor.copy(alpha = 0f)
+                    accentColor.copy(alpha = if (enabled) 0.32f else 0.05f),
+                    secondaryColor.copy(alpha = if (enabled) 0.12f else 0.02f),
+                    Color.Transparent
                 ),
                 startY = 0f,
                 endY = h
             )
         )
 
-        // Stroke Line
+        // Neon Glow Stroke
+        if (enabled) {
+            drawPath(
+                path = path,
+                color = accentColor.copy(alpha = 0.35f),
+                style = Stroke(width = 5.5f, cap = StrokeCap.Round)
+            )
+        }
+
         drawPath(
             path = path,
             brush = Brush.horizontalGradient(listOf(secondaryColor, accentColor)),
             style = Stroke(width = 2.5f, cap = StrokeCap.Round)
         )
 
-        // Frequency Node Indicator Dots
-        points.forEach { pt ->
+        // Frequency Node Points
+        points.forEachIndexed { i, pt ->
+            val gain = bands.getOrNull(i)?.gainDb ?: 0f
+            val isBandActive = gain != 0f && enabled
+
+            if (isBandActive) {
+                // Outer illuminated halo
+                drawCircle(
+                    color = accentColor.copy(alpha = 0.35f),
+                    radius = 6.dp.toPx(),
+                    center = pt
+                )
+            }
+
             drawCircle(
-                color = accentColor,
-                radius = 3.5f,
+                color = if (isBandActive) accentColor else Color.White.copy(alpha = 0.5f),
+                radius = if (isBandActive) 3.5.dp.toPx() else 2.dp.toPx(),
                 center = pt
             )
+
             drawCircle(
-                color = CWColors.SurfacePrimary,
-                radius = 1.5f,
+                color = Color(0xFF0D1117),
+                radius = 1.2.dp.toPx(),
                 center = pt
             )
         }
@@ -790,3 +826,20 @@ private fun PresetMiniCurve(
         )
     }
 }
+
+private val EQPreset.profileSubtitle: String
+    get() = when (name.lowercase()) {
+        "flat" -> "Neutral studio reference response"
+        "acoustic" -> "Enhanced acoustic timbre and warm mids"
+        "bass boost" -> "Sub-bass elevation with heavy kick punch"
+        "bass reducer" -> "Attenuated low end for vocal clarity"
+        "classical" -> "Orchestral separation and wide dynamics"
+        "dance" -> "Pumping low end with crisp top-end presence"
+        "electronic" -> "Synthesizer focus with extended sub-bass"
+        "hip-hop" -> "Deep low-end rumble and highlighted punch"
+        "jazz" -> "Warm natural tone with smooth horn response"
+        "pop" -> "Radio vocal lift with tight low-end groove"
+        "rock" -> "Aggressive midrange edge and punchy rhythm"
+        "vocal clarity" -> "High dialogue intelligibility & presence"
+        else -> "${if (preampGainDb != 0f) "${preampGainDb} dB · " else ""}10-band tuned profile"
+    }

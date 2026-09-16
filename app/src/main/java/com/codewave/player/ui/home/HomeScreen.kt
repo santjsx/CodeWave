@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,8 +30,24 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import com.codewave.player.core.scanner.ScanProgress
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWButton
 import com.codewave.player.core.designsystem.component.CWButtonVariant
 import com.codewave.player.core.designsystem.component.CWQualityBadge
@@ -56,6 +74,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onTrackInspect: (Track) -> Unit,
     onOpenThemes: (() -> Unit)? = null,
+    onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -119,45 +138,7 @@ fun HomeScreen(
         // Library Scan Banner (active only during scanning)
         if (scanProgress.isScanning) {
             item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(CWShapes.RadiusMedium),
-                    colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.AccentCyan.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "INDEXING AUDIO PIPELINE...",
-                                style = CWTypography.TechBadge,
-                                color = CWColors.AccentCyan
-                            )
-                            Text(
-                                text = "${scanProgress.processedCount}/${scanProgress.totalCount}",
-                                style = CWTypography.TechTelemetry
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        val progress = if (scanProgress.totalCount > 0)
-                            scanProgress.processedCount.toFloat() / scanProgress.totalCount.toFloat()
-                        else 0f
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
-                            color = CWColors.AccentCyan,
-                            trackColor = CWColors.SurfaceElevated
-                        )
-                    }
-                }
+                IndexingBannerCard(scanProgress = scanProgress)
             }
         }
 
@@ -285,7 +266,7 @@ fun HomeScreen(
                             viewModel.playTrack(continueTrack, queue, resumePosition)
                         },
                         onFavoriteClick = { viewModel.toggleFavorite(continueTrack) },
-                        onMoreClick = { onTrackInspect(continueTrack) }
+                        onMoreClick = { onTrackOptions?.invoke(continueTrack) ?: onTrackInspect(continueTrack) }
                     )
                 }
             }
@@ -318,7 +299,7 @@ fun HomeScreen(
                     track = track,
                     onTrackClick = { viewModel.playTrack(track, recentlyAdded) },
                     onFavoriteClick = { viewModel.toggleFavorite(track) },
-                    onMoreClick = { onTrackInspect(track) }
+                    onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
                 )
             }
         }
@@ -378,6 +359,244 @@ private fun QuickActionButton(
                 style = CWTypography.AppTypography.titleSmall,
                 color = CWColors.TextPrimary
             )
+        }
+    }
+}
+
+@Composable
+private fun IndexingBannerCard(scanProgress: ScanProgress) {
+    val targetProgress = if (scanProgress.totalCount > 0)
+        (scanProgress.processedCount.toFloat() / scanProgress.totalCount.toFloat()).coerceIn(0f, 1f)
+    else 0f
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "indexing_progress"
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "indexing_anim")
+
+    // Shimmer beam sweep across progress track
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = -0.5f,
+        targetValue = 1.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer_offset"
+    )
+
+    // Breathing glow pulse for leading dot and border
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
+
+    // Animated 3-bar audio spectrum icon
+    val bar1Height by infiniteTransition.animateFloat(
+        initialValue = 4f,
+        targetValue = 14f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar1"
+    )
+    val bar2Height by infiniteTransition.animateFloat(
+        initialValue = 14f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 550, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar2"
+    )
+    val bar3Height by infiniteTransition.animateFloat(
+        initialValue = 6f,
+        targetValue = 15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bar3"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(CWShapes.RadiusMedium),
+        colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            CWColors.AccentCyan.copy(alpha = pulseAlpha)
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Animated 3-bar audio spectrum icon
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.height(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(bar1Height.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                                .background(CWColors.AccentCyan)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(bar2Height.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                                .background(Color(0xFF2979FF))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(bar3Height.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                                .background(Color(0xFF9D4EDD))
+                        )
+                    }
+
+                    Text(
+                        text = "INDEXING AUDIO PIPELINE...",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.AccentCyan,
+                        letterSpacing = 0.75.sp
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "${(animatedProgress * 100).toInt()}%",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.AccentCyan,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${scanProgress.processedCount}/${scanProgress.totalCount}",
+                        style = CWTypography.TechTelemetry,
+                        color = CWColors.TextSecondary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Custom Animated Multi-Gradient Progress Bar with Shimmer & Glowing Pulse Head
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+            ) {
+                val totalWidth = size.width
+                val barHeight = size.height
+                val filledWidth = totalWidth * animatedProgress
+
+                // Track background
+                drawRoundRect(
+                    color = Color(0xFF161B22),
+                    size = size,
+                    cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                )
+
+                if (filledWidth > 0f) {
+                    // Filled Progress with Multi-Tone Neon Gradient
+                    val fillBrush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF00E5FF), // Cyan
+                            Color(0xFF2979FF), // Vivid Blue
+                            Color(0xFF9D4EDD)  // Purple
+                        ),
+                        startX = 0f,
+                        endX = totalWidth
+                    )
+
+                    drawRoundRect(
+                        brush = fillBrush,
+                        size = Size(filledWidth, barHeight),
+                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                    )
+
+                    // Sweeping Specular Shimmer Wave
+                    val shimmerWidth = totalWidth * 0.4f
+                    val shimmerStart = (shimmerOffset * totalWidth) - (shimmerWidth / 2f)
+                    val shimmerBrush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.5f),
+                            Color.Transparent
+                        ),
+                        startX = shimmerStart,
+                        endX = shimmerStart + shimmerWidth
+                    )
+
+                    drawRoundRect(
+                        brush = shimmerBrush,
+                        size = Size(filledWidth, barHeight),
+                        cornerRadius = CornerRadius(barHeight / 2f, barHeight / 2f)
+                    )
+
+                    // Glowing Head Pulse Dot
+                    drawCircle(
+                        color = Color(0xFF00E5FF).copy(alpha = pulseAlpha * 0.4f),
+                        radius = barHeight * 1.6f,
+                        center = Offset(filledWidth.coerceAtLeast(barHeight), barHeight / 2f)
+                    )
+                    drawCircle(
+                        color = Color.White,
+                        radius = barHeight * 0.7f,
+                        center = Offset(filledWidth.coerceAtLeast(barHeight), barHeight / 2f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Subtitle status ticker
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Analyzing metadata, sample rates & FLAC/ALAC tags",
+                    style = CWTypography.TechTelemetry,
+                    color = CWColors.TextTertiary,
+                    fontSize = 10.sp
+                )
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(CWColors.AccentCyan.copy(alpha = pulseAlpha))
+                )
+            }
         }
     }
 }

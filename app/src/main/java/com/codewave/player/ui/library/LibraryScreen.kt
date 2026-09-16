@@ -82,6 +82,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel,
     initialTab: Int = 0,
     onTrackInspect: (Track) -> Unit,
+    onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(initialTab) }
@@ -98,6 +99,7 @@ fun LibraryScreen(
             playbackRepository = viewModel.playbackRepository,
             onBack = { selectedTarget = null },
             onTrackInspect = onTrackInspect,
+            onTrackOptions = onTrackOptions,
             modifier = modifier
         )
         return
@@ -302,7 +304,7 @@ fun LibraryScreen(
                 onTrackClick = { viewModel.playTrack(it) },
                 onSelectToggle = { trackId -> viewModel.toggleTrackSelection(trackId) },
                 onFavoriteClick = { viewModel.toggleFavorite(it) },
-                onMoreClick = onTrackInspect,
+                onMoreClick = { onTrackOptions?.invoke(it) ?: onTrackInspect(it) },
                 onPlayAllClick = { viewModel.playAll() },
                 onShuffleClick = { viewModel.shuffleAll() }
             )
