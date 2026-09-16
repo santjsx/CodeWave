@@ -137,9 +137,9 @@ class OtaUpdateManager(private val context: Context) {
 
     val currentAppVersion: String
         get() = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.3.4"
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.3.5"
         } catch (_: Exception) {
-            "1.3.4"
+            "1.3.5"
         }
 
     suspend fun checkForUpdates(
@@ -323,10 +323,6 @@ class OtaUpdateManager(private val context: Context) {
                     }
 
                     _updateStatus.value = UpdateStatus.ReadyToInstall(targetFile)
-
-                    withContext(Dispatchers.Main) {
-                        installApk(targetFile)
-                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error downloading OTA update", e)
                     _updateStatus.value = UpdateStatus.Error("Download failed: ${e.localizedMessage ?: "Network error"}")
@@ -335,6 +331,10 @@ class OtaUpdateManager(private val context: Context) {
         } finally {
             downloadMutex.unlock()
         }
+    }
+
+    fun dismissUpdate() {
+        _updateStatus.value = UpdateStatus.Idle
     }
 
     fun installApk(apkFile: File) {

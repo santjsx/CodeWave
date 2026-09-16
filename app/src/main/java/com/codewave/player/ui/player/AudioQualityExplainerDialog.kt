@@ -252,13 +252,14 @@ fun AudioQualityExplainerDialog(
                         .clip(RoundedCornerShape(CWShapes.RadiusSmall))
                         .background(CWColors.SurfaceElevated)
                         .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Box(
                             modifier = Modifier
@@ -267,18 +268,22 @@ fun AudioQualityExplainerDialog(
                                 .background(CWColors.Success)
                         )
                         Text(
-                            text = "HEADROOM MARGIN",
+                            text = "HEADROOM",
                             style = CWTypography.TechBadge,
                             color = CWColors.TextSecondary,
-                            fontSize = 10.sp
+                            fontSize = 9.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                     Text(
-                        text = "ZERO CLIPPING · 32-BIT FP",
+                        text = "32-BIT FP · ZERO CLIPPING",
                         style = CWTypography.TechTelemetry,
                         color = CWColors.Success,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -316,27 +321,33 @@ private fun QualityTierChip(
                 if (isActive) CWColors.AccentCyan else CWColors.BorderSubtle,
                 RoundedCornerShape(CWShapes.RadiusSmall)
             )
-            .padding(vertical = 8.dp, horizontal = 6.dp),
+            .padding(vertical = 8.dp, horizontal = 2.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 if (isActive) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
                         tint = CWColors.AccentCyan,
-                        modifier = Modifier.size(10.dp)
+                        modifier = Modifier.size(8.dp)
                     )
                 }
                 Text(
                     text = title,
                     style = CWTypography.TechBadge,
                     color = if (isActive) CWColors.AccentCyan else CWColors.TextSecondary,
-                    fontSize = 10.sp,
+                    fontSize = 8.5.sp,
+                    letterSpacing = 0.sp,
+                    maxLines = 1,
+                    softWrap = false,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium
                 )
             }
@@ -345,7 +356,9 @@ private fun QualityTierChip(
                 text = subtitle,
                 style = CWTypography.AppTypography.bodySmall,
                 color = if (isActive) CWColors.TextPrimary else CWColors.TextTertiary,
-                fontSize = 9.sp,
+                fontSize = 8.sp,
+                maxLines = 1,
+                softWrap = false,
                 fontFamily = FontFamily.Monospace
             )
         }

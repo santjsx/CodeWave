@@ -34,6 +34,7 @@ import com.codewave.player.core.designsystem.component.TrackInspectorSheet
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWTypography
 import com.codewave.player.core.model.Track
+import com.codewave.player.core.ota.UpdateStatus
 import com.codewave.player.ui.equalizer.EqualizerScreen
 import com.codewave.player.ui.equalizer.EqualizerViewModel
 import com.codewave.player.ui.home.HomeScreen
@@ -41,6 +42,7 @@ import com.codewave.player.ui.home.HomeViewModel
 import com.codewave.player.ui.library.LibraryScreen
 import com.codewave.player.ui.library.LibraryViewModel
 import com.codewave.player.ui.navigation.Screen
+import com.codewave.player.ui.ota.OtaUpdateDialog
 import com.codewave.player.ui.player.NowPlayingScreen
 import com.codewave.player.ui.playlists.PlaylistsScreen
 import com.codewave.player.ui.playlists.PlaylistsViewModel
@@ -48,6 +50,7 @@ import com.codewave.player.ui.search.SearchScreen
 import com.codewave.player.ui.search.SearchViewModel
 import com.codewave.player.ui.settings.SettingsScreen
 import com.codewave.player.ui.settings.SettingsViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +99,8 @@ fun CodeWaveApp(
 
     val currentThemeId by container.settingsRepository.themeId.collectAsState(initial = "obsidian")
     val playbackState by container.playbackRepository.playbackState.collectAsState()
+    val otaStatus by container.otaUpdateManager.updateStatus.collectAsState()
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Back handling (PRD Section 96)
     BackHandler(enabled = isNowPlayingExpanded || currentScreen != Screen.Home) {
@@ -239,6 +244,29 @@ fun CodeWaveApp(
                     },
                     onDismiss = { isThemeSheetOpen = false }
                 )
+            }
+
+            // In-App OTA Update Dialog (PRD: Popup on app open with changelogs, download progress, install options)
+            when (val status = otaStatus) {
+                is UpdateStatus.UpdateAvailable,
+                is UpdateStatus.Downloading,
+                is UpdateStatus.ReadyToInstall -> {
+                    OtaUpdateDialog(
+                        status = status,
+                        onDownload = { info ->
+                            coroutineScope.launch {
+                                container.otaUpdateManager.downloadAndInstall(info)
+                            }
+                        },
+                        onInstallNow = { apkFile ->
+                            container.otaUpdateManager.installApk(apkFile)
+                        },
+                        onDismiss = {
+                            container.otaUpdateManager.dismissUpdate()
+                        }
+                    )
+                }
+                else -> Unit
             }
         }
     }
