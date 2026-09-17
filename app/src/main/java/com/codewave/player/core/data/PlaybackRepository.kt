@@ -177,10 +177,12 @@ class DefaultPlaybackRepository(
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            val playerDur = controller?.duration?.takeIf { d -> d > 0 }
+            val trackDur = _playbackState.value.currentTrack?.durationMs?.takeIf { d -> d > 0 }
             _playbackState.update {
                 it.copy(
                     isBuffering = playbackState == Player.STATE_BUFFERING,
-                    durationMs = controller?.duration?.takeIf { d -> d > 0 } ?: it.durationMs
+                    durationMs = playerDur ?: trackDur ?: it.durationMs
                 )
             }
         }
@@ -203,11 +205,14 @@ class DefaultPlaybackRepository(
                 0L
             }
 
+            val trackDuration = track?.durationMs?.takeIf { it > 0 } ?: 0L
+            val resolvedDuration = player.duration.takeIf { it > 0 } ?: trackDuration
+
             _playbackState.update {
                 it.copy(
                     currentTrack = track,
                     queueIndex = index,
-                    durationMs = player.duration.coerceAtLeast(0L),
+                    durationMs = resolvedDuration,
                     positionMs = preservedPos,
                     outputInfo = CodeWaveMediaSessionService.getOutputRouteInfo(context)
                 )
@@ -239,13 +244,15 @@ class DefaultPlaybackRepository(
     private fun updateStateFromPlayer(player: Player) {
         val index = player.currentMediaItemIndex
         val track = currentQueue.getOrNull(index)
+        val trackDuration = track?.durationMs?.takeIf { it > 0 } ?: 0L
+        val resolvedDuration = player.duration.takeIf { it > 0 } ?: trackDuration
         _playbackState.update {
             it.copy(
                 currentTrack = track,
                 queueIndex = index,
                 isPlaying = player.isPlaying,
                 positionMs = player.currentPosition.coerceAtLeast(0L),
-                durationMs = player.duration.coerceAtLeast(0L),
+                durationMs = resolvedDuration,
                 shuffleMode = player.shuffleModeEnabled,
                 repeatMode = when (player.repeatMode) {
                     Player.REPEAT_MODE_ONE -> RepeatMode.ONE
@@ -265,10 +272,13 @@ class DefaultPlaybackRepository(
                 val player = controller
                 if (player != null && player.isPlaying) {
                     val pos = player.currentPosition.coerceAtLeast(0L)
+                    val currentTrack = _playbackState.value.currentTrack
+                    val trackDuration = currentTrack?.durationMs?.takeIf { it > 0 } ?: 0L
+                    val resolvedDuration = player.duration.takeIf { it > 0 } ?: trackDuration
                     _playbackState.update {
                         it.copy(
                             positionMs = pos,
-                            durationMs = player.duration.coerceAtLeast(0L)
+                            durationMs = if (resolvedDuration > 0) resolvedDuration else it.durationMs
                         )
                     }
                     val now = System.currentTimeMillis()
@@ -315,6 +325,7 @@ class DefaultPlaybackRepository(
                 queueIndex = startIndex,
                 currentTrack = track,
                 positionMs = startPositionMs.coerceAtLeast(0L),
+                durationMs = track.durationMs.coerceAtLeast(0L),
                 isPlaying = true
             )
         }

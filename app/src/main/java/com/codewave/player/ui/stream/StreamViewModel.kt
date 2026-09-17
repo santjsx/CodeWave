@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.codewave.player.core.data.DownloadRepository
 import com.codewave.player.core.data.PlaybackRepository
 import com.codewave.player.core.data.StreamRepository
+import com.codewave.player.core.model.ExploreSection
 import com.codewave.player.core.model.StreamTrack
 import com.codewave.player.core.model.TargetAudioFormat
 import kotlinx.coroutines.Job
@@ -21,6 +22,9 @@ data class StreamUiState(
     val isSearching: Boolean = false,
     val searchResults: List<StreamTrack> = emptyList(),
     val exploreCharts: List<StreamTrack> = emptyList(),
+    val exploreSections: List<ExploreSection> = emptyList(),
+    val selectedGenreFilter: String = "All",
+    val availableGenreFilters: List<String> = listOf("All", "Telugu", "Tamil", "Hindi", "Global", "Lo-Fi"),
     val isLoadingCharts: Boolean = false,
     val activeResolvingTrackId: String? = null,
     val errorMessage: String? = null
@@ -38,7 +42,13 @@ class StreamViewModel(
     private var searchJob: Job? = null
 
     init {
-        loadExploreCharts()
+        loadExploreSections("All")
+    }
+
+    fun selectGenreFilter(genre: String) {
+        if (_uiState.value.selectedGenreFilter == genre) return
+        _uiState.update { it.copy(selectedGenreFilter = genre) }
+        loadExploreSections(genre)
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -71,25 +81,36 @@ class StreamViewModel(
         }
     }
 
-    fun loadExploreCharts() {
+    fun loadExploreSections(genre: String = _uiState.value.selectedGenreFilter) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCharts = true, errorMessage = null) }
-            streamRepository.getExploreCharts().collect { result ->
+            streamRepository.getExploreSections(genre).collect { result ->
                 result.fold(
-                    onSuccess = { tracks ->
-                        _uiState.update { it.copy(exploreCharts = tracks, isLoadingCharts = false) }
+                    onSuccess = { sections ->
+                        val allTracks = sections.flatMap { it.tracks }.distinctBy { it.id }
+                        _uiState.update {
+                            it.copy(
+                                exploreSections = sections,
+                                exploreCharts = allTracks,
+                                isLoadingCharts = false
+                            )
+                        }
                     },
                     onFailure = { error ->
                         _uiState.update {
                             it.copy(
                                 isLoadingCharts = false,
-                                errorMessage = "Could not load explore charts: ${error.localizedMessage}"
+                                errorMessage = "Failed to load explore feed: ${error.localizedMessage}"
                             )
                         }
                     }
                 )
             }
         }
+    }
+
+    fun loadExploreCharts() {
+        loadExploreSections()
     }
 
     fun playStreamTrack(streamTrack: StreamTrack) {

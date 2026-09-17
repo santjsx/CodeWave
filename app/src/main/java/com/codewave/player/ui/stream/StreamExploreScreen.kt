@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +30,6 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,10 +51,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
+import com.codewave.player.core.model.ExploreSection
 import com.codewave.player.core.model.StreamTrack
 import com.codewave.player.core.model.TargetAudioFormat
 
@@ -108,7 +111,7 @@ fun StreamExploreScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Search Bar with Cyan Obsidian Styling
         TextField(
@@ -156,9 +159,42 @@ fun StreamExploreScreen(
             keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Error message banner if any
+        // Spotify-style Genre Filter Pills Row
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 4.dp)
+        ) {
+            items(uiState.availableGenreFilters) { genre ->
+                val isSelected = genre.equals(uiState.selectedGenreFilter, ignoreCase = true)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isSelected) CWColors.AccentCyan else CWColors.SurfaceElevated)
+                        .border(
+                            1.dp,
+                            if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                            RoundedCornerShape(20.dp)
+                        )
+                        .clickable { viewModel.selectGenreFilter(genre) }
+                        .padding(horizontal = 16.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = genre,
+                        style = CWTypography.AppTypography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) CWColors.Background else CWColors.TextPrimary
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Error banner if any
         uiState.errorMessage?.let { msg ->
             Box(
                 modifier = Modifier
@@ -177,7 +213,7 @@ fun StreamExploreScreen(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // Search Results or Explore Charts
+        // Search Results or Spotify Explore Feeds
         if (uiState.isSearching) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -229,43 +265,8 @@ fun StreamExploreScreen(
                 }
             }
         } else {
-            // Explore / Trending Section
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.TrendingUp,
-                        contentDescription = null,
-                        tint = CWColors.AccentCyan,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "TRENDING & EXPLORE",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextSecondary
-                    )
-                }
-
-                IconButton(
-                    onClick = { viewModel.loadExploreCharts() },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = CWColors.TextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (uiState.isLoadingCharts) {
+            // Spotify-Inspired Explore Experience
+            if (uiState.isLoadingCharts && uiState.exploreSections.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -279,16 +280,74 @@ fun StreamExploreScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    items(uiState.exploreCharts, key = { it.id }) { track ->
-                        StreamTrackRow(
-                            track = track,
-                            isResolving = uiState.activeResolvingTrackId == track.id,
-                            onPlayClick = { viewModel.playStreamTrack(track) },
-                            onDownloadClick = {
-                                viewModel.downloadTrack(track, TargetAudioFormat.FLAC)
-                                Toast.makeText(context, "Queued FLAC download: ${track.title}", Toast.LENGTH_SHORT).show()
+                    // 1. Spotify 2-Column Quick Picks Grid (Top 6 Tracks)
+                    val quickPicks = uiState.exploreCharts.take(6)
+                    if (quickPicks.isNotEmpty()) {
+                        item {
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Quick Picks",
+                                        style = CWTypography.AppTypography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CWColors.TextPrimary
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.loadExploreSections() },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Refresh",
+                                            tint = CWColors.TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // 2-Column x 3-Row Grid
+                                val chunked = quickPicks.chunked(2)
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    chunked.forEach { pair ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            pair.forEach { track ->
+                                                SpotifyQuickPickCard(
+                                                    track = track,
+                                                    isResolving = uiState.activeResolvingTrackId == track.id,
+                                                    onPlayClick = { viewModel.playStreamTrack(track) },
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
+                                            if (pair.size == 1) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Spotify Horizontal Carousels for Each Section
+                    items(uiState.exploreSections, key = { it.id }) { section ->
+                        ExploreSectionCarousel(
+                            section = section,
+                            activeResolvingTrackId = uiState.activeResolvingTrackId,
+                            onPlayTrack = { viewModel.playStreamTrack(it) },
+                            onDownloadTrack = {
+                                viewModel.downloadTrack(it, TargetAudioFormat.FLAC)
+                                Toast.makeText(context, "Queued FLAC download: ${it.title}", Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -298,6 +357,249 @@ fun StreamExploreScreen(
     }
 }
 
+/**
+ * Spotify-Style 2-Column Compact Quick Pick Card
+ */
+@Composable
+private fun SpotifyQuickPickCard(
+    track: StreamTrack,
+    isResolving: Boolean,
+    onPlayClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .height(56.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(CWColors.SurfaceElevated)
+            .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(8.dp))
+            .clickable(onClick = onPlayClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(CWColors.SurfacePrimary),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!track.artworkUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = track.artworkUri,
+                    contentDescription = track.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = "♪",
+                    style = CWTypography.TechBadge,
+                    color = CWColors.AccentCyan
+                )
+            }
+
+            if (isResolving) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = CWColors.AccentCyan,
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Text(
+            text = track.title,
+            style = CWTypography.AppTypography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = CWColors.TextPrimary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        )
+    }
+}
+
+/**
+ * Spotify-Style Horizontal Carousel Section with Title, Subtitle, and Cards
+ */
+@Composable
+private fun ExploreSectionCarousel(
+    section: ExploreSection,
+    activeResolvingTrackId: String?,
+    onPlayTrack: (StreamTrack) -> Unit,
+    onDownloadTrack: (StreamTrack) -> Unit
+) {
+    Column {
+        Text(
+            text = section.title,
+            style = CWTypography.AppTypography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = CWColors.TextPrimary
+        )
+
+        if (!section.subtitle.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = section.subtitle,
+                style = CWTypography.AppTypography.labelSmall,
+                color = CWColors.TextSecondary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(section.tracks, key = { "${section.id}_${it.id}" }) { track ->
+                SpotifyCard(
+                    track = track,
+                    isResolving = activeResolvingTrackId == track.id,
+                    onPlayClick = { onPlayTrack(track) },
+                    onDownloadClick = { onDownloadTrack(track) }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Spotify Square Music Card with Cover Artwork, Badges, and Quick Play/Download Actions
+ */
+@Composable
+private fun SpotifyCard(
+    track: StreamTrack,
+    isResolving: Boolean,
+    onPlayClick: () -> Unit,
+    onDownloadClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(142.dp)
+            .clickable(onClick = onPlayClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(142.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(CWColors.SurfacePrimary)
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(12.dp))
+        ) {
+            if (!track.artworkUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = track.artworkUri,
+                    contentDescription = track.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "♪",
+                        fontSize = 32.sp,
+                        color = CWColors.AccentCyan
+                    )
+                }
+            }
+
+            // Subtle gradient scrim at bottom
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                            startY = 60f
+                        )
+                    )
+            )
+
+            // Play Button Indicator overlay at bottom-right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(CWColors.AccentCyan)
+                    .clickable(onClick = onPlayClick),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isResolving) {
+                    CircularProgressIndicator(
+                        color = CWColors.Background,
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = CWColors.Background,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // Download Icon Button at bottom-left
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .clickable(onClick = onDownloadClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download FLAC",
+                    tint = CWColors.Success,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Title
+        Text(
+            text = track.title,
+            style = CWTypography.AppTypography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = CWColors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        // Subtitle / Artist
+        Text(
+            text = track.artist,
+            style = CWTypography.AppTypography.labelSmall,
+            color = CWColors.TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * Clean Single Track Row for Search Results
+ */
 @Composable
 private fun StreamTrackRow(
     track: StreamTrack,

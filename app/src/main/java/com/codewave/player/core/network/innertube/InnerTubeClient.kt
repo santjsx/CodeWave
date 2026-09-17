@@ -3,9 +3,12 @@ package com.codewave.player.core.network.innertube
 import android.net.Uri
 import com.codewave.player.core.model.AudioFormat
 import com.codewave.player.core.model.AudioSourceType
+import com.codewave.player.core.model.ExploreSection
 import com.codewave.player.core.model.StreamQuality
 import com.codewave.player.core.model.StreamTrack
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -14,6 +17,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
@@ -87,7 +91,7 @@ class InnerTubeClient(
             client.deviceModel?.let { put("deviceModel", it) }
             client.androidSdkVersion?.let { put("androidSdkVersion", it) }
             put("hl", "en")
-            put("gl", "US")
+            put("gl", "IN")
             val vData = getOrFetchVisitorData()
             if (!vData.isNullOrBlank()) {
                 put("visitorData", vData)
@@ -162,48 +166,100 @@ class InnerTubeClient(
         }
     }
 
+    // In-memory cache for explore sections to enable instant tab switching
+    private val exploreSectionsCache = ConcurrentHashMap<String, List<ExploreSection>>()
+
+    /**
+     * Fetches categorized, Spotify-style exploration sections based on user-selected genre or language.
+     * Parallelizes section queries for near-instantaneous load times and stores results in memory.
+     */
+    suspend fun getExploreSections(genreFilter: String = "All"): Result<List<ExploreSection>> = withContext(Dispatchers.IO) {
+        val cached = exploreSectionsCache[genreFilter]
+        if (!cached.isNullOrEmpty()) {
+            return@withContext Result.success(cached)
+        }
+
+        try {
+            val sectionDefinitions = when (genreFilter.lowercase()) {
+                "telugu" -> listOf(
+                    Triple("sec_te_trending", "Trending Now Telugu", "Top Tollywood hits & viral tracks") to "Trending Telugu Songs",
+                    Triple("sec_te_latest", "Latest Telugu Hits", "New movie releases & dance numbers") to "Latest Telugu Songs 2026",
+                    Triple("sec_te_melodies", "Tollywood Pearls", "Soulful romantic melodies") to "Telugu Romantic Melodies",
+                    Triple("sec_te_party", "High Voltage Mass", "Energetic party & fast beats") to "Telugu Mass Songs"
+                )
+                "tamil" -> listOf(
+                    Triple("sec_ta_trending", "Trending Now Tamil", "Top Kollywood chartbusters") to "Trending Tamil Songs",
+                    Triple("sec_ta_anirudh", "Anirudh Waves", "Blockbuster hits by Anirudh") to "Anirudh Ravichander Hits",
+                    Triple("sec_ta_melodies", "Pure Tamil Melodies", "Soul-touching acoustic & love songs") to "Tamil Melodies 2026",
+                    Triple("sec_ta_kuthu", "Tamil Kuthu & Dance", "Fast-paced festive beats") to "Tamil Kuthu Songs"
+                )
+                "hindi" -> listOf(
+                    Triple("sec_hi_trending", "Bollywood Top Hits", "Biggest Hindi cinema anthems") to "Trending Hindi Songs",
+                    Triple("sec_hi_romantic", "Hindi Romance & Chill", "Acoustic and romantic chart toppers") to "Hindi Romantic Songs",
+                    Triple("sec_hi_indie", "Desi Indie & Pop", "Independent artists and viral singles") to "Indian Pop Hits",
+                    Triple("sec_hi_party", "Club & Dance Bollywood", "High-energy dance music") to "Bollywood Party Songs"
+                )
+                "global" -> listOf(
+                    Triple("sec_gl_top50", "Top 50 Global", "World's most played tracks right now") to "Top 50 Global Hits",
+                    Triple("sec_gl_pop", "Hot Pop Hits", "Catchy modern pop and radio favorites") to "Today's Top Pop Hits",
+                    Triple("sec_gl_hiphop", "Hip-Hop & Rap Essentials", "Heavy bass and lyrical heat") to "Hip Hop Essentials",
+                    Triple("sec_gl_electronic", "Electronic & Dance", "EDM, house, and festival anthems") to "Dance Pop & EDM"
+                )
+                "lo-fi", "lofi" -> listOf(
+                    Triple("sec_lf_study", "Midnight Lo-Fi Beats", "Calm instrumentals for focus and sleep") to "Lo Fi Beats Chill",
+                    Triple("sec_lf_telugu", "Telugu Lo-Fi Remixes", "Acoustic and slowed+reverb regional vibes") to "Telugu Lofi Chill",
+                    Triple("sec_lf_bollywood", "Bollywood Lo-Fi & Chill", "Soft romantic aesthetics") to "Bollywood Lofi Slowed",
+                    Triple("sec_lf_acoustic", "Coffee & Acoustic", "Unplugged sessions and gentle rhythms") to "Acoustic Chill Music"
+                )
+                else -> listOf(
+                    // "All" or "Trending"
+                    Triple("sec_all_biggest", "Today's Biggest Hits", "Top trending across all languages") to "Top Music Hits 2026",
+                    Triple("sec_all_telugu", "Trending Now Telugu", "Anirudh, Devi Sri Prasad, Thaman") to "Trending Telugu Songs",
+                    Triple("sec_all_tamil", "Trending Now Tamil", "Kollywood chart toppers") to "Trending Tamil Songs",
+                    Triple("sec_all_hindi", "Bollywood & Hindi Hits", "Current cinema & indie tracks") to "Trending Hindi Songs",
+                    Triple("sec_all_global", "Global Sensation", "Worldwide viral singles") to "Top 50 Global Hits",
+                    Triple("sec_all_lofi", "Lo-Fi & Midnight Chill", "Slowed & reverb relaxing beats") to "Lo Fi Beats Chill"
+                )
+            }
+
+            val sections = coroutineScope {
+                sectionDefinitions.map { (meta, query) ->
+                    async {
+                        val tracks = search(query).getOrDefault(emptyList())
+                        if (tracks.isNotEmpty()) {
+                            ExploreSection(
+                                id = meta.first,
+                                title = meta.second,
+                                subtitle = meta.third,
+                                tracks = tracks.take(15)
+                            )
+                        } else null
+                    }
+                }.mapNotNull { it.await() }
+            }
+
+            if (sections.isNotEmpty()) {
+                exploreSectionsCache[genreFilter] = sections
+            }
+            Result.success(sections)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Fetches trending / explore charts for CodeWave's online exploration shelf.
      */
     suspend fun getExploreCharts(): Result<List<StreamTrack>> = withContext(Dispatchers.IO) {
-        try {
-            val client = PlayerClient.WEB_REMIX
-            val payload = createBaseClientJson(client).apply {
-                put("browseId", "FEmusic_explore")
+        val sectionsResult = getExploreSections("All")
+        if (sectionsResult.isSuccess) {
+            val sections = sectionsResult.getOrThrow()
+            val allTracks = sections.flatMap { it.tracks }.distinctBy { it.id }
+            if (allTracks.isNotEmpty()) {
+                return@withContext Result.success(allTracks)
             }
-
-            val vData = cachedVisitorData
-            val reqBuilder = Request.Builder()
-                .url("$YOUTUBE_MUSIC_BASE_URL/browse")
-                .header("User-Agent", client.userAgent)
-                .header("Content-Type", "application/json")
-                .header("Origin", "https://music.youtube.com")
-                .header("Referer", "https://music.youtube.com/")
-                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
-
-            if (!vData.isNullOrBlank()) {
-                reqBuilder.header("X-Goog-Visitor-Id", vData)
-            }
-
-            val response = okHttpClient.newCall(reqBuilder.build()).execute()
-            if (!response.isSuccessful) {
-                return@withContext Result.failure(IOException("InnerTube Explore HTTP ${response.code}"))
-            }
-
-            val responseBody = response.body?.string().orEmpty()
-            val json = JSONObject(responseBody)
-            var tracks = parseExploreTracks(json)
-
-            // Fallback: If explore charts empty, query trending songs via search
-            if (tracks.isEmpty()) {
-                val trendingResult = search("Top Hits 2026")
-                tracks = trendingResult.getOrDefault(emptyList())
-            }
-
-            Result.success(tracks)
-        } catch (e: Exception) {
-            Result.failure(e)
         }
+        search("Top Music Hits 2026")
     }
 
     /**

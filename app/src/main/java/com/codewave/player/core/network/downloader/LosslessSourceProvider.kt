@@ -20,7 +20,10 @@ data class LosslessSourceResult(
     val sampleRate: Int,
     val providerName: String,
     val estimatedBytes: Long = 0L,
-    val requestHeaders: Map<String, String> = emptyMap()
+    val requestHeaders: Map<String, String> = emptyMap(),
+    val fallbackUrl: String? = null,
+    val resolvedArtist: String? = null,
+    val resolvedTitle: String? = null
 )
 
 class LosslessSourceProvider(
@@ -78,7 +81,10 @@ class LosslessSourceProvider(
                     providerName = if (jio.is320k) "JioSaavn Studio (320 kbps)" else "JioSaavn (160 kbps)",
                     requestHeaders = mapOf(
                         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-                    )
+                    ),
+                    fallbackUrl = jio.fallbackUrl,
+                    resolvedArtist = jio.resolvedArtist,
+                    resolvedTitle = jio.resolvedTitle
                 )
             )
         }
@@ -106,7 +112,9 @@ class LosslessSourceProvider(
                         bitDepth = 16,
                         sampleRate = streamInfo.sampleRate,
                         providerName = "YouTube Music Studio (Opus 160k)",
-                        requestHeaders = streamInfo.mediaHeaders
+                        requestHeaders = streamInfo.mediaHeaders,
+                        resolvedArtist = bestTrack.artist.takeIf { !it.equals("Unknown Artist", ignoreCase = true) },
+                        resolvedTitle = bestTrack.title
                     )
                 )
             }

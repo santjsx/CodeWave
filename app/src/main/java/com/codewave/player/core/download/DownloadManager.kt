@@ -121,15 +121,40 @@ class DownloadManager(
                     preferredFormat = task.targetFormat
                 ).getOrThrow()
 
+                // Auto-heal title and artist if task was saved as Unknown Artist / Unknown Title
+                val effectiveArtist = if ((task.artist.isBlank() || task.artist.equals("Unknown Artist", ignoreCase = true)) && !sourceResult.resolvedArtist.isNullOrBlank()) {
+                    sourceResult.resolvedArtist
+                } else {
+                    task.artist
+                }
+                val effectiveTitle = if ((task.title.isBlank() || task.title.equals("Unknown Title", ignoreCase = true)) && !sourceResult.resolvedTitle.isNullOrBlank()) {
+                    sourceResult.resolvedTitle
+                } else {
+                    task.title
+                }
+                if (effectiveArtist != task.artist || effectiveTitle != task.title) {
+                    downloadDao.updateMetadata(task.id, effectiveTitle, effectiveArtist)
+                }
+
                 downloadDao.updateStatus(task.id, DownloadStatus.DOWNLOADING.name)
 
                 // 2. Download audio stream chunked to cache file
-                val sanitizedTitle = task.title.replace(Regex("[/\\\\?%*:|\"<>]"), "_")
-                val sanitizedArtist = task.artist.replace(Regex("[/\\\\?%*:|\"<>]"), "_")
+                val sanitizedTitle = effectiveTitle.replace(Regex("[/\\\\?%*:|\"<>]"), "_")
+                val sanitizedArtist = effectiveArtist.replace(Regex("[/\\\\?%*:|\"<>]"), "_")
                 val filename = "$sanitizedArtist - $sanitizedTitle.${sourceResult.format.extension}"
 
                 val tempFile = File(context.cacheDir, "${task.id}_download.tmp")
-                downloadStream(sourceResult.downloadUrl, tempFile, task.id, sourceResult.requestHeaders)
+                try {
+                    downloadStream(sourceResult.downloadUrl, tempFile, task.id, sourceResult.requestHeaders)
+                } catch (e: Exception) {
+                    val fallback = sourceResult.fallbackUrl
+                    if (!fallback.isNullOrBlank() && fallback != sourceResult.downloadUrl) {
+                        tempFile.delete()
+                        downloadStream(fallback, tempFile, task.id, sourceResult.requestHeaders)
+                    } else {
+                        throw e
+                    }
+                }
 
                 // 3. Tag FLAC with audiophile metadata if target is FLAC
                 downloadDao.updateStatus(task.id, DownloadStatus.TAGGING.name)
@@ -147,8 +172,8 @@ class DownloadManager(
                 if (sourceResult.format == TargetAudioFormat.FLAC) {
                     FlacTagger.tagFlacFile(
                         file = tempFile,
-                        title = task.title,
-                        artist = task.artist,
+                        title = effectiveTitle,
+                        artist = effectiveArtist,
                         album = task.album,
                         isrc = task.isrc,
                         artworkBytes = artworkBytes

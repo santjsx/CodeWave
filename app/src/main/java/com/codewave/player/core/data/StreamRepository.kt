@@ -2,6 +2,7 @@ package com.codewave.player.core.data
 
 import com.codewave.player.core.media.LrclibLyricsProvider
 import com.codewave.player.core.media.LyricsResult
+import com.codewave.player.core.model.ExploreSection
 import com.codewave.player.core.model.StreamTrack
 import com.codewave.player.core.model.Track
 import com.codewave.player.core.network.innertube.InnerTubeClient
@@ -16,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
 interface StreamRepository {
     fun search(query: String): Flow<Result<List<StreamTrack>>>
     fun getExploreCharts(): Flow<Result<List<StreamTrack>>>
+    fun getExploreSections(genre: String = "All"): Flow<Result<List<ExploreSection>>>
     suspend fun resolveStreamTrack(streamTrack: StreamTrack): Result<Track>
     suspend fun resolveSpotifyMetadata(url: String): Result<ResolvedMetadata>
     fun fetchOnlineLyrics(track: Track): Flow<LyricsResult>
@@ -36,6 +38,10 @@ class DefaultStreamRepository(
 
     override fun getExploreCharts(): Flow<Result<List<StreamTrack>>> = flow {
         emit(innerTubeClient.getExploreCharts())
+    }.flowOn(Dispatchers.IO)
+
+    override fun getExploreSections(genre: String): Flow<Result<List<ExploreSection>>> = flow {
+        emit(innerTubeClient.getExploreSections(genre))
     }.flowOn(Dispatchers.IO)
 
     override suspend fun resolveStreamTrack(streamTrack: StreamTrack): Result<Track> {

@@ -17,7 +17,10 @@ data class JioSaavnStreamResult(
     val bitrateKbps: Int,
     val sampleRate: Int = 44100,
     val format: TargetAudioFormat = TargetAudioFormat.OPUS, // MP4/AAC container
-    val is320k: Boolean = false
+    val is320k: Boolean = false,
+    val fallbackUrl: String? = null,
+    val resolvedArtist: String? = null,
+    val resolvedTitle: String? = null
 )
 
 /**
@@ -76,19 +79,50 @@ class JioSaavnProvider(
                             val decryptedUrl = decryptUrl(encryptedUrl)
                             if (decryptedUrl.isNotBlank()) {
                                 val supports320 = moreInfo.optString("320kbps").equals("true", ignoreCase = true)
+                                // JioSaavn decrypted URLs typically end with _96.mp4, _48.mp4, or _160.mp4.
+                                // Replacing just .mp4 created invalid names like _96_320.mp4 which returned 404!
                                 val finalUrl = if (supports320) {
-                                    decryptedUrl.replace(".mp4", "_320.mp4")
+                                    decryptedUrl.replace(Regex("_(96|48|160)\\.mp4$"), "_320.mp4")
+                                } else {
+                                    decryptedUrl
+                                }
+                                val fallbackUrl = if (supports320) {
+                                    decryptedUrl.replace(Regex("_(96|48|320)\\.mp4$"), "_160.mp4")
                                 } else {
                                     decryptedUrl
                                 }
                                 val bitrate = if (supports320) 320 else 160
+
+                                val primaryArtists = first.optJSONObject("artistMap")?.optJSONArray("primary_artists")
+                                val artistList = mutableListOf<String>()
+                                if (primaryArtists != null) {
+                                    for (idx in 0 until primaryArtists.length()) {
+                                        val a = primaryArtists.optJSONObject(idx)?.optString("name")
+                                        if (!a.isNullOrBlank()) artistList.add(a)
+                                    }
+                                }
+                                val resolvedArtist = if (artistList.isNotEmpty()) {
+                                    artistList.joinToString(", ")
+                                } else {
+                                    moreInfo.optString("music").takeIf { it.isNotBlank() }
+                                        ?: first.optString("subtitle").takeIf { it.isNotBlank() }
+                                }
+                                val resolvedTitle = first.optString("title")
+                                    .replace("&quot;", "\"")
+                                    .replace("&#039;", "'")
+                                    .replace("&amp;", "&")
+                                    .trim()
+
                                 return@withContext Result.success(
                                     JioSaavnStreamResult(
                                         streamUrl = finalUrl,
                                         bitrateKbps = bitrate,
                                         sampleRate = 44100,
                                         format = TargetAudioFormat.OPUS,
-                                        is320k = supports320
+                                        is320k = supports320,
+                                        fallbackUrl = fallbackUrl,
+                                        resolvedArtist = resolvedArtist,
+                                        resolvedTitle = resolvedTitle
                                     )
                                 )
                             }
@@ -120,18 +154,47 @@ class JioSaavnProvider(
                                     if (decryptedUrl.isNotBlank()) {
                                         val supports320 = moreInfo.optString("320kbps").equals("true", ignoreCase = true)
                                         val finalUrl = if (supports320) {
-                                            decryptedUrl.replace(".mp4", "_320.mp4")
+                                            decryptedUrl.replace(Regex("_(96|48|160)\\.mp4$"), "_320.mp4")
+                                        } else {
+                                            decryptedUrl
+                                        }
+                                        val fallbackUrl = if (supports320) {
+                                            decryptedUrl.replace(Regex("_(96|48|320)\\.mp4$"), "_160.mp4")
                                         } else {
                                             decryptedUrl
                                         }
                                         val bitrate = if (supports320) 320 else 160
+
+                                        val primaryArtists = songDetails.optJSONObject("artistMap")?.optJSONArray("primary_artists")
+                                        val artistList = mutableListOf<String>()
+                                        if (primaryArtists != null) {
+                                            for (idx in 0 until primaryArtists.length()) {
+                                                val a = primaryArtists.optJSONObject(idx)?.optString("name")
+                                                if (!a.isNullOrBlank()) artistList.add(a)
+                                            }
+                                        }
+                                        val resolvedArtist = if (artistList.isNotEmpty()) {
+                                            artistList.joinToString(", ")
+                                        } else {
+                                            moreInfo.optString("music").takeIf { it.isNotBlank() }
+                                                ?: songDetails.optString("subtitle").takeIf { it.isNotBlank() }
+                                        }
+                                        val resolvedTitle = songDetails.optString("title")
+                                            .replace("&quot;", "\"")
+                                            .replace("&#039;", "'")
+                                            .replace("&amp;", "&")
+                                            .trim()
+
                                         return@withContext Result.success(
                                             JioSaavnStreamResult(
                                                 streamUrl = finalUrl,
                                                 bitrateKbps = bitrate,
                                                 sampleRate = 44100,
                                                 format = TargetAudioFormat.OPUS,
-                                                is320k = supports320
+                                                is320k = supports320,
+                                                fallbackUrl = fallbackUrl,
+                                                resolvedArtist = resolvedArtist,
+                                                resolvedTitle = resolvedTitle
                                             )
                                         )
                                     }

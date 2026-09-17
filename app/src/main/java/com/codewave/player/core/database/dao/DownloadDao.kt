@@ -33,6 +33,9 @@ interface DownloadDao {
     @Query("UPDATE download_tasks SET status = :status, errorMessage = :error WHERE id = :id")
     suspend fun updateStatus(id: String, status: String, error: String? = null)
 
+    @Query("UPDATE download_tasks SET title = :title, artist = :artist WHERE id = :id")
+    suspend fun updateMetadata(id: String, title: String, artist: String)
+
     @Query("UPDATE download_tasks SET progress = :progress, downloadedBytes = :downloaded, speedBytesPerSec = :speed WHERE id = :id")
     suspend fun updateProgress(id: String, progress: Float, downloaded: Long, speed: Long)
 

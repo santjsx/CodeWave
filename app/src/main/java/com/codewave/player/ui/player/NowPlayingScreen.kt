@@ -117,7 +117,7 @@ fun NowPlayingScreen(
     var isSleepTimerOpen by remember { mutableStateOf(false) }
     var isSpeedSelectorOpen by remember { mutableStateOf(false) }
 
-    val duration = state.durationMs.coerceAtLeast(1L)
+    val duration = (if (state.durationMs > 0) state.durationMs else track.durationMs).coerceAtLeast(1L)
     var lyricsResult by remember(track.id) { mutableStateOf<LyricsResult>(LyricsResult.Loading) }
 
     androidx.compose.runtime.LaunchedEffect(track.id, track.path) {

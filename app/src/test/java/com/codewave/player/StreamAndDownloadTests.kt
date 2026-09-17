@@ -173,5 +173,41 @@ class StreamAndDownloadTests {
         assertEquals("https://open.qobuz.com/track/11223344", links.qobuzUrl)
         assertEquals("https://music.youtube.com/watch?v=abcdef12345", links.youtubeUrl)
     }
+
+    @Test
+    fun testJioSaavn320kBitrateRegexReplacement() {
+        val url96 = "https://aac.saavncdn.com/625/sample_96.mp4"
+        val replaced320From96 = url96.replace(Regex("_(96|48|160)\\.mp4$"), "_320.mp4")
+        assertEquals("https://aac.saavncdn.com/625/sample_320.mp4", replaced320From96)
+
+        val url160 = "https://aac.saavncdn.com/625/sample_160.mp4"
+        val replaced320From160 = url160.replace(Regex("_(96|48|160)\\.mp4$"), "_320.mp4")
+        assertEquals("https://aac.saavncdn.com/625/sample_320.mp4", replaced320From160)
+
+        val fallback160 = replaced320From96.replace(Regex("_(96|48|320)\\.mp4$"), "_160.mp4")
+        assertEquals("https://aac.saavncdn.com/625/sample_160.mp4", fallback160)
+    }
+
+    @Test
+    fun testExploreSectionDataModel() {
+        val track = com.codewave.player.core.model.StreamTrack(
+            id = "vid_123",
+            title = "Yeshanagula",
+            artist = "Anirudh Ravichander",
+            album = "The Paradise",
+            durationMs = 215000L,
+            artworkUri = "https://example.com/art.jpg"
+        )
+        val section = com.codewave.player.core.model.ExploreSection(
+            id = "sec_te",
+            title = "Trending Now Telugu",
+            subtitle = "Top Tollywood hits",
+            tracks = listOf(track)
+        )
+        assertEquals("sec_te", section.id)
+        assertEquals("Trending Now Telugu", section.title)
+        assertEquals(1, section.tracks.size)
+        assertEquals("Yeshanagula", section.tracks[0].title)
+    }
 }
 

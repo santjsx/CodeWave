@@ -82,6 +82,16 @@ data class StreamTrack(
 }
 
 /**
+ * Curated horizontal music section for Spotify-style exploration.
+ */
+data class ExploreSection(
+    val id: String,
+    val title: String,
+    val subtitle: String? = null,
+    val tracks: List<StreamTrack>
+)
+
+/**
  * State of a background lossless download task.
  */
 enum class DownloadStatus {
