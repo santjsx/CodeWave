@@ -36,6 +36,12 @@ interface EqualizerRepository {
     suspend fun setBandGain(bandIndex: Int, gainDb: Float)
     suspend fun applyPreset(preset: EQPreset)
     suspend fun saveCustomPreset(name: String, preampDb: Float, gains: List<Float>)
+    suspend fun setBassEnabled(enabled: Boolean)
+    suspend fun setBassGain(gainDb: Float)
+    suspend fun setClarityEnabled(enabled: Boolean)
+    suspend fun setClarityGain(gainDb: Float)
+    suspend fun setConvolverEnabled(enabled: Boolean)
+    suspend fun setIrsName(name: String?)
 }
 
 class DefaultEqualizerRepository(
@@ -46,6 +52,8 @@ class DefaultEqualizerRepository(
     private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var preampPersistJob: Job? = null
     private var bandGainPersistJob: Job? = null
+    private var bassPersistJob: Job? = null
+    private var clarityPersistJob: Job? = null
 
     private object PreferencesKeys {
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
@@ -53,6 +61,12 @@ class DefaultEqualizerRepository(
         val LIMITER_ENABLED = booleanPreferencesKey("limiter_enabled")
         val ACTIVE_PRESET = stringPreferencesKey("active_preset")
         val BAND_GAINS = stringPreferencesKey("band_gains")
+        val BASS_ENABLED = booleanPreferencesKey("bass_enabled")
+        val BASS_GAIN = floatPreferencesKey("bass_gain")
+        val CLARITY_ENABLED = booleanPreferencesKey("clarity_enabled")
+        val CLARITY_GAIN = floatPreferencesKey("clarity_gain")
+        val CONVOLVER_ENABLED = booleanPreferencesKey("convolver_enabled")
+        val IRS_NAME = stringPreferencesKey("irs_name")
     }
 
     private val _equalizerConfig = MutableStateFlow(EqualizerConfig())
@@ -73,12 +87,25 @@ class DefaultEqualizerRepository(
                 band.copy(gainDb = gains.getOrElse(index) { 0f })
             }
 
+            val bassEnabled = prefs[PreferencesKeys.BASS_ENABLED] ?: false
+            val bassGain = prefs[PreferencesKeys.BASS_GAIN] ?: 4.0f
+            val clarityEnabled = prefs[PreferencesKeys.CLARITY_ENABLED] ?: false
+            val clarityGain = prefs[PreferencesKeys.CLARITY_GAIN] ?: 3.0f
+            val convolverEnabled = prefs[PreferencesKeys.CONVOLVER_ENABLED] ?: false
+            val irsName = prefs[PreferencesKeys.IRS_NAME]
+
             _equalizerConfig.value = EqualizerConfig(
                 isEnabled = enabled,
                 preampGainDb = preamp,
                 isLimiterEnabled = limiter,
                 activePresetName = preset,
-                bands = bands
+                bands = bands,
+                isBassEnabled = bassEnabled,
+                bassGainDb = bassGain,
+                isClarityEnabled = clarityEnabled,
+                clarityGainDb = clarityGain,
+                isConvolverEnabled = convolverEnabled,
+                irsName = irsName
             )
         }
     }
@@ -172,5 +199,57 @@ class DefaultEqualizerRepository(
                 bandGainsJson = gains.joinToString(",")
             )
         )
+    }
+
+    override suspend fun setBassEnabled(enabled: Boolean) {
+        _equalizerConfig.update { it.copy(isBassEnabled = enabled) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.BASS_ENABLED] = enabled }
+        }
+    }
+
+    override suspend fun setBassGain(gainDb: Float) {
+        _equalizerConfig.update { it.copy(bassGainDb = gainDb) }
+        bassPersistJob?.cancel()
+        bassPersistJob = repoScope.launch {
+            delay(250)
+            context.eqDataStore.edit { it[PreferencesKeys.BASS_GAIN] = gainDb }
+        }
+    }
+
+    override suspend fun setClarityEnabled(enabled: Boolean) {
+        _equalizerConfig.update { it.copy(isClarityEnabled = enabled) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.CLARITY_ENABLED] = enabled }
+        }
+    }
+
+    override suspend fun setClarityGain(gainDb: Float) {
+        _equalizerConfig.update { it.copy(clarityGainDb = gainDb) }
+        clarityPersistJob?.cancel()
+        clarityPersistJob = repoScope.launch {
+            delay(250)
+            context.eqDataStore.edit { it[PreferencesKeys.CLARITY_GAIN] = gainDb }
+        }
+    }
+
+    override suspend fun setConvolverEnabled(enabled: Boolean) {
+        _equalizerConfig.update { it.copy(isConvolverEnabled = enabled) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.CONVOLVER_ENABLED] = enabled }
+        }
+    }
+
+    override suspend fun setIrsName(name: String?) {
+        _equalizerConfig.update { it.copy(irsName = name) }
+        repoScope.launch {
+            context.eqDataStore.edit { prefs ->
+                if (name != null) {
+                    prefs[PreferencesKeys.IRS_NAME] = name
+                } else {
+                    prefs.remove(PreferencesKeys.IRS_NAME)
+                }
+            }
+        }
     }
 }

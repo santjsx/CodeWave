@@ -3,6 +3,7 @@ package com.codewave.player.core.data
 import android.content.Context
 import com.codewave.player.core.database.CodeWaveDatabase
 import com.codewave.player.core.scanner.AudioScanner
+import com.codewave.player.core.audio.ViperAudioProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,6 +16,7 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val playbackRepository: PlaybackRepository
     val otaUpdateManager: com.codewave.player.core.ota.OtaUpdateManager
+    val viperAudioProcessor: ViperAudioProcessor
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
@@ -64,5 +66,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 
     override val otaUpdateManager: com.codewave.player.core.ota.OtaUpdateManager by lazy {
         com.codewave.player.core.ota.OtaUpdateManager(context)
+    }
+
+    override val viperAudioProcessor: ViperAudioProcessor by lazy {
+        ViperAudioProcessor()
     }
 }

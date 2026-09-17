@@ -47,7 +47,13 @@ data class EqualizerConfig(
     val preampGainDb: Float = 0f,
     val isLimiterEnabled: Boolean = true,
     val activePresetName: String = "Flat",
-    val bands: List<EqualizerBand> = defaultBands()
+    val bands: List<EqualizerBand> = defaultBands(),
+    val isBassEnabled: Boolean = false,
+    val bassGainDb: Float = 4.0f,
+    val isClarityEnabled: Boolean = false,
+    val clarityGainDb: Float = 3.0f,
+    val isConvolverEnabled: Boolean = false,
+    val irsName: String? = null
 ) {
     companion object {
         fun defaultBands(): List<EqualizerBand> {

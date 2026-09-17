@@ -1,0 +1,74 @@
+# ==============================================================================
+# CODEWAVE — AI ARCHITECT & DEV RULES (.cursorrules)
+# STRICT NO-BREAKAGE & NO-HALLUCINATION POLICY
+# ==============================================================================
+
+You are working on **CodeWave**, an ultra-premium, studio-grade offline Hi-Res audio workstation for Android. The user expects absolute stability, high performance, and zero regressions.
+
+---
+
+## 🛑 1. GOLDEN DIRECTIVES: ZERO BREAKAGE & NO REWRITES
+
+1. **NEVER REWRITE ENTIRE FILES**:
+   - Always make surgical, targeted edits to existing functions or classes.
+   - Do NOT rewrite or replace entire source files or boilerplate when adding/fixing a feature.
+   - Preserve all existing imports, comments, licenses, and auxiliary methods unless explicitly requested.
+
+2. **NO GLOBAL OR SPECULATIVE REFACTORING**:
+   - Refactor ONLY the specific lines, methods, or components directly relevant to the task.
+   - NEVER rename existing public functions, database tables, DAO methods, or repository signatures unless part of an explicitly approved migration.
+   - Do NOT introduce new architectural layers (e.g., switching to Hilt/Dagger, introducing third-party network scrapers) unless explicitly commanded by the user.
+
+3. **MANDATORY VERIFICATION BEFORE CONCLUSION**:
+   - Every modification MUST be verified by compiling the code or running unit tests:
+     ```bash
+     ./gradlew testDebugUnitTest
+     ./gradlew assembleRelease
+     ```
+   - If a build fails or tests fail, fix it IMMEDIATELY before responding to the user. Never claim a task is complete with broken builds.
+
+4. **NO HALLUCINATIONS OF APIS OR LIBRARIES**:
+   - CodeWave relies on modern Jetpack Compose (Material 3), Jetpack Media3 (1.5.1), Room 2.8.5, and Navigation 3.
+   - Verify class names, package imports, and method signatures against existing codebase files before writing code.
+   - Do NOT invent fake ExoPlayer attributes, imaginary Compose parameters, or non-existent Room annotations.
+
+---
+
+## 🔍 2. FORCED INVESTIGATION & DISCOVERY PHASE
+
+Before proposing or modifying any code:
+1. **Locate & Read First**: Locate the existing implementation and read the surrounding code, interfaces, and models.
+2. **Identify Dependencies**: Check `AppContainer.kt`, `PlaybackRepository.kt`, or `CodeWaveDatabase.kt` to understand the dependency graph.
+3. **Check Versioning & Downgrade Safety**:
+   - The app's database must remain at `version = 1` with `.fallbackToDestructiveMigrationOnDowngrade()`.
+   - Android release builds require `versionCode >= 19` and signed keystore configuration.
+
+---
+
+## 🛡️ 3. CORE ARCHITECTURAL INVARIANTS
+
+1. **OFFLINE-FIRST PRIVACY PROMISE**:
+   - CodeWave is strictly an **offline studio audio player**.
+   - Do NOT add remote analytics, telemetry SDKs, ad networks, or background scrapers.
+   - Network access is permitted ONLY for the in-app OTA GitHub release updater (`OtaUpdateManager.kt`).
+
+2. **AUDIO ENGINE IS SACROSANCT**:
+   - `DspEngine.kt`, `CodeWaveMediaSessionService.kt`, and `PlaybackRepository.kt` control real-time audio playback and hardware DSP (`DynamicsProcessing`).
+   - Never introduce blocking I/O, heavy allocations, or synchronous operations on the main thread or inside audio render callbacks.
+   - Keep 10-band graphic EQ frequency bands and 32-bit float pipeline bit-perfect.
+
+3. **COMPOSE UI CONSTRAINTS**:
+   - Use the established Design System tokens: `CWColors`, `CWTypography`, `CWShapes`, `CWButton`, and `CWTechnicalBadge`.
+   - In horizontal `Row` layouts, ALWAYS constrain long or dynamic text with `Modifier.weight(1f)` and `TextOverflow.Ellipsis` to prevent squishing adjacent badges or size indicators.
+   - Numerical telemetry, sample rates, and file sizes must specify `maxLines = 1` and `softWrap = false`.
+
+---
+
+## 📋 4. WORKFLOW EXECUTION PROTOCOL
+
+For every feature or bug fix:
+1. **Analyze**: Scan relevant files; trace calls through `ViewModel -> Repository -> Dao/Service`.
+2. **Plan**: Formulate the minimal set of surgical changes needed.
+3. **Implement**: Apply targeted modifications. Keep existing logic intact.
+4. **Compile & Test**: Run `./gradlew testDebugUnitTest` to guarantee zero regressions.
+5. **Report**: Summarize exact files modified and verification results concisely.

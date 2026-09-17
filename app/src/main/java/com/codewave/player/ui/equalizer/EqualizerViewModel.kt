@@ -49,12 +49,39 @@ class EqualizerViewModel(
         viewModelScope.launch { equalizerRepository.applyPreset(preset) }
     }
 
+    fun toggleBass(enabled: Boolean) {
+        viewModelScope.launch { equalizerRepository.setBassEnabled(enabled) }
+    }
+
+    fun setBassGain(gainDb: Float) {
+        viewModelScope.launch { equalizerRepository.setBassGain(gainDb) }
+    }
+
+    fun toggleClarity(enabled: Boolean) {
+        viewModelScope.launch { equalizerRepository.setClarityEnabled(enabled) }
+    }
+
+    fun setClarityGain(gainDb: Float) {
+        viewModelScope.launch { equalizerRepository.setClarityGain(gainDb) }
+    }
+
+    fun toggleConvolver(enabled: Boolean) {
+        viewModelScope.launch { equalizerRepository.setConvolverEnabled(enabled) }
+    }
+
+    fun setIrsName(name: String?) {
+        viewModelScope.launch { equalizerRepository.setIrsName(name) }
+    }
+
     fun resetAll() {
         viewModelScope.launch {
             val flatPreset = presets.value.find { it.name.equals("Flat", ignoreCase = true) }
                 ?: EQPreset(1, "Flat", true, 0f, List(10) { 0f })
             equalizerRepository.applyPreset(flatPreset)
             equalizerRepository.setPreampGain(0f)
+            equalizerRepository.setBassEnabled(false)
+            equalizerRepository.setClarityEnabled(false)
+            equalizerRepository.setConvolverEnabled(false)
         }
     }
 

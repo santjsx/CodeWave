@@ -13,13 +13,19 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.codewave.player.CodeWaveApplication
 import com.codewave.player.MainActivity
 import com.codewave.player.core.audio.DspEngine
+import com.codewave.player.core.audio.IrsParser
+import com.codewave.player.core.audio.ViperAudioProcessor
 import com.codewave.player.core.model.AudioOutputInfo
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,6 +37,7 @@ class CodeWaveMediaSessionService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private lateinit var player: ExoPlayer
     private lateinit var dspEngine: DspEngine
+    private lateinit var viperAudioProcessor: ViperAudioProcessor
     private lateinit var audioFocusManager: AudioFocusManager
     private lateinit var noisyReceiver: AudioBecomingNoisyReceiver
 
@@ -41,6 +48,8 @@ class CodeWaveMediaSessionService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
+        val appContainer = (application as CodeWaveApplication).container
+        viperAudioProcessor = appContainer.viperAudioProcessor
         dspEngine = DspEngine()
 
         audioFocusManager = AudioFocusManager(
@@ -60,12 +69,26 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             .setUsage(C.USAGE_MEDIA)
             .build()
 
-        player = ExoPlayer.Builder(this)
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink? {
+                return DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(viperAudioProcessor))
+                    .build()
+            }
+        }
+
+        player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(audioAttributes, false) // Managed via our custom AudioFocusManager
             .setHandleAudioBecomingNoisy(false) // Managed via our custom AudioBecomingNoisyReceiver
             .build()
 
-        val eqRepo = (application as CodeWaveApplication).container.equalizerRepository
+        val eqRepo = appContainer.equalizerRepository
 
         fun checkAndAttachDsp(sessionId: Int) {
             if (sessionId != C.AUDIO_SESSION_ID_UNSET && sessionId != 0) {
@@ -114,10 +137,20 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             .setSessionActivity(sessionActivityPendingIntent)
             .build()
 
-        // Observe Equalizer updates and push to DSP Engine
+        // Observe Equalizer updates and push to both DSP Engine and ViperAudioProcessor
         eqJob = serviceScope.launch {
             eqRepo.equalizerConfig.collectLatest { config ->
                 dspEngine.applyConfig(config)
+                viperAudioProcessor.applyConfig(config)
+
+                if (config.isConvolverEnabled && !config.irsName.isNullOrBlank()) {
+                    val irsDir = File(filesDir, "irs")
+                    val file = File(irsDir, config.irsName)
+                    if (file.exists()) {
+                        val irsData = IrsParser.parse(file)
+                        viperAudioProcessor.loadImpulseResponse(irsData)
+                    }
+                }
             }
         }
     }
@@ -131,6 +164,7 @@ class CodeWaveMediaSessionService : MediaSessionService() {
         noisyReceiver.unregister()
         audioFocusManager.abandonAudioFocus()
         dspEngine.release()
+        viperAudioProcessor.reset()
         mediaSession?.run {
             player.release()
             release()

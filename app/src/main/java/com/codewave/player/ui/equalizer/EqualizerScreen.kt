@@ -1,5 +1,9 @@
 package com.codewave.player.ui.equalizer
 
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,7 +62,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import java.io.File
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -85,6 +91,30 @@ fun EqualizerScreen(
     val dspStatus by viewModel.dspStatus.collectAsState()
 
     var isPresetSheetOpen by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val irsPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val fileName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (cursor.moveToFirst() && nameIndex != -1) cursor.getString(nameIndex) else null
+                } ?: "custom_${System.currentTimeMillis()}.irs"
+
+                val irsDir = File(context.filesDir, "irs").apply { mkdirs() }
+                val destFile = File(irsDir, fileName)
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                viewModel.setIrsName(fileName)
+                viewModel.toggleConvolver(true)
+            } catch (_: Exception) {}
+        }
+    }
 
     Column(
         modifier = modifier
@@ -443,7 +473,379 @@ fun EqualizerScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 5. Studio Sound Profile Hub (ZERO Horizontal Scrolling, Full Visibility)
+        // 5. ViPERFX Acoustic Suite Console (Rootless Studio-Grade DSP Engine)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                .background(CWColors.SurfacePrimary)
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
+                .padding(14.dp)
+        ) {
+            Column {
+                // ViPER Header Console
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = CWColors.AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "VIPERFX ACOUSTIC SUITE",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.TextSecondary,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "DYNAMIC BASS · VOCAL CLARITY · IRS CONVOLVER",
+                                style = CWTypography.TechTelemetry,
+                                color = CWColors.AccentCyan.copy(alpha = 0.7f),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusFull))
+                            .background(CWColors.AccentCyan.copy(alpha = 0.12f))
+                            .border(0.5.dp, CWColors.AccentCyan.copy(alpha = 0.4f), RoundedCornerShape(CWShapes.RadiusFull))
+                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "VIPER4ANDROID",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.AccentCyan,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // --- A. ViPER Dynamic Bass ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Dynamic Bass",
+                                style = CWTypography.AppTypography.bodyMedium,
+                                color = CWColors.TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (config.isBassEnabled && config.isEnabled) {
+                                Text(
+                                    text = "%+.1f dB".format(config.bassGainDb),
+                                    style = CWTypography.TechTelemetry,
+                                    color = CWColors.AccentCyan,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                        Text(
+                            text = "80Hz Butterworth sub-harmonic synthesis & 5Hz DC filter",
+                            style = CWTypography.AppTypography.bodySmall,
+                            color = CWColors.TextTertiary,
+                            fontSize = 10.5.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = config.isBassEnabled,
+                        onCheckedChange = { viewModel.toggleBass(it) },
+                        enabled = config.isEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CWColors.Background,
+                            checkedTrackColor = CWColors.AccentCyan,
+                            uncheckedThumbColor = CWColors.TextTertiary,
+                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                        )
+                    )
+                }
+
+                if (config.isBassEnabled && config.isEnabled) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    StudioUnipolarSlider(
+                        value = config.bassGainDb,
+                        onValueChange = { viewModel.setBassGain(it) },
+                        enabled = config.isEnabled && config.isBassEnabled,
+                        activeColor = CWColors.AccentCyan
+                    )
+
+                    // Quick dB Jump Chips
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val bassChips = listOf(2.0f, 4.0f, 6.0f, 8.0f, 12.0f)
+                        bassChips.forEach { targetGain ->
+                            val isCurrent = kotlin.math.abs(config.bassGainDb - targetGain) < 0.25f
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(
+                                        if (isCurrent) CWColors.AccentCyan.copy(alpha = 0.15f)
+                                        else CWColors.SurfaceElevated
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isCurrent) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                        shape = RoundedCornerShape(CWShapes.RadiusSmall)
+                                    )
+                                    .clickable { viewModel.setBassGain(targetGain) }
+                                    .padding(vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+%.0fdB".format(targetGain),
+                                    style = CWTypography.TechBadge,
+                                    color = if (isCurrent) CWColors.AccentCyan else CWColors.TextSecondary,
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // --- B. ViPER Clarity ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Viper Clarity",
+                                style = CWTypography.AppTypography.bodyMedium,
+                                color = CWColors.TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (config.isClarityEnabled && config.isEnabled) {
+                                Text(
+                                    text = "%+.1f dB".format(config.clarityGainDb),
+                                    style = CWTypography.TechTelemetry,
+                                    color = Color(0xFF64B5F6),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                        Text(
+                            text = "3.5kHz vocal acoustic restorer with sibilance guard",
+                            style = CWTypography.AppTypography.bodySmall,
+                            color = CWColors.TextTertiary,
+                            fontSize = 10.5.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = config.isClarityEnabled,
+                        onCheckedChange = { viewModel.toggleClarity(it) },
+                        enabled = config.isEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CWColors.Background,
+                            checkedTrackColor = Color(0xFF64B5F6),
+                            uncheckedThumbColor = CWColors.TextTertiary,
+                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                        )
+                    )
+                }
+
+                if (config.isClarityEnabled && config.isEnabled) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    StudioUnipolarSlider(
+                        value = config.clarityGainDb,
+                        onValueChange = { viewModel.setClarityGain(it) },
+                        enabled = config.isEnabled && config.isClarityEnabled,
+                        activeColor = Color(0xFF64B5F6)
+                    )
+
+                    // Quick dB Jump Chips
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val clarityChips = listOf(2.0f, 3.0f, 5.0f, 8.0f, 12.0f)
+                        clarityChips.forEach { targetGain ->
+                            val isCurrent = kotlin.math.abs(config.clarityGainDb - targetGain) < 0.25f
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(
+                                        if (isCurrent) Color(0xFF64B5F6).copy(alpha = 0.15f)
+                                        else CWColors.SurfaceElevated
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isCurrent) Color(0xFF64B5F6) else CWColors.BorderSubtle,
+                                        shape = RoundedCornerShape(CWShapes.RadiusSmall)
+                                    )
+                                    .clickable { viewModel.setClarityGain(targetGain) }
+                                    .padding(vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+%.0fdB".format(targetGain),
+                                    style = CWTypography.TechBadge,
+                                    color = if (isCurrent) Color(0xFF64B5F6) else CWColors.TextSecondary,
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // --- C. ViPER Convolver (IRS Acoustic Matrix) ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "IRS Convolver Matrix",
+                            style = CWTypography.AppTypography.bodyMedium,
+                            color = CWColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Partitioned impulse response convolution (.irs / .wav)",
+                            style = CWTypography.AppTypography.bodySmall,
+                            color = CWColors.TextTertiary,
+                            fontSize = 10.5.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = config.isConvolverEnabled,
+                        onCheckedChange = { viewModel.toggleConvolver(it) },
+                        enabled = config.isEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CWColors.Background,
+                            checkedTrackColor = CWColors.AccentCyan,
+                            uncheckedThumbColor = CWColors.TextTertiary,
+                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                        )
+                    )
+                }
+
+                if (config.isConvolverEnabled && config.isEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "ACTIVE IRS PROFILE",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.TextTertiary,
+                                    fontSize = 8.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = config.irsName ?: "No profile loaded (Bypassed)",
+                                    style = CWTypography.AppTypography.bodySmall,
+                                    color = if (config.irsName != null) CWColors.AccentCyan else CWColors.TextSecondary,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (config.irsName != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                            .background(CWColors.SurfacePrimary)
+                                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                            .clickable { viewModel.setIrsName(null) }
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = "CLEAR",
+                                            style = CWTypography.TechBadge,
+                                            color = CWColors.Danger,
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                        .background(CWColors.AccentCyan.copy(alpha = 0.15f))
+                                        .border(0.5.dp, CWColors.AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                        .clickable { irsPickerLauncher.launch("*/*") }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "IMPORT IRS",
+                                        style = CWTypography.TechBadge,
+                                        color = CWColors.AccentCyan,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 6. Studio Sound Profile Hub (ZERO Horizontal Scrolling, Full Visibility)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -971,6 +1373,172 @@ private fun StudioBipolarSlider(
                             localVal < 0f -> Color(0xFFFF8A65)
                             else -> Color.White.copy(alpha = 0.6f)
                         }
+                    )
+            )
+        }
+
+        // Touch Gesture Capture (Drag and Tap)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(enabled) {
+                    if (!enabled) return@pointerInput
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val downTime = System.currentTimeMillis()
+                        val startX = down.position.x
+                        var isDragging = false
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                if (!isDragging && System.currentTimeMillis() - downTime < 300L) {
+                                    val relX = (startX - knobRadiusPx).coerceIn(0f, usableWidthPx)
+                                    val frac = relX / usableWidthPx
+                                    val targetVal = minVal + frac * span
+                                    val snapped = ((targetVal * 2).roundToInt() / 2f).coerceIn(minVal, maxVal)
+                                    localVal = snapped
+                                    onValueChange(snapped)
+                                }
+                                break
+                            }
+
+                            if (!isDragging && kotlin.math.abs(change.position.x - startX) > 4f) {
+                                isDragging = true
+                            }
+
+                            if (isDragging) {
+                                change.consume()
+                                val relX = (change.position.x - knobRadiusPx).coerceIn(0f, usableWidthPx)
+                                val frac = relX / usableWidthPx
+                                val targetVal = minVal + frac * span
+                                val snapped = ((targetVal * 2).roundToInt() / 2f).coerceIn(minVal, maxVal)
+                                if (snapped != localVal) {
+                                    localVal = snapped
+                                    onValueChange(snapped)
+                                }
+                            }
+                        }
+                    }
+                }
+        )
+    }
+}
+
+/**
+ * Custom Studio Hardware Unipolar Slider (0 dB to +12 dB) for ViPER Bass and Clarity.
+ * Features illuminated progressive fill, precision detent ticks, and smooth 0.5 dB drag quantization.
+ */
+@Composable
+private fun StudioUnipolarSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..12f,
+    enabled: Boolean = true,
+    activeColor: Color = CWColors.AccentCyan
+) {
+    val density = LocalDensity.current
+    var localVal by remember(value) { mutableFloatStateOf(value) }
+    LaunchedEffect(value) {
+        localVal = value
+    }
+
+    val minVal = valueRange.start
+    val maxVal = valueRange.endInclusive
+    val span = maxVal - minVal
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(
+                    onDoubleTap = {
+                        localVal = minVal
+                        onValueChange(minVal)
+                    }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        val widthPx = constraints.maxWidth.toFloat()
+        val knobDiameterDp = 22.dp
+        val knobRadiusPx = with(density) { (knobDiameterDp / 2).toPx() }
+        val usableWidthPx = (widthPx - knobRadiusPx * 2).coerceAtLeast(1f)
+
+        val currentRatio = ((localVal - minVal) / span).coerceIn(0f, 1f)
+        val currentKnobPx = knobRadiusPx + currentRatio * usableWidthPx
+
+        // Track Canvas
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val h = size.height
+            val cy = h / 2f
+            val trackHeight = 6.dp.toPx()
+            val trackCorner = 3.dp.toPx()
+
+            // Groove background
+            drawRoundRect(
+                color = Color(0xFF0F1318),
+                topLeft = Offset(knobRadiusPx, cy - trackHeight / 2),
+                size = androidx.compose.ui.geometry.Size(usableWidthPx, trackHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner)
+            )
+
+            // Groove border
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.1f),
+                topLeft = Offset(knobRadiusPx, cy - trackHeight / 2),
+                size = androidx.compose.ui.geometry.Size(usableWidthPx, trackHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner),
+                style = Stroke(width = 1f)
+            )
+
+            // Progressive Fill from Left to Knob
+            if (enabled && localVal > minVal) {
+                val fillWidth = (currentKnobPx - knobRadiusPx).coerceAtLeast(0f)
+                if (fillWidth > 1f) {
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(activeColor.copy(alpha = 0.4f), activeColor),
+                            startX = knobRadiusPx,
+                            endX = currentKnobPx
+                        ),
+                        topLeft = Offset(knobRadiusPx, cy - trackHeight / 2),
+                        size = androidx.compose.ui.geometry.Size(fillWidth, trackHeight),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackCorner, trackCorner)
+                    )
+                }
+            }
+        }
+
+        // Hardware Knob
+        val knobOffsetDp = with(density) { (currentKnobPx - knobRadiusPx).toDp() }
+        Box(
+            modifier = Modifier
+                .offset(x = knobOffsetDp)
+                .size(knobDiameterDp)
+                .clip(CircleShape)
+                .background(
+                    if (!enabled) CWColors.SurfacePrimary
+                    else Color(0xFF1E2530)
+                )
+                .border(
+                    width = 1.5.dp,
+                    color = if (enabled) activeColor else CWColors.BorderSubtle,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (enabled) activeColor
+                        else CWColors.TextTertiary
                     )
             )
         }
