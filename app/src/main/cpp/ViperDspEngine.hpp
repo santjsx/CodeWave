@@ -1,11 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <array>
 #include <atomic>
 #include <mutex>
-#include <cmath>
-#include <algorithm>
 #include "BiquadFilter.hpp"
 #include "ViperBass.hpp"
 #include "ViperClarity.hpp"

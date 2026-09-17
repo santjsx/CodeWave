@@ -1,4 +1,6 @@
 #include "ViperDspEngine.hpp"
+#include <cmath>
+#include <algorithm>
 
 ViperDspEngine::ViperDspEngine() {
     eqBands[0] = BiquadFilter(FilterType::LOW_SHELF);
