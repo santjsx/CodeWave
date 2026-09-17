@@ -117,21 +117,13 @@ fun NowPlayingScreen(
     var isSleepTimerOpen by remember { mutableStateOf(false) }
     var isSpeedSelectorOpen by remember { mutableStateOf(false) }
 
-    val duration = (if (state.durationMs > 0) state.durationMs else track.durationMs).coerceAtLeast(1L)
+    val duration = state.durationMs.coerceAtLeast(1L)
     var lyricsResult by remember(track.id) { mutableStateOf<LyricsResult>(LyricsResult.Loading) }
 
     androidx.compose.runtime.LaunchedEffect(track.id, track.path) {
         lyricsResult = LyricsResult.Loading
         withContext(Dispatchers.IO) {
-            var res = LrcParser.loadLyricsForTrack(track.path)
-            if (res == LyricsResult.Unavailable) {
-                try {
-                    val onlineLyrics = com.codewave.player.core.media.LrclibLyricsProvider().fetchLyrics(track)
-                    if (onlineLyrics is LyricsResult.Synchronized || onlineLyrics is LyricsResult.Plain) {
-                        res = onlineLyrics
-                    }
-                } catch (_: Exception) {}
-            }
+            val res = LrcParser.loadLyricsForTrack(track.path)
             lyricsResult = res
         }
     }

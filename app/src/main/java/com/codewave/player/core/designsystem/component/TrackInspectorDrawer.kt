@@ -164,16 +164,6 @@ fun TrackInspectorSheet(
                 )
             }
 
-            if (track.path.startsWith("stream://") || track.uri.startsWith("http")) {
-                Spacer(modifier = Modifier.height(16.dp))
-                InspectorSection(title = "NETWORK STREAM & CACHE TELEMETRY") {
-                    InspectorRow("Stream Engine", "InnerTube Adaptive Audio Pipeline")
-                    InspectorRow("Stream Audio Codec", if (track.mimeType.contains("flac")) "Lossless FLAC (24-bit / 96 kHz)" else "WebM / Opus (160 kbps)")
-                    InspectorRow("Cache Buffer", "Media3 512MB LRU Disk Cache")
-                    InspectorRow("DSP Routing", "Active 32-Bit Float DynamicsProcessing")
-                }
-            }
-
             Spacer(modifier = Modifier.height(28.dp))
         }
     }

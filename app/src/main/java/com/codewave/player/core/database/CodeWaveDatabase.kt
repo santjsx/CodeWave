@@ -12,8 +12,6 @@ import com.codewave.player.core.database.entity.EQPresetEntity
 import com.codewave.player.core.database.entity.PlaybackHistoryEntity
 import com.codewave.player.core.database.entity.PlaylistEntity
 import com.codewave.player.core.database.entity.PlaylistTrackCrossRef
-import com.codewave.player.core.database.dao.DownloadDao
-import com.codewave.player.core.database.entity.DownloadTaskEntity
 import com.codewave.player.core.database.entity.TrackEntity
 import com.codewave.player.core.database.entity.TrackFtsEntity
 import com.codewave.player.core.model.EQPreset
@@ -28,10 +26,9 @@ import kotlinx.coroutines.launch
         PlaylistEntity::class,
         PlaylistTrackCrossRef::class,
         PlaybackHistoryEntity::class,
-        EQPresetEntity::class,
-        DownloadTaskEntity::class
+        EQPresetEntity::class
     ],
-    version = 2,
+    version = 1,
     exportSchema = false
 )
 abstract class CodeWaveDatabase : RoomDatabase() {
@@ -39,7 +36,6 @@ abstract class CodeWaveDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun eqPresetDao(): EQPresetDao
-    abstract fun downloadDao(): DownloadDao
 
     companion object {
         @Volatile
@@ -60,42 +56,11 @@ abstract class CodeWaveDatabase : RoomDatabase() {
                             }
                         }
                     })
-                    .addMigrations(MIGRATION_1_2)
-                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
                 instance
-            }
-        }
-
-        private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS `download_tasks` (
-                        `id` TEXT NOT NULL,
-                        `title` TEXT NOT NULL,
-                        `artist` TEXT NOT NULL,
-                        `album` TEXT NOT NULL,
-                        `durationMs` INTEGER NOT NULL,
-                        `artworkUri` TEXT,
-                        `isrc` TEXT,
-                        `targetFormat` TEXT NOT NULL,
-                        `status` TEXT NOT NULL,
-                        `progress` REAL NOT NULL,
-                        `downloadedBytes` INTEGER NOT NULL,
-                        `totalBytes` INTEGER NOT NULL,
-                        `speedBytesPerSec` INTEGER NOT NULL,
-                        `errorMessage` TEXT,
-                        `localUri` TEXT,
-                        `createdAt` INTEGER NOT NULL,
-                        `completedAt` INTEGER,
-                        PRIMARY KEY(`id`)
-                    )
-                    """.trimIndent()
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_download_tasks_status` ON `download_tasks` (`status`)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_download_tasks_createdAt` ON `download_tasks` (`createdAt`)")
             }
         }
 

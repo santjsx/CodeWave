@@ -3,8 +3,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src_path = os.path.join(project_root, "app-icon.png")
+src_path = r"c:\Users\heysa\Documents\Dev\CodeWave\ChatGPT Image Sep 16, 2026, 03_39_32 AM.png"
 res_dir = r"c:\Users\heysa\Documents\Dev\CodeWave\app\src\main\res"
 release_dir = r"c:\Users\heysa\Documents\Dev\CodeWave\release"
 

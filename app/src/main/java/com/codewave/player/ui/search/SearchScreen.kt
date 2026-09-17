@@ -26,7 +26,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -79,7 +78,6 @@ fun SearchScreen(
     onTrackOptions: ((Track) -> Unit)? = null,
     onNavigateToAlbum: ((Album) -> Unit)? = null,
     onNavigateToArtist: ((Artist) -> Unit)? = null,
-    onNavigateToStream: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val query by viewModel.query.collectAsState()
@@ -156,43 +154,6 @@ fun SearchScreen(
                         )
                     }
                 }
-            }
-        }
-
-        if (onNavigateToStream != null) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
-                    .background(CWColors.SurfacePrimary)
-                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.3f), RoundedCornerShape(CWShapes.RadiusMedium))
-                    .clickable { onNavigateToStream() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CloudQueue,
-                        contentDescription = null,
-                        tint = CWColors.AccentCyan,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (query.isNotBlank()) "Search '$query' on Online Stream" else "Explore Online Streaming",
-                        style = CWTypography.AppTypography.bodyMedium,
-                        color = CWColors.TextPrimary
-                    )
-                }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = CWColors.AccentCyan,
-                    modifier = Modifier.size(14.dp)
-                )
             }
         }
 

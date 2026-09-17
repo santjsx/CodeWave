@@ -78,8 +78,6 @@ import com.codewave.player.core.designsystem.component.CWButtonVariant
 import com.codewave.player.core.designsystem.component.CWQualityBadge
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
 import com.codewave.player.core.designsystem.component.CWTrackRow
-import androidx.compose.material.icons.filled.CloudQueue
-import androidx.compose.material.icons.filled.Download
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
@@ -93,8 +91,6 @@ fun HomeScreen(
     onTrackInspect: (Track) -> Unit,
     onOpenThemes: (() -> Unit)? = null,
     onTrackOptions: ((Track) -> Unit)? = null,
-    onNavigateToStream: (() -> Unit)? = null,
-    onNavigateToDownloads: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -159,24 +155,6 @@ fun HomeScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onNavigateToStream != null) {
-                        IconButton(onClick = onNavigateToStream) {
-                            Icon(
-                                imageVector = Icons.Default.CloudQueue,
-                                contentDescription = "Online Stream",
-                                tint = CWColors.AccentCyan
-                            )
-                        }
-                    }
-                    if (onNavigateToDownloads != null) {
-                        IconButton(onClick = onNavigateToDownloads) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Downloads",
-                                tint = CWColors.Success
-                            )
-                        }
-                    }
                     if (onOpenThemes != null) {
                         IconButton(onClick = onOpenThemes) {
                             Icon(
@@ -293,25 +271,6 @@ fun HomeScreen(
                     title = "Artists",
                     icon = Icons.Default.Person,
                     onClick = { onNavigateToLibrary(2) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                QuickActionButton(
-                    title = "Online Stream",
-                    icon = Icons.Default.CloudQueue,
-                    onClick = { onNavigateToStream?.invoke() },
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionButton(
-                    title = "FLAC Downloads",
-                    icon = Icons.Default.Download,
-                    onClick = { onNavigateToDownloads?.invoke() },
                     modifier = Modifier.weight(1f)
                 )
             }
