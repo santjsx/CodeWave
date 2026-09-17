@@ -30,28 +30,28 @@ object CWColors {
         private set
 
     // Active colors (mutated on theme change to immediately propagate everywhere)
-    var Background: Color by mutableStateOf(Color(0xFF0B0D10))
-    var SurfacePrimary: Color by mutableStateOf(Color(0xFF11151A))
-    var SurfaceElevated: Color by mutableStateOf(Color(0xFF171C22))
-    var SurfaceOverlay: Color by mutableStateOf(Color(0xFF1F2630))
-    var BorderSubtle: Color by mutableStateOf(Color(0xFF212830))
-    var BorderFocus: Color by mutableStateOf(Color(0xFF38444D))
+    var Background: Color by mutableStateOf(Color(0xFF0D1117))
+    var SurfacePrimary: Color by mutableStateOf(Color(0xFF161B22))
+    var SurfaceElevated: Color by mutableStateOf(Color(0xFF1F242C))
+    var SurfaceOverlay: Color by mutableStateOf(Color(0xFF262C36))
+    var BorderSubtle: Color by mutableStateOf(Color(0xFF21262D))
+    var BorderFocus: Color by mutableStateOf(Color(0xFF388BFD))
 
-    var AccentCyan: Color by mutableStateOf(Color(0xFF00E5FF))
+    var AccentCyan: Color by mutableStateOf(Color(0xFF388BFD))
     var AccentViolet: Color by mutableStateOf(Color(0xFF8A2BE2))
-    var AccentBlue: Color by mutableStateOf(Color(0xFF2979FF))
+    var AccentBlue: Color by mutableStateOf(Color(0xFF58A6FF))
 
-    var Success: Color by mutableStateOf(Color(0xFF00E676))
-    var Warning: Color by mutableStateOf(Color(0xFFFFD600))
-    var Danger: Color by mutableStateOf(Color(0xFFFF1744))
+    var Success: Color by mutableStateOf(Color(0xFF2EA043))
+    var Warning: Color by mutableStateOf(Color(0xFFD29922))
+    var Danger: Color by mutableStateOf(Color(0xFFF85149))
 
-    var TextPrimary: Color by mutableStateOf(Color(0xFFF0F3F6))
+    var TextPrimary: Color by mutableStateOf(Color(0xFFF0F6FC))
     var TextSecondary: Color by mutableStateOf(Color(0xFF8B949E))
     var TextTertiary: Color by mutableStateOf(Color(0xFF484F58))
     var TextTechnical: Color by mutableStateOf(Color(0xFF58A6FF))
 
-    var BadgeLosslessBg: Color by mutableStateOf(Color(0x2600E5FF))
-    var BadgeLosslessText: Color by mutableStateOf(Color(0xFF00E5FF))
+    var BadgeLosslessBg: Color by mutableStateOf(Color(0x26388BFD))
+    var BadgeLosslessText: Color by mutableStateOf(Color(0xFF58A6FF))
     var BadgeHiResBg: Color by mutableStateOf(Color(0x33FFD600))
     var BadgeHiResText: Color by mutableStateOf(Color(0xFFFFD600))
     var BadgeLossyBg: Color by mutableStateOf(Color(0x1FFFFFFF))
@@ -62,13 +62,13 @@ object CWColors {
     val AvailableThemes: List<CWThemeDefinition> = listOf(
         CWThemeDefinition(
             id = "obsidian",
-            name = "VS Code Obsidian",
-            description = "Default IDE dark workstation with electric cyan laser accents and deep contrast",
+            name = "VS Code Dark+",
+            description = "Official VS Code IDE workstation with electric blue accents, deep slate surfaces, and syntax highlighting",
             playBarType = PlayBarType.NEON_SLIM,
-            accentColor = Color(0xFF00E5FF),
-            backgroundColor = Color(0xFF0B0D10),
-            surfaceColor = Color(0xFF11151A),
-            previewColors = listOf(Color(0xFF0B0D10), Color(0xFF171C22), Color(0xFF00E5FF), Color(0xFF58A6FF))
+            accentColor = Color(0xFF388BFD),
+            backgroundColor = Color(0xFF0D1117),
+            surfaceColor = Color(0xFF161B22),
+            previewColors = listOf(Color(0xFF0D1117), Color(0xFF161B22), Color(0xFF388BFD), Color(0xFF58A6FF))
         ),
         CWThemeDefinition(
             id = "synthwave",
@@ -263,25 +263,25 @@ object CWColors {
                     danger = Danger
                 )
             }
-            else -> { // Default Obsidian
-                Background = Color(0xFF0B0D10)
-                SurfacePrimary = Color(0xFF11151A)
-                SurfaceElevated = Color(0xFF171C22)
-                SurfaceOverlay = Color(0xFF1F2630)
+            else -> { // Default VS Code Dark+
+                Background = Color(0xFF0D1117)
+                SurfacePrimary = Color(0xFF161B22)
+                SurfaceElevated = Color(0xFF1F242C)
+                SurfaceOverlay = Color(0xFF262C36)
                 BorderSubtle = Color(0xFF212830)
-                BorderFocus = Color(0xFF38444D)
-                AccentCyan = Color(0xFF00E5FF)
+                BorderFocus = Color(0xFF388BFD)
+                AccentCyan = Color(0xFF388BFD)
                 AccentViolet = Color(0xFF8A2BE2)
-                AccentBlue = Color(0xFF2979FF)
-                Success = Color(0xFF00E676)
-                Warning = Color(0xFFFFD600)
-                Danger = Color(0xFFFF1744)
-                TextPrimary = Color(0xFFF0F3F6)
+                AccentBlue = Color(0xFF58A6FF)
+                Success = Color(0xFF2EA043)
+                Warning = Color(0xFFD29922)
+                Danger = Color(0xFFF85149)
+                TextPrimary = Color(0xFFF0F6FC)
                 TextSecondary = Color(0xFF8B949E)
                 TextTertiary = Color(0xFF484F58)
                 TextTechnical = Color(0xFF58A6FF)
-                BadgeLosslessBg = Color(0x2600E5FF)
-                BadgeLosslessText = Color(0xFF00E5FF)
+                BadgeLosslessBg = Color(0x26388BFD)
+                BadgeLosslessText = Color(0xFF58A6FF)
                 BadgeHiResBg = Color(0x33FFD600)
                 BadgeHiResText = Color(0xFFFFD600)
                 CurrentPlayBarType = PlayBarType.NEON_SLIM

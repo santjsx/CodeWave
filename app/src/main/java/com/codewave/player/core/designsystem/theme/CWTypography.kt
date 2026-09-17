@@ -99,4 +99,37 @@ object CWTypography {
         fontSize = 13.sp,
         color = CWColors.TextPrimary
     )
+
+    // VS Code Developer Typography Tokens
+    val CodeLineNumber = TextStyle(
+        fontFamily = Monospace,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        letterSpacing = 0.5.sp,
+        color = CWColors.TextSecondary
+    )
+
+    val CodeComment = TextStyle(
+        fontFamily = Monospace,
+        fontWeight = FontWeight.Normal,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.5.sp,
+        color = CWColors.TextSecondary
+    )
+
+    val IdeTab = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        letterSpacing = 0.3.sp
+    )
+
+    val TerminalPrompt = TextStyle(
+        fontFamily = Monospace,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        letterSpacing = 1.sp,
+        color = CWColors.AccentCyan
+    )
 }

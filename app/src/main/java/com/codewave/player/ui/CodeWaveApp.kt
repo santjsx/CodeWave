@@ -257,7 +257,19 @@ fun CodeWaveApp(
                     playbackRepository = container.playbackRepository,
                     onCollapse = { isNowPlayingExpanded = false },
                     onToggleFavorite = { track -> homeViewModel.toggleFavorite(track) },
-                    onOpenTrackOptions = { selectedTrackForOptions = it }
+                    onOpenTrackOptions = { selectedTrackForOptions = it },
+                    onNavigateToEqualizer = {
+                        currentScreen = Screen.Equalizer
+                        isNowPlayingExpanded = false
+                    },
+                    onNavigateToSearch = {
+                        currentScreen = Screen.Search
+                        isNowPlayingExpanded = false
+                    },
+                    onNavigateToLibrary = {
+                        currentScreen = Screen.Library
+                        isNowPlayingExpanded = false
+                    }
                 )
             }
 

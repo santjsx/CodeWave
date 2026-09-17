@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
@@ -272,15 +273,31 @@ fun LibraryScreen(
             }
         ) {
             tabs.forEachIndexed { index, title ->
+                val count = when (index) {
+                    0 -> songs.size
+                    1 -> albums.size
+                    2 -> artists.size
+                    else -> 0
+                }
                 Tab(
                     selected = selectedTab == index,
                     onClick = { selectedTab = index },
                     text = {
-                        Text(
-                            text = title.uppercase(),
-                            style = CWTypography.TechBadge,
-                            color = if (selectedTab == index) CWColors.AccentCyan else CWColors.TextSecondary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = title.uppercase(),
+                                style = CWTypography.TechBadge,
+                                color = if (selectedTab == index) CWColors.AccentCyan else CWColors.TextSecondary
+                            )
+                            if (count > 0) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "($count)",
+                                    style = CWTypography.TechBadge,
+                                    color = if (selectedTab == index) CWColors.AccentCyan.copy(alpha = 0.8f) else CWColors.TextTertiary
+                                )
+                            }
+                        }
                     }
                 )
             }
@@ -371,10 +388,11 @@ private fun SongsTab(
             }
         }
 
-        items(songs, key = { it.id }) { track ->
+        itemsIndexed(songs, key = { _, track -> track.id }) { index, track ->
             CWTrackRow(
                 track = track,
                 onTrackClick = { onTrackClick(track) },
+                lineNumber = index + 1,
                 isSelectionMode = isSelectionMode,
                 isSelected = selectedTrackIds.contains(track.id),
                 onSelectToggle = { onSelectToggle(track.id) },

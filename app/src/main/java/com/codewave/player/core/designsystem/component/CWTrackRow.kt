@@ -42,6 +42,7 @@ fun CWTrackRow(
     onTrackClick: () -> Unit,
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
+    lineNumber: Int? = null,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onSelectToggle: ((Boolean) -> Unit)? = null,
@@ -81,6 +82,16 @@ fun CWTrackRow(
                     uncheckedColor = CWColors.TextTertiary
                 ),
                 modifier = Modifier.padding(end = 8.dp)
+            )
+        }
+
+        // Monospace Code Line Number
+        if (lineNumber != null && !isSelectionMode) {
+            Text(
+                text = String.format("%02d", lineNumber),
+                style = CWTypography.CodeLineNumber,
+                color = if (isPlaying) CWColors.AccentCyan else CWColors.TextTertiary,
+                modifier = Modifier.width(26.dp)
             )
         }
 

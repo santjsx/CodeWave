@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -240,10 +241,11 @@ fun SearchScreen(
                                     } else null
                                 )
                             }
-                            items(result.tracks.take(4), key = { "all_track_${it.id}" }) { track ->
+                            itemsIndexed(result.tracks.take(4), key = { _, track -> "all_track_${track.id}" }) { index, track ->
                                 CWTrackRow(
                                     track = track,
                                     onTrackClick = { viewModel.playTrack(track) },
+                                    lineNumber = index + 1,
                                     onFavoriteClick = { viewModel.toggleFavorite(track) },
                                     onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
                                 )
@@ -307,10 +309,11 @@ fun SearchScreen(
                                     count = result.tracks.size
                                 )
                             }
-                            items(result.tracks, key = { "songs_${it.id}" }) { track ->
+                            itemsIndexed(result.tracks, key = { _, track -> "songs_${track.id}" }) { index, track ->
                                 CWTrackRow(
                                     track = track,
                                     onTrackClick = { viewModel.playTrack(track) },
+                                    lineNumber = index + 1,
                                     onFavoriteClick = { viewModel.toggleFavorite(track) },
                                     onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
                                 )

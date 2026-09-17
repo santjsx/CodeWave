@@ -134,19 +134,25 @@ fun PlaylistsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(
-                    text = "Playlists",
-                    style = CWTypography.AppTypography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = CWColors.TextPrimary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = ">",
+                        style = CWTypography.TerminalPrompt,
+                        color = CWColors.AccentCyan,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                    Text(
+                        text = "Playlists",
+                        style = CWTypography.AppTypography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CWColors.TextPrimary
+                    )
+                }
                 Spacer(modifier = Modifier.height(2.dp))
-                val totalCollections = playlists.size + (if (favorites.isNotEmpty()) 1 else 0)
                 Text(
-                    text = "$totalCollections Collections in Library",
+                    text = "${playlists.size} Collections Available",
                     style = CWTypography.TechTelemetry,
-                    color = CWColors.TextSecondary,
-                    fontSize = 11.5.sp
+                    color = CWColors.TextSecondary
                 )
             }
 
