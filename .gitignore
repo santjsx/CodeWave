@@ -23,3 +23,5 @@ keystore.properties
 # Android build outputs & binaries
 *.apk
 *.aab
+compile_commands.json
+.clangd
