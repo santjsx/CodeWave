@@ -130,21 +130,20 @@ fun CodeWaveApp(
         bottomBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // Persistent Mini Player above Bottom Bar (PRD Section 20)
-                if (!isNowPlayingExpanded && playbackState.currentTrack != null) {
-                    val progress = if (playbackState.durationMs > 0)
-                        playbackState.positionMs.toFloat() / playbackState.durationMs.toFloat()
-                    else 0f
+                val activeTrack = if (!isNowPlayingExpanded) playbackState.currentTrack else null
+                val progress = if (playbackState.durationMs > 0)
+                    playbackState.positionMs.toFloat() / playbackState.durationMs.toFloat()
+                else 0f
 
-                    CWMiniPlayer(
-                        track = playbackState.currentTrack,
-                        isPlaying = playbackState.isPlaying,
-                        progress = progress,
-                        onPlayPauseClick = { container.playbackRepository.togglePlayPause() },
-                        onNextClick = { container.playbackRepository.skipNext() },
-                        onPrevClick = { container.playbackRepository.skipPrevious() },
-                        onClick = { isNowPlayingExpanded = true }
-                    )
-                }
+                CWMiniPlayer(
+                    track = activeTrack,
+                    isPlaying = playbackState.isPlaying,
+                    progress = progress,
+                    onPlayPauseClick = { container.playbackRepository.togglePlayPause() },
+                    onNextClick = { container.playbackRepository.skipNext() },
+                    onPrevClick = { container.playbackRepository.skipPrevious() },
+                    onClick = { isNowPlayingExpanded = true }
+                )
 
                 NavigationBar(
                     containerColor = CWColors.SurfacePrimary,
@@ -155,6 +154,7 @@ fun CodeWaveApp(
                         NavigationBarItem(
                             selected = isSelected,
                             onClick = {
+                                activeCollectionTarget = null
                                 if (currentScreen == Screen.Library && screen == Screen.Library) {
                                     libraryInitialTab = 0
                                 }
@@ -208,7 +208,9 @@ fun CodeWaveApp(
                     viewModel = libraryViewModel,
                     initialTab = libraryInitialTab,
                     onTrackInspect = { inspectedTrack = it },
-                    onTrackOptions = { selectedTrackForOptions = it }
+                    onTrackOptions = { selectedTrackForOptions = it },
+                    onNavigateToAlbum = { album -> activeCollectionTarget = CollectionTarget.AlbumTarget(album) },
+                    onNavigateToArtist = { artist -> activeCollectionTarget = CollectionTarget.ArtistTarget(artist) }
                 )
                 Screen.Search -> SearchScreen(
                     viewModel = searchViewModel,
@@ -220,7 +222,8 @@ fun CodeWaveApp(
                 Screen.Playlists -> PlaylistsScreen(
                     viewModel = playlistsViewModel,
                     onTrackInspect = { inspectedTrack = it },
-                    onTrackOptions = { selectedTrackForOptions = it }
+                    onTrackOptions = { selectedTrackForOptions = it },
+                    onNavigateToCollection = { target -> activeCollectionTarget = target }
                 )
                 Screen.Equalizer -> EqualizerScreen(
                     viewModel = equalizerViewModel

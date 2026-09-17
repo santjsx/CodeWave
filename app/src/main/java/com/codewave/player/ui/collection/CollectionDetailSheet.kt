@@ -109,6 +109,7 @@ fun CollectionDetailSheet(
     }
 
     val tracks by tracksFlow.collectAsState(initial = emptyList())
+    val playbackState by playbackRepository.playbackState.collectAsState()
 
     val (title, subtitle, icon, artworkUri) = when (target) {
         is CollectionTarget.AlbumTarget -> {
@@ -328,7 +329,6 @@ fun CollectionDetailSheet(
                         isShuffle = true,
                         onClick = {
                             if (tracks.isNotEmpty()) {
-                                playbackRepository.setShuffle(true)
                                 playbackRepository.playQueue(tracks.shuffled(), 0)
                             }
                         },
@@ -362,8 +362,10 @@ fun CollectionDetailSheet(
                 }
             } else {
                 items(tracks, key = { it.id }) { track ->
+                    val isCurrentPlaying = playbackState.currentTrack?.id == track.id && playbackState.isPlaying
                     CWTrackRow(
                         track = track,
+                        isPlaying = isCurrentPlaying,
                         onTrackClick = {
                             playbackRepository.playTrack(track, tracks)
                         },

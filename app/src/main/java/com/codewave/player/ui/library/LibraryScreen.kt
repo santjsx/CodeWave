@@ -83,27 +83,12 @@ fun LibraryScreen(
     initialTab: Int = 0,
     onTrackInspect: (Track) -> Unit,
     onTrackOptions: ((Track) -> Unit)? = null,
+    onNavigateToAlbum: (Album) -> Unit = {},
+    onNavigateToArtist: (Artist) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(initialTab) }
     val tabs = listOf("Songs", "Albums", "Artists")
-
-    var selectedTarget by remember { mutableStateOf<CollectionTarget?>(null) }
-
-    val currentTarget = selectedTarget
-    if (currentTarget != null) {
-        BackHandler { selectedTarget = null }
-        CollectionDetailSheet(
-            target = currentTarget,
-            libraryRepository = viewModel.libraryRepository,
-            playbackRepository = viewModel.playbackRepository,
-            onBack = { selectedTarget = null },
-            onTrackInspect = onTrackInspect,
-            onTrackOptions = onTrackOptions,
-            modifier = modifier
-        )
-        return
-    }
 
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
@@ -311,11 +296,11 @@ fun LibraryScreen(
             1 -> AlbumsTab(
                 albums = albums,
                 viewMode = albumViewMode,
-                onAlbumClick = { selectedTarget = CollectionTarget.AlbumTarget(it) }
+                onAlbumClick = onNavigateToAlbum
             )
             2 -> ArtistsTab(
                 artists = artists,
-                onArtistClick = { selectedTarget = CollectionTarget.ArtistTarget(it) }
+                onArtistClick = onNavigateToArtist
             )
         }
     }

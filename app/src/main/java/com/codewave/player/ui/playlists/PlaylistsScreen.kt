@@ -90,6 +90,7 @@ fun PlaylistsScreen(
     viewModel: PlaylistsViewModel,
     onTrackInspect: (Track) -> Unit,
     onTrackOptions: ((Track) -> Unit)? = null,
+    onNavigateToCollection: (CollectionTarget) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val playlists by viewModel.playlists.collectAsState()
@@ -103,26 +104,6 @@ fun PlaylistsScreen(
     var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
 
     var selectedCategory by remember { mutableStateOf(PlaylistCategory.ALL) }
-    var selectedTarget by remember { mutableStateOf<CollectionTarget?>(null) }
-
-    // Intercept hardware/gesture back press when Detail Sheet is open
-    BackHandler(enabled = selectedTarget != null) {
-        selectedTarget = null
-    }
-
-    val currentTarget = selectedTarget
-    if (currentTarget != null) {
-        CollectionDetailSheet(
-            target = currentTarget,
-            libraryRepository = viewModel.libraryRepository,
-            playbackRepository = viewModel.playbackRepository,
-            onBack = { selectedTarget = null },
-            onTrackInspect = onTrackInspect,
-            onTrackOptions = onTrackOptions,
-            modifier = modifier
-        )
-        return
-    }
 
     val showFavorites = selectedCategory == PlaylistCategory.ALL || selectedCategory == PlaylistCategory.FAVORITES
     val nonFavoritePlaylists = remember(playlists) {
@@ -245,7 +226,7 @@ fun PlaylistsScreen(
                         isFavorite = true,
                         isSmart = false,
                         paletteSeed = 9999,
-                        onClick = { selectedTarget = CollectionTarget.FavoritesTarget },
+                        onClick = { onNavigateToCollection(CollectionTarget.FavoritesTarget) },
                         onOptionsClick = null
                     )
                 }
@@ -261,7 +242,7 @@ fun PlaylistsScreen(
                     isFavorite = false,
                     isSmart = playlist.isSmart,
                     paletteSeed = playlist.name.hashCode(),
-                    onClick = { selectedTarget = CollectionTarget.PlaylistTarget(playlist) },
+                    onClick = { onNavigateToCollection(CollectionTarget.PlaylistTarget(playlist)) },
                     onOptionsClick = if (!playlist.isSmart) {
                         {
                             playlistToRename = null

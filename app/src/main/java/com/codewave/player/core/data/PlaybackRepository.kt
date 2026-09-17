@@ -187,12 +187,24 @@ class DefaultPlaybackRepository(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val player = controller ?: return
+            if (mediaItem == null) {
+                // Ignore transient null transition during playlist updates/clearing unless player is completely empty and stopped
+                if (player.mediaItemCount == 0 && !player.isPlaying) {
+                    _playbackState.update { it.copy(currentTrack = null, isPlaying = false) }
+                }
+                return
+            }
+
             val speed = _playbackState.value.playbackSpeed
             if (speed != 1.0f) {
                 player.setPlaybackSpeed(speed)
             }
+
+            val mediaId = mediaItem.mediaId.toLongOrNull()
             val index = player.currentMediaItemIndex
-            val track = currentQueue.getOrNull(index)
+            val track = (if (mediaId != null) currentQueue.find { it.id == mediaId } else null)
+                ?: currentQueue.getOrNull(index)
+                ?: _playbackState.value.currentTrack
 
             val currentPos = player.currentPosition.coerceAtLeast(0L)
             val preservedPos = if (currentPos > 0L) {
@@ -203,10 +215,16 @@ class DefaultPlaybackRepository(
                 0L
             }
 
+            val queueIdx = if (track != null) {
+                currentQueue.indexOfFirst { it.id == track.id }.takeIf { it >= 0 } ?: index
+            } else {
+                index
+            }
+
             _playbackState.update {
                 it.copy(
                     currentTrack = track,
-                    queueIndex = index,
+                    queueIndex = queueIdx,
                     durationMs = player.duration.coerceAtLeast(0L),
                     positionMs = preservedPos,
                     outputInfo = CodeWaveMediaSessionService.getOutputRouteInfo(context)
