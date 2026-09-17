@@ -55,13 +55,6 @@ abstract class CodeWaveDatabase : RoomDatabase() {
                                 populateInitialData(getInstance(context))
                             }
                         }
-
-                        override fun onOpen(db: SupportSQLiteDatabase) {
-                            super.onOpen(db)
-                            CoroutineScope(Dispatchers.IO).launch {
-                                ensurePresetsSeeded(getInstance(context))
-                            }
-                        }
                     })
                     .fallbackToDestructiveMigration()
                     .fallbackToDestructiveMigrationOnDowngrade()
@@ -89,23 +82,22 @@ abstract class CodeWaveDatabase : RoomDatabase() {
 
         suspend fun ensurePresetsSeeded(db: CodeWaveDatabase) {
             val eqPresetDao = db.eqPresetDao()
-            val builtInCount = eqPresetDao.getBuiltInPresetCount()
-            if (builtInCount < EQPreset.PRESETS_10_BAND.size) {
-                val existing = eqPresetDao.getAllPresets()
-                val existingNames = existing.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
-                val missingEntities = EQPreset.PRESETS_10_BAND
-                    .filter { it.name.lowercase() !in existingNames }
-                    .map { preset ->
-                        EQPresetEntity(
-                            name = preset.name,
-                            isBuiltIn = preset.isBuiltIn,
-                            preampGainDb = preset.preampGainDb,
-                            bandGainsJson = preset.bandGainsDb.joinToString(",")
-                        )
-                    }
-                if (missingEntities.isNotEmpty()) {
-                    eqPresetDao.insertPresets(missingEntities)
+            eqPresetDao.deduplicatePresets()
+            val existing = eqPresetDao.getAllPresets()
+            val existingNames = existing.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
+            val missingEntities = EQPreset.PRESETS_10_BAND
+                .filter { it.name.lowercase() !in existingNames }
+                .map { preset ->
+                    EQPresetEntity(
+                        id = preset.id,
+                        name = preset.name,
+                        isBuiltIn = preset.isBuiltIn,
+                        preampGainDb = preset.preampGainDb,
+                        bandGainsJson = preset.bandGainsDb.joinToString(",")
+                    )
                 }
+            if (missingEntities.isNotEmpty()) {
+                eqPresetDao.insertPresets(missingEntities)
             }
         }
     }

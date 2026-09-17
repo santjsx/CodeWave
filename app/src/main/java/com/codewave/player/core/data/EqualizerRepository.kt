@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val Context.eqDataStore by preferencesDataStore(name = "codewave_eq_prefs")
 
@@ -52,6 +54,7 @@ class DefaultEqualizerRepository(
 ) : EqualizerRepository {
 
     private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val seedingMutex = Mutex()
     private var preampPersistJob: Job? = null
     private var bandGainPersistJob: Job? = null
     private var bassPersistJob: Job? = null
@@ -114,22 +117,26 @@ class DefaultEqualizerRepository(
     }
 
     private suspend fun ensureDefaultPresetsSeeded() {
-        val count = eqPresetDao.getBuiltInPresetCount()
-        if (count < EQPreset.PRESETS_10_BAND.size) {
-            val existing = eqPresetDao.getAllPresets()
-            val existingNames = existing.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
-            val missingEntities = EQPreset.PRESETS_10_BAND
-                .filter { it.name.lowercase() !in existingNames }
-                .map { preset ->
-                    EQPresetEntity(
-                        name = preset.name,
-                        isBuiltIn = preset.isBuiltIn,
-                        preampGainDb = preset.preampGainDb,
-                        bandGainsJson = preset.bandGainsDb.joinToString(",")
-                    )
+        seedingMutex.withLock {
+            eqPresetDao.deduplicatePresets()
+            val count = eqPresetDao.getBuiltInPresetCount()
+            if (count < EQPreset.PRESETS_10_BAND.size) {
+                val existing = eqPresetDao.getAllPresets()
+                val existingNames = existing.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
+                val missingEntities = EQPreset.PRESETS_10_BAND
+                    .filter { it.name.lowercase() !in existingNames }
+                    .map { preset ->
+                        EQPresetEntity(
+                            id = preset.id,
+                            name = preset.name,
+                            isBuiltIn = preset.isBuiltIn,
+                            preampGainDb = preset.preampGainDb,
+                            bandGainsJson = preset.bandGainsDb.joinToString(",")
+                        )
+                    }
+                if (missingEntities.isNotEmpty()) {
+                    eqPresetDao.insertPresets(missingEntities)
                 }
-            if (missingEntities.isNotEmpty()) {
-                eqPresetDao.insertPresets(missingEntities)
             }
         }
     }
@@ -151,7 +158,7 @@ class DefaultEqualizerRepository(
             // Ensure any missing built-in presets are always present in the emitted list
             val dbBuiltInNames = dbPresets.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
             val missingBuiltIns = EQPreset.PRESETS_10_BAND.filter { it.name.lowercase() !in dbBuiltInNames }
-            val combined = dbPresets + missingBuiltIns
+            val combined = (dbPresets + missingBuiltIns).distinctBy { it.name.lowercase() }
             combined.sortedWith(compareByDescending<EQPreset> { it.isBuiltIn }.thenBy { it.name })
         }
     }
@@ -224,9 +231,12 @@ class DefaultEqualizerRepository(
     }
 
     override suspend fun saveCustomPreset(name: String, preampDb: Float, gains: List<Float>) {
+        val trimmedName = name.trim()
+        val existing = eqPresetDao.getAllPresets().find { it.name.equals(trimmedName, ignoreCase = true) && !it.isBuiltIn }
         eqPresetDao.insertPreset(
             EQPresetEntity(
-                name = name,
+                id = existing?.id ?: 0L,
+                name = trimmedName,
                 isBuiltIn = false,
                 preampGainDb = preampDb,
                 bandGainsJson = gains.joinToString(",")
@@ -245,15 +255,19 @@ class DefaultEqualizerRepository(
     }
 
     override suspend fun resetPresetsToDefaults() {
-        val entities = EQPreset.PRESETS_10_BAND.map { preset ->
-            EQPresetEntity(
-                name = preset.name,
-                isBuiltIn = preset.isBuiltIn,
-                preampGainDb = preset.preampGainDb,
-                bandGainsJson = preset.bandGainsDb.joinToString(",")
-            )
+        seedingMutex.withLock {
+            eqPresetDao.deleteBuiltInPresets()
+            val entities = EQPreset.PRESETS_10_BAND.map { preset ->
+                EQPresetEntity(
+                    id = preset.id,
+                    name = preset.name,
+                    isBuiltIn = preset.isBuiltIn,
+                    preampGainDb = preset.preampGainDb,
+                    bandGainsJson = preset.bandGainsDb.joinToString(",")
+                )
+            }
+            eqPresetDao.insertPresets(entities)
         }
-        eqPresetDao.insertPresets(entities)
     }
 
     override suspend fun setBassEnabled(enabled: Boolean) {

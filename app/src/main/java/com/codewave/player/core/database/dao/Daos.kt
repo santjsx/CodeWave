@@ -206,4 +206,10 @@ interface EQPresetDao {
 
     @Query("DELETE FROM eq_presets WHERE id = :id")
     suspend fun deletePresetById(id: Long)
+
+    @Query("DELETE FROM eq_presets WHERE isBuiltIn = 1")
+    suspend fun deleteBuiltInPresets()
+
+    @Query("DELETE FROM eq_presets WHERE id NOT IN (SELECT MIN(id) FROM eq_presets GROUP BY LOWER(name))")
+    suspend fun deduplicatePresets()
 }

@@ -105,4 +105,39 @@ class EqualizerAndSortingTests {
             isHiRes = true
         )
     }
+
+    @Test
+    fun testPresetIdDeterminismAndUniqueness() {
+        val presets = EQPreset.PRESETS_10_BAND
+        val ids = presets.map { it.id }
+        val names = presets.map { it.name.lowercase() }
+
+        assertEquals("Preset IDs must all be unique", ids.distinct().size, ids.size)
+        assertEquals("Preset names must all be unique (case-insensitive)", names.distinct().size, names.size)
+        assertEquals("There must be exactly 12 built-in presets", 12, presets.size)
+
+        presets.forEach { preset ->
+            assertTrue("Preset ID must be >= 1", preset.id >= 1L)
+            assertTrue("Preset ID must be <= 12", preset.id <= 12L)
+        }
+    }
+
+    @Test
+    fun testPresetDeduplicationLogic() {
+        // Simulate a database with 3x duplicates (36 items total)
+        val duplicatedPresets = (EQPreset.PRESETS_10_BAND + EQPreset.PRESETS_10_BAND + EQPreset.PRESETS_10_BAND)
+            .mapIndexed { index, preset ->
+                preset.copy(id = index + 1L)
+            }
+        assertEquals(36, duplicatedPresets.size)
+
+        // Apply deduplication pattern used in EqualizerRepository
+        val deduplicated = duplicatedPresets.distinctBy { it.name.lowercase() }
+        assertEquals("Deduplicated list must contain exactly 12 profiles", 12, deduplicated.size)
+        assertEquals(
+            "All profile names must be distinct",
+            12,
+            deduplicated.map { it.name.lowercase() }.toSet().size
+        )
+    }
 }
