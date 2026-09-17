@@ -73,13 +73,43 @@ class EqualizerViewModel(
         viewModelScope.launch { equalizerRepository.setIrsName(name) }
     }
 
+    fun saveCustomPreset(name: String, subtitle: String = "") {
+        val current = config.value
+        val gains = current.bands.map { it.gainDb }
+        viewModelScope.launch {
+            equalizerRepository.saveCustomPreset(name, current.preampGainDb, gains)
+        }
+    }
+
+    fun deletePreset(preset: EQPreset) {
+        viewModelScope.launch {
+            equalizerRepository.deletePreset(preset)
+        }
+    }
+
+    fun deletePreset(presetId: Long) {
+        val preset = presets.value.find { it.id == presetId } ?: return
+        viewModelScope.launch {
+            equalizerRepository.deletePreset(preset)
+        }
+    }
+
+    fun resetPresetsToDefaults() {
+        viewModelScope.launch {
+            equalizerRepository.resetPresetsToDefaults()
+        }
+    }
+
     fun resetAll() {
         viewModelScope.launch {
             val flatPreset = presets.value.find { it.name.equals("Flat", ignoreCase = true) }
-                ?: EQPreset(1, "Flat", true, 0f, List(10) { 0f })
+                ?: EQPreset.PRESETS_10_BAND.first()
             equalizerRepository.applyPreset(flatPreset)
             equalizerRepository.setPreampGain(0f)
+            equalizerRepository.setLimiterEnabled(true)
+            equalizerRepository.setBassGain(4.0f)
             equalizerRepository.setBassEnabled(false)
+            equalizerRepository.setClarityGain(3.0f)
             equalizerRepository.setClarityEnabled(false)
             equalizerRepository.setConvolverEnabled(false)
         }

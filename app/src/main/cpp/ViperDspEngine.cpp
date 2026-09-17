@@ -44,6 +44,10 @@ void ViperDspEngine::setEqEnabled(bool enabled) {
     eqEnabled.store(enabled, std::memory_order_release);
 }
 
+void ViperDspEngine::setLimiterEnabled(bool enabled) {
+    limiterEnabled.store(enabled, std::memory_order_release);
+}
+
 void ViperDspEngine::setEqBand(int bandIndex, double gainDb) {
     if (bandIndex < 0 || bandIndex >= NUM_BANDS) return;
     std::lock_guard<std::mutex> lock(engineMutex);
@@ -79,7 +83,8 @@ void ViperDspEngine::loadImpulseResponse(const float* irData, int length, int ch
 }
 
 void ViperDspEngine::recalculatePreampHeadroom() {
-    // Dynamic Headroom Guard: Drop master volume by the maximum band/bass boost (Edge Case 61, 62)
+    // Gentle soft-curved headroom guard:
+    // Presets already have tuned preamp offsets. Avoid double-attenuating volume by -9dB.
     double maxBoost = 0.0;
     for (int i = 0; i < NUM_BANDS; ++i) {
         if (bandGainsDb[i] > maxBoost) {
@@ -87,8 +92,9 @@ void ViperDspEngine::recalculatePreampHeadroom() {
         }
     }
 
-    if (maxBoost > 0.0) {
-        autoHeadroomFactor.store(static_cast<float>(std::pow(10.0, -maxBoost / 20.0)), std::memory_order_release);
+    if (maxBoost > 4.0) {
+        double guardDb = (maxBoost - 4.0) * 0.45;
+        autoHeadroomFactor.store(static_cast<float>(std::pow(10.0, -guardDb / 20.0)), std::memory_order_release);
     } else {
         autoHeadroomFactor.store(1.0f, std::memory_order_release);
     }
@@ -96,7 +102,6 @@ void ViperDspEngine::recalculatePreampHeadroom() {
 
 void ViperDspEngine::applySoftLimiter(float& sample) {
     // Transparent True-Peak Soft-Clipping Limiter (-0.2 dBFS ceiling, threshold = 0.95f)
-    // Edge Cases 63, 64
     constexpr float threshold = 0.95f;
     if (sample > threshold) {
         float excess = sample - threshold;
@@ -149,8 +154,13 @@ void ViperDspEngine::processStereoInterleaved(float* buffer, int frameCount) {
         viperConvolver.processStereo(left, right);
 
         // 6. Safety Soft Limiter (Guarantees zero digital distortion or audio clipping)
-        applySoftLimiter(left);
-        applySoftLimiter(right);
+        if (limiterEnabled.load(std::memory_order_relaxed)) {
+            applySoftLimiter(left);
+            applySoftLimiter(right);
+        } else {
+            left = std::clamp(left, -1.0f, 1.0f);
+            right = std::clamp(right, -1.0f, 1.0f);
+        }
 
         buffer[idxL] = left;
         buffer[idxR] = right;

@@ -14,6 +14,8 @@ private:
     std::atomic<bool> globalEnabled{true};
     std::atomic<bool> eqEnabled{true};
 
+    std::atomic<bool> limiterEnabled{true};
+
     // 10 Dolby Parametric Equalizer Bands
     static constexpr int NUM_BANDS = 10;
     std::array<BiquadFilter, NUM_BANDS> eqBands;
@@ -41,6 +43,7 @@ public:
 
     void setGlobalEnabled(bool enabled);
     void setEqEnabled(bool enabled);
+    void setLimiterEnabled(bool enabled);
     void setEqBand(int bandIndex, double gainDb);
     void setUserPreampDb(float preampDb);
 

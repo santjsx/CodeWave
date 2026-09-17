@@ -31,18 +31,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,6 +96,8 @@ fun EqualizerScreen(
     val dspStatus by viewModel.dspStatus.collectAsState()
 
     var isPresetSheetOpen by remember { mutableStateOf(false) }
+    var showSavePresetDialog by remember { mutableStateOf(false) }
+    var savePresetName by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val irsPickerLauncher = rememberLauncherForActivityResult(
@@ -286,22 +293,62 @@ fun EqualizerScreen(
                 .clip(RoundedCornerShape(CWShapes.RadiusLarge))
                 .background(CWColors.SurfacePrimary)
                 .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
-                .padding(vertical = 10.dp, horizontal = 4.dp)
+                .padding(top = 10.dp, bottom = 10.dp, start = 6.dp, end = 6.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                config.bands.forEachIndexed { index, band ->
-                    CWVerticalFader(
-                        label = band.frequencyLabel,
-                        gainDb = band.gainDb,
-                        enabled = config.isEnabled,
-                        onGainChange = { newGain ->
-                            viewModel.setBandGain(index, newGain)
-                        },
-                        modifier = Modifier.weight(1f)
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "10-BAND PARAMETRIC CONSOLE",
+                        style = CWTypography.TechBadge,
+                        color = CWColors.TextSecondary,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.5.sp
                     )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                            .clickable(enabled = config.isEnabled) {
+                                val flat = presets.find { it.name.equals("Flat", ignoreCase = true) }
+                                    ?: EQPreset.PRESETS_10_BAND.first()
+                                viewModel.applyPreset(flat)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                    ) {
+                        Text(
+                            text = "DEFAULT (FLAT)",
+                            style = CWTypography.TechBadge,
+                            color = if (config.isEnabled) CWColors.AccentCyan else CWColors.TextTertiary,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    config.bands.forEachIndexed { index, band ->
+                        CWVerticalFader(
+                            label = band.frequencyLabel,
+                            gainDb = band.gainDb,
+                            enabled = config.isEnabled,
+                            onGainChange = { newGain ->
+                                viewModel.setBandGain(index, newGain)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
@@ -341,19 +388,44 @@ fun EqualizerScreen(
                             letterSpacing = 0.5.sp
                         )
                     }
-                    Text(
-                        text = if (config.preampGainDb == 0f) "0.0 dB" else "%+.1f dB".format(config.preampGainDb),
-                        style = CWTypography.TechTelemetry,
-                        color = when {
-                            !config.isEnabled -> CWColors.TextTertiary
-                            config.preampGainDb > 0f -> CWColors.AccentCyan
-                            config.preampGainDb < 0f -> Color(0xFFFF8A65)
-                            else -> CWColors.TextPrimary
-                        },
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                .clickable(enabled = config.isEnabled && config.preampGainDb != 0f) {
+                                    viewModel.setPreampGain(0f)
+                                }
+                                .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                        ) {
+                            Text(
+                                text = "DEFAULT (0 dB)",
+                                style = CWTypography.TechBadge,
+                                color = if (config.isEnabled && config.preampGainDb != 0f) CWColors.AccentCyan else CWColors.TextTertiary,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = if (config.preampGainDb == 0f) "0.0 dB" else "%+.1f dB".format(config.preampGainDb),
+                            style = CWTypography.TechTelemetry,
+                            color = when {
+                                !config.isEnabled -> CWColors.TextTertiary
+                                config.preampGainDb > 0f -> CWColors.AccentCyan
+                                config.preampGainDb < 0f -> Color(0xFFFF8A65)
+                                else -> CWColors.TextPrimary
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -456,17 +528,43 @@ fun EqualizerScreen(
                         )
                     }
 
-                    Switch(
-                        checked = config.isLimiterEnabled,
-                        onCheckedChange = { viewModel.toggleLimiter(it) },
-                        enabled = config.isEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = CWColors.Background,
-                            checkedTrackColor = CWColors.AccentCyan,
-                            uncheckedThumbColor = CWColors.TextTertiary,
-                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!config.isLimiterEnabled && config.isEnabled) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.SurfaceElevated)
+                                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable(enabled = config.isEnabled) {
+                                        viewModel.toggleLimiter(true)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                            ) {
+                                Text(
+                                    text = "DEFAULT (ON)",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = config.isLimiterEnabled,
+                            onCheckedChange = { viewModel.toggleLimiter(it) },
+                            enabled = config.isEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CWColors.Background,
+                                checkedTrackColor = CWColors.AccentCyan,
+                                uncheckedThumbColor = CWColors.TextTertiary,
+                                uncheckedTrackColor = CWColors.SurfaceOverlay
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -542,7 +640,7 @@ fun EqualizerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -572,17 +670,41 @@ fun EqualizerScreen(
                         )
                     }
 
-                    Switch(
-                        checked = config.isBassEnabled,
-                        onCheckedChange = { viewModel.toggleBass(it) },
-                        enabled = config.isEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = CWColors.Background,
-                            checkedTrackColor = CWColors.AccentCyan,
-                            uncheckedThumbColor = CWColors.TextTertiary,
-                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (config.isBassEnabled && config.isEnabled && config.bassGainDb != 4.0f) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.SurfaceElevated)
+                                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable { viewModel.setBassGain(4.0f) }
+                                    .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                            ) {
+                                Text(
+                                    text = "DEFAULT (+4 dB)",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = config.isBassEnabled,
+                            onCheckedChange = { viewModel.toggleBass(it) },
+                            enabled = config.isEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CWColors.Background,
+                                checkedTrackColor = CWColors.AccentCyan,
+                                uncheckedThumbColor = CWColors.TextTertiary,
+                                uncheckedTrackColor = CWColors.SurfaceOverlay
+                            )
                         )
-                    )
+                    }
                 }
 
                 if (config.isBassEnabled && config.isEnabled) {
@@ -641,7 +763,7 @@ fun EqualizerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -671,17 +793,41 @@ fun EqualizerScreen(
                         )
                     }
 
-                    Switch(
-                        checked = config.isClarityEnabled,
-                        onCheckedChange = { viewModel.toggleClarity(it) },
-                        enabled = config.isEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = CWColors.Background,
-                            checkedTrackColor = Color(0xFF64B5F6),
-                            uncheckedThumbColor = CWColors.TextTertiary,
-                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (config.isClarityEnabled && config.isEnabled && config.clarityGainDb != 3.0f) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.SurfaceElevated)
+                                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable { viewModel.setClarityGain(3.0f) }
+                                    .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                            ) {
+                                Text(
+                                    text = "DEFAULT (+3 dB)",
+                                    style = CWTypography.TechBadge,
+                                    color = Color(0xFF64B5F6),
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = config.isClarityEnabled,
+                            onCheckedChange = { viewModel.toggleClarity(it) },
+                            enabled = config.isEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CWColors.Background,
+                                checkedTrackColor = Color(0xFF64B5F6),
+                                uncheckedThumbColor = CWColors.TextTertiary,
+                                uncheckedTrackColor = CWColors.SurfaceOverlay
+                            )
                         )
-                    )
+                    }
                 }
 
                 if (config.isClarityEnabled && config.isEnabled) {
@@ -740,7 +886,7 @@ fun EqualizerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Text(
                             text = "IRS Convolver Matrix",
                             style = CWTypography.AppTypography.bodyMedium,
@@ -755,17 +901,44 @@ fun EqualizerScreen(
                         )
                     }
 
-                    Switch(
-                        checked = config.isConvolverEnabled,
-                        onCheckedChange = { viewModel.toggleConvolver(it) },
-                        enabled = config.isEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = CWColors.Background,
-                            checkedTrackColor = CWColors.AccentCyan,
-                            uncheckedThumbColor = CWColors.TextTertiary,
-                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (config.isConvolverEnabled && config.isEnabled) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.SurfaceElevated)
+                                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable {
+                                        viewModel.toggleConvolver(false)
+                                        viewModel.setIrsName(null)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 3.5.dp)
+                            ) {
+                                Text(
+                                    text = "DEFAULT (BYPASS)",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = config.isConvolverEnabled,
+                            onCheckedChange = { viewModel.toggleConvolver(it) },
+                            enabled = config.isEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CWColors.Background,
+                                checkedTrackColor = CWColors.AccentCyan,
+                                uncheckedThumbColor = CWColors.TextTertiary,
+                                uncheckedTrackColor = CWColors.SurfaceOverlay
+                            )
                         )
-                    )
+                    }
                 }
 
                 if (config.isConvolverEnabled && config.isEnabled) {
@@ -923,46 +1096,78 @@ fun EqualizerScreen(
                                 color = CWColors.TextPrimary
                             )
                             val activePreset = presets.find { it.name == config.activePresetName }
-                            if (activePreset != null) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = activePreset.profileSubtitle,
-                                    style = CWTypography.AppTypography.bodySmall,
-                                    color = CWColors.TextSecondary,
-                                    fontSize = 11.sp,
-                                    maxLines = 2,
-                                    softWrap = true,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                            val subtitle = activePreset?.profileSubtitle
+                                ?: if (config.activePresetName.equals("Custom", ignoreCase = true)) {
+                                    "Custom user-tuned acoustic profile"
+                                } else {
+                                    "Studio precision acoustic tuning"
+                                }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = subtitle,
+                                style = CWTypography.AppTypography.bodySmall,
+                                color = CWColors.TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 2,
+                                softWrap = true,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
 
-                    // Browse All action trigger
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-                            .background(CWColors.SurfaceElevated)
-                            .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
-                            .padding(horizontal = 10.dp, vertical = 7.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        if (config.activePresetName.equals("Custom", ignoreCase = true)) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.AccentCyan.copy(alpha = 0.15f))
+                                    .border(0.5.dp, CWColors.AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable {
+                                        savePresetName = "My Tuning"
+                                        showSavePresetDialog = true
+                                    }
+                                    .padding(horizontal = 9.dp, vertical = 7.dp)
+                            ) {
+                                Text(
+                                    text = "SAVE",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Browse All action trigger
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfaceElevated)
+                                .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                .clickable { isPresetSheetOpen = true }
+                                .padding(horizontal = 10.dp, vertical = 7.dp)
                         ) {
-                            Text(
-                                text = "BROWSE (${presets.size})",
-                                style = CWTypography.TechBadge,
-                                color = CWColors.AccentCyan,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ExpandMore,
-                                contentDescription = null,
-                                tint = CWColors.AccentCyan,
-                                modifier = Modifier.size(13.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "BROWSE (${presets.size})",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = CWColors.AccentCyan,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -978,6 +1183,7 @@ fun EqualizerScreen(
             ) {
                 row1.forEach { presetName ->
                     val preset = presets.find { it.name.equals(presetName, ignoreCase = true) }
+                        ?: EQPreset.PRESETS_10_BAND.find { it.name.equals(presetName, ignoreCase = true) }
                     val isSelected = config.activePresetName.equals(presetName, ignoreCase = true)
                     Box(
                         modifier = Modifier
@@ -1028,6 +1234,7 @@ fun EqualizerScreen(
             ) {
                 row2.forEach { presetName ->
                     val preset = presets.find { it.name.equals(presetName, ignoreCase = true) }
+                        ?: EQPreset.PRESETS_10_BAND.find { it.name.equals(presetName, ignoreCase = true) }
                     val isSelected = config.activePresetName.equals(presetName, ignoreCase = true)
                     Box(
                         modifier = Modifier
@@ -1122,11 +1329,59 @@ fun EqualizerScreen(
                         color = CWColors.AccentCyan,
                         letterSpacing = 1.sp
                     )
-                    Text(
-                        text = "Tap to audition profile",
-                        style = CWTypography.TechTelemetry,
-                        color = CWColors.TextTertiary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfacePrimary)
+                                .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                .clickable {
+                                    viewModel.resetPresetsToDefaults()
+                                }
+                                .padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "RESTORE DEFAULTS",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.TextSecondary,
+                                fontSize = 8.sp
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.AccentCyan.copy(alpha = 0.15f))
+                                .border(0.5.dp, CWColors.AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                .clickable {
+                                    savePresetName = if (config.activePresetName != "Custom") "${config.activePresetName} (Custom)" else "My Profile"
+                                    showSavePresetDialog = true
+                                }
+                                .padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = CWColors.AccentCyan,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = "SAVE NEW",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1157,7 +1412,7 @@ fun EqualizerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1206,6 +1461,23 @@ fun EqualizerScreen(
                                         tint = CWColors.AccentCyan,
                                         modifier = Modifier.size(16.dp)
                                     )
+                                } else if (!preset.isBuiltIn) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                viewModel.deletePreset(preset.id)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete preset",
+                                            tint = CWColors.Danger.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1215,6 +1487,61 @@ fun EqualizerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    if (showSavePresetDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavePresetDialog = false },
+            title = {
+                Text(
+                    text = "SAVE SOUND PROFILE",
+                    style = CWTypography.TechBadge,
+                    color = CWColors.AccentCyan,
+                    letterSpacing = 1.sp
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Save your custom 10-band equalizer settings as a reusable studio profile.",
+                        style = CWTypography.AppTypography.bodySmall,
+                        color = CWColors.TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = savePresetName,
+                        onValueChange = { savePresetName = it },
+                        label = { Text("Profile Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (savePresetName.isNotBlank()) {
+                            viewModel.saveCustomPreset(
+                                name = savePresetName.trim(),
+                                subtitle = "Custom user-tuned acoustic profile"
+                            )
+                            showSavePresetDialog = false
+                        }
+                    }
+                ) {
+                    Text("SAVE", color = CWColors.AccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showSavePresetDialog = false }
+                ) {
+                    Text("CANCEL", color = CWColors.TextSecondary)
+                }
+            },
+            containerColor = CWColors.SurfaceElevated,
+            shape = RoundedCornerShape(CWShapes.RadiusLarge)
+        )
     }
 }
 
@@ -1247,16 +1574,7 @@ private fun StudioBipolarSlider(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                detectTapGestures(
-                    onDoubleTap = {
-                        localVal = 0f
-                        onValueChange(0f)
-                    }
-                )
-            },
+            .height(44.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         val widthPx = constraints.maxWidth.toFloat()
@@ -1377,7 +1695,9 @@ private fun StudioBipolarSlider(
             )
         }
 
-        // Touch Gesture Capture (Drag and Tap)
+        // Touch Gesture Capture (Drag, Tap, and Double-Tap to 0.0 dB)
+        var lastTapTime by remember { mutableStateOf(0L) }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -1385,7 +1705,17 @@ private fun StudioBipolarSlider(
                     if (!enabled) return@pointerInput
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        down.consume()
                         val downTime = System.currentTimeMillis()
+                        val isDoubleTap = (downTime - lastTapTime) < 320L
+                        lastTapTime = downTime
+
+                        if (isDoubleTap) {
+                            localVal = 0f
+                            onValueChange(0f)
+                            return@awaitEachGesture
+                        }
+
                         val startX = down.position.x
                         var isDragging = false
 
@@ -1452,16 +1782,7 @@ private fun StudioUnipolarSlider(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                detectTapGestures(
-                    onDoubleTap = {
-                        localVal = minVal
-                        onValueChange(minVal)
-                    }
-                )
-            },
+            .height(44.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         val widthPx = constraints.maxWidth.toFloat()
@@ -1543,7 +1864,9 @@ private fun StudioUnipolarSlider(
             )
         }
 
-        // Touch Gesture Capture (Drag and Tap)
+        // Touch Gesture Capture (Drag, Tap, and Double-Tap to minVal)
+        var lastTapTime by remember { mutableStateOf(0L) }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -1551,7 +1874,17 @@ private fun StudioUnipolarSlider(
                     if (!enabled) return@pointerInput
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        down.consume()
                         val downTime = System.currentTimeMillis()
+                        val isDoubleTap = (downTime - lastTapTime) < 320L
+                        lastTapTime = downTime
+
+                        if (isDoubleTap) {
+                            localVal = minVal
+                            onValueChange(minVal)
+                            return@awaitEachGesture
+                        }
+
                         val startX = down.position.x
                         var isDragging = false
 
@@ -1772,20 +2105,3 @@ private fun PresetMiniCurve(
         )
     }
 }
-
-private val EQPreset.profileSubtitle: String
-    get() = when (name.lowercase()) {
-        "flat" -> "Neutral studio reference response"
-        "acoustic" -> "Enhanced acoustic timbre and warm mids"
-        "bass boost" -> "Sub-bass elevation with heavy kick punch"
-        "bass reducer" -> "Attenuated low end for vocal clarity"
-        "classical" -> "Orchestral separation and wide dynamics"
-        "dance" -> "Pumping low end with crisp top-end presence"
-        "electronic" -> "Synthesizer focus with extended sub-bass"
-        "hip-hop" -> "Deep low-end rumble and highlighted punch"
-        "jazz" -> "Warm natural tone with smooth horn response"
-        "pop" -> "Radio vocal lift with tight low-end groove"
-        "rock" -> "Aggressive midrange edge and punchy rhythm"
-        "vocal clarity" -> "High dialogue intelligibility & presence"
-        else -> "${if (preampGainDb != 0f) "${preampGainDb} dB · " else ""}10-band tuned profile"
-    }

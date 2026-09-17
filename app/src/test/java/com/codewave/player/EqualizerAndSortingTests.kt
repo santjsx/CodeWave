@@ -26,12 +26,34 @@ class EqualizerAndSortingTests {
     fun testBuiltInPresetsConsistency() {
         val presets = EQPreset.PRESETS_10_BAND
         assertTrue(presets.isNotEmpty())
+        assertTrue("Must provide at least 12 studio presets", presets.size >= 12)
 
         presets.forEach { preset ->
             assertEquals("Preset ${preset.name} must have 10 bands", 10, preset.bandGainsDb.size)
             // Preamp gain should be conservative (<= 0 dB) to prevent clipping when boosting bands (PRD Section 38 & 39)
             assertTrue("Preset ${preset.name} preamp must prevent clipping", preset.preampGainDb <= 0f)
+            assertTrue("Preset ${preset.name} must have a non-blank subtitle", preset.profileSubtitle.isNotBlank())
         }
+    }
+
+    @Test
+    fun testCoreStudioProfilesPresence() {
+        val presets = EQPreset.PRESETS_10_BAND
+        val coreProfiles = listOf("Flat", "Bass Boost", "Vocal Clarity", "Electronic", "Rock", "Acoustic", "Dance")
+        for (profile in coreProfiles) {
+            assertTrue("Preset list must contain $profile", presets.any { it.name.equals(profile, ignoreCase = true) })
+        }
+    }
+
+    @Test
+    fun testEqualizerConfigDefaultValues() {
+        val config = EqualizerConfig()
+        assertTrue("Limiter should be enabled by default to prevent digital clipping", config.isLimiterEnabled)
+        assertEquals("Preamp gain should default to 0 dB", 0.0f, config.preampGainDb, 0.001f)
+        assertEquals("Bass gain should default to +4.0 dB", 4.0f, config.bassGainDb, 0.001f)
+        assertEquals("Clarity gain should default to +3.0 dB", 3.0f, config.clarityGainDb, 0.001f)
+        assertEquals("Default active preset should be Flat", "Flat", config.activePresetName)
+        assertEquals(10, config.bands.size)
     }
 
     @Test

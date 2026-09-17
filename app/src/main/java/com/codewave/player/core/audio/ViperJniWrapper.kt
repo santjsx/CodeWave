@@ -44,6 +44,9 @@ object ViperJniWrapper {
     external fun nativeSetEqEnabled(enabled: Boolean)
 
     @JvmStatic
+    external fun nativeSetLimiterEnabled(enabled: Boolean)
+
+    @JvmStatic
     external fun nativeSetEqBand(bandIndex: Int, gainDb: Double)
 
     @JvmStatic

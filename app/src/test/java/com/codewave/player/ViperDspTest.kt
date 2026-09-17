@@ -49,17 +49,21 @@ class ViperDspTest {
         // Initial state: 0 dB across all bands -> headroom factor is 1.0 (0 dB attenuation)
         assertEquals(1.0f, eq.preAmpHeadroomFactor, 0.001f)
 
-        // Boost 1kHz band by +6 dB -> headroom factor should be 10^(-6/20) approx 0.501
+        // Moderate boost: +3 dB (<= 4 dB threshold) -> no artificial attenuation needed, factor stays 1.0
+        eq.setBandGain(5, 3.0)
+        assertEquals(1.0f, eq.preAmpHeadroomFactor, 0.001f)
+
+        // Boost 1kHz band by +6 dB -> guardDb = (6.0 - 4.0) * 0.45 = 0.9 dB
         eq.setBandGain(5, 6.0)
-        val expected6dB = Math.pow(10.0, -6.0 / 20.0).toFloat()
+        val expected6dB = Math.pow(10.0, -((6.0 - 4.0) * 0.45) / 20.0).toFloat()
         assertEquals(expected6dB, eq.preAmpHeadroomFactor, 0.005f)
 
-        // Boost another band by +12 dB -> max boost is 12 dB -> headroom factor should be 10^(-12/20) approx 0.251
+        // Boost another band by +12 dB -> max boost is 12 dB -> guardDb = (12.0 - 4.0) * 0.45 = 3.6 dB
         eq.setBandGain(0, 12.0)
-        val expected12dB = Math.pow(10.0, -12.0 / 20.0).toFloat()
+        val expected12dB = Math.pow(10.0, -((12.0 - 4.0) * 0.45) / 20.0).toFloat()
         assertEquals(expected12dB, eq.preAmpHeadroomFactor, 0.005f)
 
-        // Cut band back to 0 dB and verify headroom relaxes
+        // Cut band back to 0 dB and verify headroom relaxes to 1.0
         eq.setBandGain(0, 0.0)
         eq.setBandGain(5, 0.0)
         assertEquals(1.0f, eq.preAmpHeadroomFactor, 0.001f)
@@ -80,6 +84,28 @@ class ViperDspTest {
             assertTrue("Sample must be finite", sample.isFinite())
             assertTrue("Soft limiter must keep sample within [-1.0, 1.0], was $sample", abs(sample) <= 1.0f)
         }
+    }
+
+    @Test
+    fun testLimiterBypassToggle() {
+        val eq = DolbyLevelEqualizer(sampleRate = 48000.0)
+        eq.isEnabled = true
+        eq.isLimiterEnabled = false
+        eq.setUserPreampDb(12f)
+
+        val hotBuffer = floatArrayOf(1.8f, -1.8f)
+        eq.processAudioInterleaved(hotBuffer, 1)
+
+        // When limiter is disabled, hot samples hit the digital ceiling and are hard-clipped at exactly 1.0f
+        assertEquals("Limiter bypassed should hard-clip at exactly 1.0f", 1.0f, abs(hotBuffer[0]), 0.001f)
+
+        // Enable soft limiter
+        eq.isLimiterEnabled = true
+        val limitedBuffer = floatArrayOf(1.8f, -1.8f)
+        eq.processAudioInterleaved(limitedBuffer, 1)
+        // Soft limiter smoothly compresses the knee below 1.0f without harsh digital flat-topping
+        assertTrue("Limiter enabled should smoothly compress below 1.0f", abs(limitedBuffer[0]) < 1.0f)
+        assertTrue("Limiter enabled should preserve dynamic range above threshold", abs(limitedBuffer[0]) >= 0.95f)
     }
 
     @Test

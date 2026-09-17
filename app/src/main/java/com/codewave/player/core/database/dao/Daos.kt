@@ -189,9 +189,21 @@ interface EQPresetDao {
     @Query("SELECT * FROM eq_presets ORDER BY isBuiltIn DESC, name ASC")
     fun getAllPresetsFlow(): Flow<List<EQPresetEntity>>
 
+    @Query("SELECT * FROM eq_presets ORDER BY isBuiltIn DESC, name ASC")
+    suspend fun getAllPresets(): List<EQPresetEntity>
+
+    @Query("SELECT COUNT(*) FROM eq_presets WHERE isBuiltIn = 1")
+    suspend fun getBuiltInPresetCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPreset(preset: EQPresetEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPresets(presets: List<EQPresetEntity>)
+
     @Delete
     suspend fun deletePreset(preset: EQPresetEntity)
+
+    @Query("DELETE FROM eq_presets WHERE id = :id")
+    suspend fun deletePresetById(id: Long)
 }

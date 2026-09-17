@@ -46,6 +46,15 @@ Java_com_codewave_player_core_audio_ViperJniWrapper_nativeSetEqEnabled(
 }
 
 JNIEXPORT void JNICALL
+Java_com_codewave_player_core_audio_ViperJniWrapper_nativeSetLimiterEnabled(
+    JNIEnv* /*env*/,
+    jclass /*clazz*/,
+    jboolean enabled
+) {
+    gViperEngine.setLimiterEnabled(enabled);
+}
+
+JNIEXPORT void JNICALL
 Java_com_codewave_player_core_audio_ViperJniWrapper_nativeSetEqBand(
     JNIEnv* /*env*/,
     jclass /*clazz*/,

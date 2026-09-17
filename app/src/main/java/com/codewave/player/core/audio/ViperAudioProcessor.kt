@@ -117,6 +117,7 @@ class ViperAudioProcessor : BaseAudioProcessor() {
         if (ViperJniWrapper.isNativeAvailable) {
             ViperJniWrapper.nativeSetGlobalEnabled(isGlobalEnabled)
             ViperJniWrapper.nativeSetEqEnabled(isGlobalEnabled)
+            ViperJniWrapper.nativeSetLimiterEnabled(config.isLimiterEnabled)
             config.bands.forEachIndexed { index, band ->
                 ViperJniWrapper.nativeSetEqBand(index, band.gainDb.toDouble())
             }
@@ -127,6 +128,7 @@ class ViperAudioProcessor : BaseAudioProcessor() {
         }
 
         kotlinFallbackEq.isEnabled = isGlobalEnabled
+        kotlinFallbackEq.isLimiterEnabled = config.isLimiterEnabled
         config.bands.forEachIndexed { index, band ->
             kotlinFallbackEq.setBandGain(index, band.gainDb.toDouble())
         }

@@ -27,6 +27,7 @@ class DolbyLevelEqualizer(var sampleRate: Double = 44100.0) {
         internal set
     private var userPreampFactor = 1.0f
     var isEnabled: Boolean = true
+    var isLimiterEnabled: Boolean = true
 
     init {
         recalculateFilters()
@@ -69,8 +70,9 @@ class DolbyLevelEqualizer(var sampleRate: Double = 44100.0) {
 
     private fun recalculatePreAmpGain() {
         val maxBoost = currentGainsDb.maxOrNull() ?: 0.0
-        preAmpHeadroomFactor = if (maxBoost > 0.0) {
-            10.0.pow(-maxBoost / 20.0).toFloat()
+        preAmpHeadroomFactor = if (maxBoost > 4.0) {
+            val guardDb = (maxBoost - 4.0) * 0.45
+            10.0.pow(-guardDb / 20.0).toFloat()
         } else {
             1.0f
         }
@@ -96,8 +98,13 @@ class DolbyLevelEqualizer(var sampleRate: Double = 44100.0) {
             }
 
             // 3. Transparent Soft Limiter to prevent clipping
-            applySoftLimiter(floatBuffer, offset)
-            applySoftLimiter(floatBuffer, offset + 1)
+            if (isLimiterEnabled) {
+                applySoftLimiter(floatBuffer, offset)
+                applySoftLimiter(floatBuffer, offset + 1)
+            } else {
+                floatBuffer[offset] = floatBuffer[offset].coerceIn(-1.0f, 1.0f)
+                floatBuffer[offset + 1] = floatBuffer[offset + 1].coerceIn(-1.0f, 1.0f)
+            }
         }
     }
 

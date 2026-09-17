@@ -90,24 +90,10 @@ class CodeWaveMediaSessionService : MediaSessionService() {
 
         val eqRepo = appContainer.equalizerRepository
 
-        fun checkAndAttachDsp(sessionId: Int) {
-            if (sessionId != C.AUDIO_SESSION_ID_UNSET && sessionId != 0) {
-                dspEngine.attachToSession(sessionId, eqRepo.equalizerConfig.value)
-            }
-        }
-
-        checkAndAttachDsp(player.audioSessionId)
-
         player.addListener(object : Player.Listener {
-            override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                super.onAudioSessionIdChanged(audioSessionId)
-                checkAndAttachDsp(audioSessionId)
-            }
-
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 if (isPlaying) {
-                    checkAndAttachDsp(player.audioSessionId)
                     noisyReceiver.register()
                     audioFocusManager.requestAudioFocus()
                 } else {
@@ -117,9 +103,6 @@ class CodeWaveMediaSessionService : MediaSessionService() {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 super.onPlaybackStateChanged(playbackState)
-                if (playbackState == Player.STATE_READY) {
-                    checkAndAttachDsp(player.audioSessionId)
-                }
                 if (playbackState == Player.STATE_ENDED) {
                     audioFocusManager.abandonAudioFocus()
                 }
@@ -137,10 +120,9 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             .setSessionActivity(sessionActivityPendingIntent)
             .build()
 
-        // Observe Equalizer updates and push to both DSP Engine and ViperAudioProcessor
+        // Observe Equalizer updates and push to master ViperAudioProcessor pipeline
         eqJob = serviceScope.launch {
             eqRepo.equalizerConfig.collectLatest { config ->
-                dspEngine.applyConfig(config)
                 viperAudioProcessor.applyConfig(config)
 
                 if (config.isConvolverEnabled && !config.irsName.isNullOrBlank()) {
@@ -150,6 +132,8 @@ class CodeWaveMediaSessionService : MediaSessionService() {
                         val irsData = IrsParser.parse(file)
                         viperAudioProcessor.loadImpulseResponse(irsData)
                     }
+                } else if (!config.isConvolverEnabled || config.irsName.isNullOrBlank()) {
+                    viperAudioProcessor.loadImpulseResponse(null)
                 }
             }
         }

@@ -2,6 +2,7 @@ package com.codewave.player.core.designsystem.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -20,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,9 +56,12 @@ fun CWVerticalFader(
 ) {
     val density = LocalDensity.current
     var localGain by remember(gainDb) { mutableFloatStateOf(gainDb) }
+    var isDragging by remember { mutableStateOf(false) }
 
     LaunchedEffect(gainDb) {
-        localGain = gainDb
+        if (!isDragging) {
+            localGain = gainDb
+        }
     }
 
     val isActive = localGain != 0f && enabled
@@ -63,35 +69,38 @@ fun CWVerticalFader(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                detectTapGestures(
-                    onDoubleTap = {
-                        localGain = 0f
-                        onGainChange(0f)
-                    }
-                )
-            }
             .padding(vertical = 4.dp, horizontal = 1.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Gain Readout (Studio monospace telemetry with color coding)
-        Text(
-            text = if (localGain == 0f) "0.0" else "%+.1f".format(localGain),
-            style = CWTypography.TechTelemetry,
-            fontSize = 8.5.sp,
-            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-            color = when {
-                !enabled -> CWColors.TextTertiary
-                localGain > 0f -> CWColors.AccentCyan
-                localGain < 0f -> Color(0xFFFF8A65)
-                else -> CWColors.TextTertiary
-            },
-            fontFamily = FontFamily.Monospace,
-            maxLines = 1
-        )
+        // Gain Readout (Studio monospace telemetry - Tap to reset single band to 0.0 dB!)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                .background(if (isActive) CWColors.SurfaceElevated else Color.Transparent)
+                .clickable(enabled = enabled && localGain != 0f) {
+                    localGain = 0f
+                    onGainChange(0f)
+                }
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (localGain == 0f) "0.0" else "%+.1f".format(localGain),
+                style = CWTypography.TechTelemetry,
+                fontSize = 8.5.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                color = when {
+                    !enabled -> CWColors.TextTertiary
+                    localGain > 0f -> CWColors.AccentCyan
+                    localGain < 0f -> Color(0xFFFF8A65)
+                    else -> CWColors.TextTertiary
+                },
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1
+            )
+        }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(3.dp))
 
         // Fader Track & Knob Container with Unified Gestures
         BoxWithConstraints(
@@ -182,7 +191,9 @@ fun CWVerticalFader(
                 )
             }
 
-            // Touch Gesture Overlay (Full Column Capture)
+            // Unified Touch & Gesture Capture (Zero Scroll Conflict, Double-Tap Reset, Smooth Sub-Pixel Drag)
+            var lastTapTime by remember { mutableLongStateOf(0L) }
+
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -190,16 +201,29 @@ fun CWVerticalFader(
                         if (!enabled) return@pointerInput
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume() // Immediately lock out parent vertical scroll
                             val downTime = System.currentTimeMillis()
-                            var currentY = down.position.y
+                            val isDoubleTap = (downTime - lastTapTime) < 320L
+                            lastTapTime = downTime
+
+                            if (isDoubleTap) {
+                                // Double tap snaps to 0.0 dB
+                                localGain = 0f
+                                onGainChange(0f)
+                                return@awaitEachGesture
+                            }
+
                             val startY = down.position.y
-                            var isDragging = false
+                            var currentY = down.position.y
+                            var dragGain = localGain
+                            var draggingStarted = false
 
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                 if (!change.pressed) {
-                                    if (!isDragging && System.currentTimeMillis() - downTime < 280L) {
+                                    if (!draggingStarted && System.currentTimeMillis() - downTime < 280L) {
+                                        // Tap on track snaps immediately to position
                                         val knobRadius = knobHeightPx / 2f
                                         val clampedY = (startY - knobRadius).coerceIn(0f, travelRangePx)
                                         val fraction = (clampedY / travelRangePx).coerceIn(0f, 1f)
@@ -208,23 +232,29 @@ fun CWVerticalFader(
                                         localGain = snapped
                                         onGainChange(snapped)
                                     }
+                                    isDragging = false
                                     break
                                 }
 
                                 val deltaY = change.position.y - currentY
-                                if (!isDragging && abs(change.position.y - startY) > 5f) {
+                                if (!draggingStarted && abs(change.position.y - startY) > 4f) {
+                                    draggingStarted = true
                                     isDragging = true
                                 }
 
-                                if (isDragging) {
+                                if (draggingStarted) {
                                     change.consume()
                                     val deltaDb = -(deltaY / travelRangePx) * (maxGainDb - minGainDb)
-                                    localGain = (localGain + deltaDb).coerceIn(minGainDb, maxGainDb)
-                                    val snapped = ((localGain * 2).roundToInt() / 2f).coerceIn(minGainDb, maxGainDb)
-                                    onGainChange(snapped)
+                                    dragGain = (dragGain + deltaDb).coerceIn(minGainDb, maxGainDb)
+                                    val snapped = ((dragGain * 2).roundToInt() / 2f).coerceIn(minGainDb, maxGainDb)
+                                    if (snapped != localGain) {
+                                        localGain = snapped
+                                        onGainChange(snapped)
+                                    }
                                     currentY = change.position.y
                                 }
                             }
+                            isDragging = false
                         }
                     }
             )

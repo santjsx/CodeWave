@@ -24,6 +24,23 @@ data class EQPreset(
     val preampGainDb: Float,
     val bandGainsDb: List<Float>
 ) {
+    val profileSubtitle: String
+        get() = when (name.lowercase()) {
+            "flat" -> "Neutral studio reference response"
+            "acoustic" -> "Enhanced acoustic timbre and warm mids"
+            "bass boost" -> "Sub-bass elevation with heavy kick punch"
+            "bass reducer" -> "Attenuated low end for vocal clarity"
+            "classical" -> "Orchestral separation and wide dynamics"
+            "dance" -> "Pumping low end with crisp top-end presence"
+            "electronic" -> "Synthesizer focus with extended sub-bass"
+            "hip-hop" -> "Deep low-end rumble and highlighted punch"
+            "jazz" -> "Warm natural tone with smooth horn response"
+            "pop" -> "Radio vocal lift with tight low-end groove"
+            "rock" -> "Aggressive midrange edge and punchy rhythm"
+            "vocal clarity" -> "High dialogue intelligibility & presence"
+            else -> "${if (preampGainDb != 0f) "${preampGainDb} dB · " else ""}10-band tuned profile"
+        }
+
     companion object {
         val PRESETS_10_BAND = listOf(
             EQPreset(1, "Flat", true, 0f, listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)),

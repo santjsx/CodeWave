@@ -36,6 +36,8 @@ interface EqualizerRepository {
     suspend fun setBandGain(bandIndex: Int, gainDb: Float)
     suspend fun applyPreset(preset: EQPreset)
     suspend fun saveCustomPreset(name: String, preampDb: Float, gains: List<Float>)
+    suspend fun deletePreset(preset: EQPreset)
+    suspend fun resetPresetsToDefaults()
     suspend fun setBassEnabled(enabled: Boolean)
     suspend fun setBassGain(gainDb: Float)
     suspend fun setClarityEnabled(enabled: Boolean)
@@ -74,6 +76,7 @@ class DefaultEqualizerRepository(
 
     init {
         repoScope.launch {
+            ensureDefaultPresetsSeeded()
             val prefs = context.eqDataStore.data.first()
             val enabled = prefs[PreferencesKeys.EQ_ENABLED] ?: false
             val preamp = prefs[PreferencesKeys.PREAMP_GAIN] ?: 0f
@@ -110,16 +113,46 @@ class DefaultEqualizerRepository(
         }
     }
 
+    private suspend fun ensureDefaultPresetsSeeded() {
+        val count = eqPresetDao.getBuiltInPresetCount()
+        if (count < EQPreset.PRESETS_10_BAND.size) {
+            val existing = eqPresetDao.getAllPresets()
+            val existingNames = existing.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
+            val missingEntities = EQPreset.PRESETS_10_BAND
+                .filter { it.name.lowercase() !in existingNames }
+                .map { preset ->
+                    EQPresetEntity(
+                        name = preset.name,
+                        isBuiltIn = preset.isBuiltIn,
+                        preampGainDb = preset.preampGainDb,
+                        bandGainsJson = preset.bandGainsDb.joinToString(",")
+                    )
+                }
+            if (missingEntities.isNotEmpty()) {
+                eqPresetDao.insertPresets(missingEntities)
+            }
+        }
+    }
+
     override val presets: Flow<List<EQPreset>> = eqPresetDao.getAllPresetsFlow().map { entities ->
-        entities.map { entity ->
-            val gains = entity.bandGainsJson.split(",").mapNotNull { it.toFloatOrNull() }
-            EQPreset(
-                id = entity.id,
-                name = entity.name,
-                isBuiltIn = entity.isBuiltIn,
-                preampGainDb = entity.preampGainDb,
-                bandGainsDb = gains
-            )
+        if (entities.isEmpty()) {
+            EQPreset.PRESETS_10_BAND
+        } else {
+            val dbPresets = entities.map { entity ->
+                val gains = entity.bandGainsJson.split(",").mapNotNull { it.toFloatOrNull() }
+                EQPreset(
+                    id = entity.id,
+                    name = entity.name,
+                    isBuiltIn = entity.isBuiltIn,
+                    preampGainDb = entity.preampGainDb,
+                    bandGainsDb = gains
+                )
+            }
+            // Ensure any missing built-in presets are always present in the emitted list
+            val dbBuiltInNames = dbPresets.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
+            val missingBuiltIns = EQPreset.PRESETS_10_BAND.filter { it.name.lowercase() !in dbBuiltInNames }
+            val combined = dbPresets + missingBuiltIns
+            combined.sortedWith(compareByDescending<EQPreset> { it.isBuiltIn }.thenBy { it.name })
         }
     }
 
@@ -199,6 +232,28 @@ class DefaultEqualizerRepository(
                 bandGainsJson = gains.joinToString(",")
             )
         )
+    }
+
+    override suspend fun deletePreset(preset: EQPreset) {
+        if (!preset.isBuiltIn) {
+            eqPresetDao.deletePresetById(preset.id)
+            if (_equalizerConfig.value.activePresetName == preset.name) {
+                val flat = EQPreset.PRESETS_10_BAND.first()
+                applyPreset(flat)
+            }
+        }
+    }
+
+    override suspend fun resetPresetsToDefaults() {
+        val entities = EQPreset.PRESETS_10_BAND.map { preset ->
+            EQPresetEntity(
+                name = preset.name,
+                isBuiltIn = preset.isBuiltIn,
+                preampGainDb = preset.preampGainDb,
+                bandGainsJson = preset.bandGainsDb.joinToString(",")
+            )
+        }
+        eqPresetDao.insertPresets(entities)
     }
 
     override suspend fun setBassEnabled(enabled: Boolean) {

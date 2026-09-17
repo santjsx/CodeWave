@@ -55,6 +55,13 @@ abstract class CodeWaveDatabase : RoomDatabase() {
                                 populateInitialData(getInstance(context))
                             }
                         }
+
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            CoroutineScope(Dispatchers.IO).launch {
+                                ensurePresetsSeeded(getInstance(context))
+                            }
+                        }
                     })
                     .fallbackToDestructiveMigration()
                     .fallbackToDestructiveMigrationOnDowngrade()
@@ -77,17 +84,28 @@ abstract class CodeWaveDatabase : RoomDatabase() {
                 PlaylistEntity(name = "Lossless & Hi-Res", isSmart = true, smartType = "HI_RES")
             )
 
-            // Prepopulate 10-band EQ presets
+            ensurePresetsSeeded(db)
+        }
+
+        suspend fun ensurePresetsSeeded(db: CodeWaveDatabase) {
             val eqPresetDao = db.eqPresetDao()
-            EQPreset.PRESETS_10_BAND.forEach { preset ->
-                eqPresetDao.insertPreset(
-                    EQPresetEntity(
-                        name = preset.name,
-                        isBuiltIn = preset.isBuiltIn,
-                        preampGainDb = preset.preampGainDb,
-                        bandGainsJson = preset.bandGainsDb.joinToString(",")
-                    )
-                )
+            val builtInCount = eqPresetDao.getBuiltInPresetCount()
+            if (builtInCount < EQPreset.PRESETS_10_BAND.size) {
+                val existing = eqPresetDao.getAllPresets()
+                val existingNames = existing.filter { it.isBuiltIn }.map { it.name.lowercase() }.toSet()
+                val missingEntities = EQPreset.PRESETS_10_BAND
+                    .filter { it.name.lowercase() !in existingNames }
+                    .map { preset ->
+                        EQPresetEntity(
+                            name = preset.name,
+                            isBuiltIn = preset.isBuiltIn,
+                            preampGainDb = preset.preampGainDb,
+                            bandGainsJson = preset.bandGainsDb.joinToString(",")
+                        )
+                    }
+                if (missingEntities.isNotEmpty()) {
+                    eqPresetDao.insertPresets(missingEntities)
+                }
             }
         }
     }
