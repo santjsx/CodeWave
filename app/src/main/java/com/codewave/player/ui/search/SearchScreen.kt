@@ -3,6 +3,8 @@ package com.codewave.player.ui.search
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -159,10 +161,11 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Search Category Filter Chips (All, Songs, Albums, Artists)
+        // Search Category Filter Chips (All, Songs, Albums, Artists) - Horizontally scrollable, fixed height, zero wrapping & zero layout shifts
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -180,6 +183,7 @@ fun SearchScreen(
 
                 Box(
                     modifier = Modifier
+                        .height(34.dp)
                         .clip(RoundedCornerShape(CWShapes.RadiusFull))
                         .background(if (isSelected) CWColors.AccentCyan else CWColors.SurfaceElevated)
                         .border(
@@ -188,14 +192,16 @@ fun SearchScreen(
                             RoundedCornerShape(CWShapes.RadiusFull)
                         )
                         .clickable { selectedCategory = category }
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "${category.title.uppercase()}$countBadge",
                         style = CWTypography.TechBadge,
                         color = if (isSelected) CWColors.Background else CWColors.TextSecondary,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -255,7 +261,7 @@ fun SearchScreen(
                                     } else null
                                 )
                             }
-                            items(result.albums.take(3), key = { "all_album_${it.id}" }) { album ->
+                            items(result.albums.take(3), key = { "all_album_${it.title}_${it.artist}" }) { album ->
                                 SearchAlbumRow(
                                     album = album,
                                     onClick = { onNavigateToAlbum?.invoke(album) }
@@ -274,7 +280,7 @@ fun SearchScreen(
                                     } else null
                                 )
                             }
-                            items(result.artists.take(3), key = { "all_artist_${it.id}" }) { artist ->
+                            items(result.artists.take(3), key = { "all_artist_${it.name}" }) { artist ->
                                 SearchArtistRow(
                                     artist = artist,
                                     onClick = { onNavigateToArtist?.invoke(artist) }
@@ -327,7 +333,7 @@ fun SearchScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(result.albums, key = { "album_${it.id}" }) { album ->
+                            items(result.albums, key = { "album_${it.title}_${it.artist}" }) { album ->
                                 CWAlbumCard(
                                     album = album,
                                     onClick = { onNavigateToAlbum?.invoke(album) }
@@ -354,7 +360,7 @@ fun SearchScreen(
                                     count = result.artists.size
                                 )
                             }
-                            items(result.artists, key = { "artists_${it.id}" }) { artist ->
+                            items(result.artists, key = { "artists_${it.name}" }) { artist ->
                                 SearchArtistRow(
                                     artist = artist,
                                     onClick = { onNavigateToArtist?.invoke(artist) }

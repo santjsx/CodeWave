@@ -28,19 +28,19 @@ class LibraryViewModel(
 ) : ViewModel() {
 
     val songSortOption: StateFlow<SongSortOption> = settingsRepository.songSortOption
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SongSortOption.DATE_ADDED_DESC)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SongSortOption.DATE_ADDED_DESC)
 
     val albumSortOption: StateFlow<AlbumSortOption> = settingsRepository.albumSortOption
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlbumSortOption.DATE_ADDED_DESC)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AlbumSortOption.DATE_ADDED_DESC)
 
     val artistSortOption: StateFlow<ArtistSortOption> = settingsRepository.artistSortOption
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ArtistSortOption.NAME_ASC)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ArtistSortOption.NAME_ASC)
 
     val songViewMode: StateFlow<ViewMode> = settingsRepository.songViewMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ViewMode.LIST)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ViewMode.LIST)
 
     val albumViewMode: StateFlow<ViewMode> = settingsRepository.albumViewMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ViewMode.GRID)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ViewMode.GRID)
 
     val songs: StateFlow<List<Track>> = combine(
         libraryRepository.getAllTracks(),
@@ -57,7 +57,7 @@ class LibraryViewModel(
             SongSortOption.FILE_SIZE_DESC -> tracks.sortedByDescending { it.fileSize }
             SongSortOption.YEAR_DESC -> tracks.sortedByDescending { it.year ?: 0 }
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val albums: StateFlow<List<Album>> = combine(
         libraryRepository.getAllAlbums(),
@@ -70,7 +70,7 @@ class LibraryViewModel(
             AlbumSortOption.YEAR_DESC -> albumList.sortedByDescending { it.year ?: 0 }
             AlbumSortOption.TRACK_COUNT_DESC -> albumList.sortedByDescending { it.trackCount }
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val artists: StateFlow<List<Artist>> = combine(
         libraryRepository.getAllArtists(),
@@ -81,7 +81,7 @@ class LibraryViewModel(
             ArtistSortOption.NAME_DESC -> artistList.sortedByDescending { it.name.lowercase() }
             ArtistSortOption.TRACK_COUNT_DESC -> artistList.sortedByDescending { it.trackCount }
         }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Multi-Selection State (PRD Section 56)
     private val _selectedTrackIds = MutableStateFlow<Set<Long>>(emptySet())

@@ -291,8 +291,8 @@ fun CollectionDetailSheet(
                         )
 
                         // Badges (Hi-Res / Lossless if present)
-                        val hasHiRes = tracks.any { it.isHiRes }
-                        val hasLossless = tracks.any { it.isLossless }
+                        val hasHiRes = (target as? CollectionTarget.AlbumTarget)?.album?.isHiRes == true || tracks.any { it.isHiRes }
+                        val hasLossless = (target as? CollectionTarget.AlbumTarget)?.album?.isLossless == true || tracks.any { it.isLossless }
                         if (hasHiRes || hasLossless) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

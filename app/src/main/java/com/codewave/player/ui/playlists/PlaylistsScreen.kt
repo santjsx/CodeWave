@@ -182,6 +182,7 @@ fun PlaylistsScreen(
                 val isSelected = selectedCategory == category
                 Box(
                     modifier = Modifier
+                        .height(34.dp)
                         .clip(RoundedCornerShape(CWShapes.RadiusFull))
                         .background(
                             if (isSelected) CWColors.AccentCyan else CWColors.SurfacePrimary
@@ -192,7 +193,7 @@ fun PlaylistsScreen(
                             shape = RoundedCornerShape(CWShapes.RadiusFull)
                         )
                         .clickable { selectedCategory = category }
-                        .padding(horizontal = 16.dp, vertical = 7.dp),
+                        .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -200,7 +201,9 @@ fun PlaylistsScreen(
                         style = CWTypography.AppTypography.bodySmall,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         color = if (isSelected) CWColors.Background else CWColors.TextSecondary,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
