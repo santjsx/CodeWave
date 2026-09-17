@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWButton
@@ -435,19 +436,28 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     CWTechnicalBadge(text = "NEW: v${status.info.latestVersion}", textColor = CWColors.AccentCyan)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = status.info.releaseTitle,
                                         style = CWTypography.AppTypography.titleSmall,
-                                        color = CWColors.TextPrimary
+                                        color = CWColors.TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                                 Text(
                                     text = String.format("%.1f MB", status.info.apkSizeMb),
                                     style = CWTypography.TechTelemetry,
-                                    color = CWColors.TextSecondary
+                                    color = CWColors.TextSecondary,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
 

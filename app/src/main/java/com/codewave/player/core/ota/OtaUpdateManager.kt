@@ -161,6 +161,8 @@ class OtaUpdateManager(private val context: Context) {
                     .url(url)
                     .header("Accept", "application/vnd.github.v3+json")
                     .header("User-Agent", "CodeWave-OTA-Updater")
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
                     .build()
 
                 val response = httpClient.newCall(request).execute()

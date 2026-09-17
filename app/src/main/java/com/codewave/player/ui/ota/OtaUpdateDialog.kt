@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
@@ -297,7 +298,11 @@ private fun UpdateAvailableContent(info: UpdateInfo) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp)
+            ) {
                 Text(
                     text = "RELEASE",
                     style = CWTypography.TechBadge,
@@ -308,21 +313,29 @@ private fun UpdateAvailableContent(info: UpdateInfo) {
                     text = info.releaseTitle.ifBlank { "CodeWave v${info.latestVersion}" },
                     style = CWTypography.AppTypography.bodyMedium,
                     color = CWColors.TextPrimary,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
                 Text(
                     text = "PACKAGE SIZE",
                     style = CWTypography.TechBadge,
                     color = CWColors.TextTertiary,
-                    fontSize = 9.sp
+                    fontSize = 9.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
                 Text(
                     text = String.format(Locale.US, "%.1f MB", info.apkSizeMb),
                     style = CWTypography.TechTelemetry,
                     color = CWColors.AccentCyan,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
         }
