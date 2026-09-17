@@ -40,81 +40,109 @@ class JioSaavnProvider(
 
     /**
      * Searches JioSaavn for a matching song and decrypts its 320kbps/160kbps MP4 CDN URL.
+     * Uses search.getResults (v4) with direct encrypted_media_url extraction, and autocomplete fallback.
      */
     suspend fun resolveStream(title: String, artist: String): Result<JioSaavnStreamResult> = withContext(Dispatchers.IO) {
         try {
-            val query = "$title $artist".trim()
-            val searchUrl = "$BASE_URL?__call=autocomplete.get&query=${URLEncoder.encode(query, "UTF-8")}&_format=json&_marker=0&ctx=android"
+            val cleanArtist = if (artist.equals("Unknown Artist", ignoreCase = true)) "" else artist.trim()
+            val cleanTitle = title
+                .replace(Regex("(?i)\\((?:from\\s+[\"'].*?[\"']|original\\s+motion\\s+picture\\s+soundtrack|official\\s*audio|lyrics?|video|remaster(?:ed)?).*?\\)"), "")
+                .replace(Regex("(?i)\\[(?:from\\s+[\"'].*?[\"']|original\\s+motion\\s+picture\\s+soundtrack|official\\s*audio|lyrics?|video|remaster(?:ed)?).*?\\]"), "")
+                .trim()
 
-            val searchReq = Request.Builder()
-                .url(searchUrl)
-                .header("User-Agent", USER_AGENT)
-                .build()
-
-            val searchRes = okHttpClient.newCall(searchReq).execute()
-            if (!searchRes.isSuccessful) {
-                return@withContext Result.failure(Exception("JioSaavn search HTTP ${searchRes.code}"))
+            val primaryQuery = if (cleanArtist.isNotEmpty()) "$cleanTitle $cleanArtist".trim() else cleanTitle
+            val queriesToTry = mutableListOf(primaryQuery)
+            if (cleanArtist.isNotEmpty() && cleanTitle != primaryQuery) {
+                queriesToTry.add(cleanTitle)
             }
 
-            val searchJson = JSONObject(searchRes.body?.string().orEmpty())
-            val songsArray = searchJson.optJSONObject("songs")?.optJSONArray("data")
-            if (songsArray == null || songsArray.length() == 0) {
-                return@withContext Result.failure(NoSuchElementException("No songs found on JioSaavn for '$query'"))
+            for (q in queriesToTry) {
+                // Method 1: search.getResults (v4) which returns more_info.encrypted_media_url directly
+                val searchUrl = "$BASE_URL?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=android&q=${URLEncoder.encode(q, "UTF-8")}"
+                val searchReq = Request.Builder()
+                    .url(searchUrl)
+                    .header("User-Agent", USER_AGENT)
+                    .build()
+
+                val searchRes = okHttpClient.newCall(searchReq).execute()
+                if (searchRes.isSuccessful) {
+                    val searchJson = JSONObject(searchRes.body?.string().orEmpty())
+                    val resultsArray = searchJson.optJSONArray("results")
+                    if (resultsArray != null && resultsArray.length() > 0) {
+                        val first = resultsArray.getJSONObject(0)
+                        val moreInfo = first.optJSONObject("more_info")
+                        val encryptedUrl = moreInfo?.optString("encrypted_media_url")
+                        if (!encryptedUrl.isNullOrBlank()) {
+                            val decryptedUrl = decryptUrl(encryptedUrl)
+                            if (decryptedUrl.isNotBlank()) {
+                                val supports320 = moreInfo.optString("320kbps").equals("true", ignoreCase = true)
+                                val finalUrl = if (supports320) {
+                                    decryptedUrl.replace(".mp4", "_320.mp4")
+                                } else {
+                                    decryptedUrl
+                                }
+                                val bitrate = if (supports320) 320 else 160
+                                return@withContext Result.success(
+                                    JioSaavnStreamResult(
+                                        streamUrl = finalUrl,
+                                        bitrateKbps = bitrate,
+                                        sampleRate = 44100,
+                                        format = TargetAudioFormat.OPUS,
+                                        is320k = supports320
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Method 2: autocomplete.get + song.getDetails fallback
+                val autoUrl = "$BASE_URL?__call=autocomplete.get&query=${URLEncoder.encode(q, "UTF-8")}&_format=json&_marker=0&ctx=android"
+                val autoReq = Request.Builder().url(autoUrl).header("User-Agent", USER_AGENT).build()
+                val autoRes = okHttpClient.newCall(autoReq).execute()
+                if (autoRes.isSuccessful) {
+                    val autoJson = JSONObject(autoRes.body?.string().orEmpty())
+                    val songsArray = autoJson.optJSONObject("songs")?.optJSONArray("data")
+                    if (songsArray != null && songsArray.length() > 0) {
+                        val firstSong = songsArray.getJSONObject(0)
+                        val songId = firstSong.optString("id")
+                        if (songId.isNotBlank()) {
+                            val detailsUrl = "$BASE_URL?__call=song.getDetails&pids=$songId&_format=json&_marker=0&ctx=android"
+                            val detailsReq = Request.Builder().url(detailsUrl).header("User-Agent", USER_AGENT).build()
+                            val detailsRes = okHttpClient.newCall(detailsReq).execute()
+                            if (detailsRes.isSuccessful) {
+                                val detailsJson = JSONObject(detailsRes.body?.string().orEmpty())
+                                val songDetails = detailsJson.optJSONObject(songId)
+                                val moreInfo = songDetails?.optJSONObject("more_info")
+                                val encryptedUrl = moreInfo?.optString("encrypted_media_url")
+                                if (!encryptedUrl.isNullOrBlank()) {
+                                    val decryptedUrl = decryptUrl(encryptedUrl)
+                                    if (decryptedUrl.isNotBlank()) {
+                                        val supports320 = moreInfo.optString("320kbps").equals("true", ignoreCase = true)
+                                        val finalUrl = if (supports320) {
+                                            decryptedUrl.replace(".mp4", "_320.mp4")
+                                        } else {
+                                            decryptedUrl
+                                        }
+                                        val bitrate = if (supports320) 320 else 160
+                                        return@withContext Result.success(
+                                            JioSaavnStreamResult(
+                                                streamUrl = finalUrl,
+                                                bitrateKbps = bitrate,
+                                                sampleRate = 44100,
+                                                format = TargetAudioFormat.OPUS,
+                                                is320k = supports320
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            val firstSong = songsArray.getJSONObject(0)
-            val songId = firstSong.optString("id")
-            if (songId.isBlank()) {
-                return@withContext Result.failure(NoSuchElementException("Missing song ID from JioSaavn result"))
-            }
-
-            // Fetch details to get encrypted media URL
-            val detailsUrl = "$BASE_URL?__call=song.getDetails&pids=$songId&_format=json&_marker=0&ctx=android"
-            val detailsReq = Request.Builder()
-                .url(detailsUrl)
-                .header("User-Agent", USER_AGENT)
-                .build()
-
-            val detailsRes = okHttpClient.newCall(detailsReq).execute()
-            if (!detailsRes.isSuccessful) {
-                return@withContext Result.failure(Exception("JioSaavn details HTTP ${detailsRes.code}"))
-            }
-
-            val detailsJson = JSONObject(detailsRes.body?.string().orEmpty())
-            val songDetails = detailsJson.optJSONObject(songId)
-                ?: return@withContext Result.failure(NoSuchElementException("Missing song details from JioSaavn for ID $songId"))
-
-            val moreInfo = songDetails.optJSONObject("more_info")
-                ?: return@withContext Result.failure(NoSuchElementException("Missing more_info from JioSaavn for ID $songId"))
-
-            val encryptedUrl = moreInfo.optString("encrypted_media_url")
-            if (encryptedUrl.isBlank()) {
-                return@withContext Result.failure(NoSuchElementException("No encrypted_media_url in JioSaavn response"))
-            }
-
-            val decryptedUrl = decryptUrl(encryptedUrl)
-            if (decryptedUrl.isBlank()) {
-                return@withContext Result.failure(Exception("Failed to decrypt JioSaavn media URL"))
-            }
-
-            val supports320 = moreInfo.optString("320kbps").equals("true", ignoreCase = true)
-            val finalUrl = if (supports320) {
-                decryptedUrl.replace(".mp4", "_320.mp4")
-            } else {
-                decryptedUrl
-            }
-
-            val bitrate = if (supports320) 320 else 160
-
-            Result.success(
-                JioSaavnStreamResult(
-                    streamUrl = finalUrl,
-                    bitrateKbps = bitrate,
-                    sampleRate = 44100,
-                    format = TargetAudioFormat.OPUS, // progressive audio stream
-                    is320k = supports320
-                )
-            )
+            Result.failure(NoSuchElementException("No songs found on JioSaavn for '$title'"))
         } catch (e: Exception) {
             Result.failure(e)
         }

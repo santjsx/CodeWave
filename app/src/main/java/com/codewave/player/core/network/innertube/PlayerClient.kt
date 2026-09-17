@@ -110,6 +110,21 @@ data class PlayerClient(
         )
 
         /**
+         * YouTube Music Web client (best for search and browse/explore discovery).
+         */
+        val WEB_REMIX = PlayerClient(
+            clientName = "WEB_REMIX",
+            clientVersion = "1.20240101.01.00",
+            clientId = "67",
+            userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+            osName = "Windows",
+            osVersion = "10.0",
+            deviceMake = "Google",
+            deviceModel = "Chrome",
+            origin = MUSIC_ORIGIN
+        )
+
+        /**
          * Ordered candidate list for player resolution.
          * Prioritizes ANDROID_VR because it is the most reliable client serving unciphered HTTPS URLs.
          */
@@ -132,6 +147,7 @@ data class PlayerClient(
                 clientParam == "ANDROID_VR" ->
                     if (versionParam == ANDROID_VR_LEGACY.clientVersion) ANDROID_VR_LEGACY else ANDROID_VR
                 clientParam == "TVHTML5" -> TVHTML5
+                clientParam == "WEB_REMIX" -> WEB_REMIX
                 clientParam.startsWith("IOS") ->
                     if (versionParam == IOS_RECENT.clientVersion) IOS_RECENT else IOS
                 clientParam == "ANDROID_MUSIC" -> ANDROID_MUSIC

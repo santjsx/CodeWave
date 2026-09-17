@@ -108,7 +108,7 @@ class InnerTubeClient(
         if (query.isBlank()) return@withContext Result.success(emptyList())
 
         try {
-            val client = PlayerClient.ANDROID_MUSIC
+            val client = PlayerClient.WEB_REMIX
             val payload = createBaseClientJson(client).apply {
                 put("query", query)
                 put("params", "Eg-KAQwIARAAGAAgACgAMABqChAGEAkQChAMEAo%3D") // Filter by Songs
@@ -119,6 +119,8 @@ class InnerTubeClient(
                 .url("$YOUTUBE_MUSIC_BASE_URL/search")
                 .header("User-Agent", client.userAgent)
                 .header("Content-Type", "application/json")
+                .header("Origin", "https://music.youtube.com")
+                .header("Referer", "https://music.youtube.com/")
                 .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
 
             if (!vData.isNullOrBlank()) {
@@ -132,7 +134,28 @@ class InnerTubeClient(
 
             val responseBody = response.body?.string().orEmpty()
             val json = JSONObject(responseBody)
-            val tracks = parseSearchTracks(json)
+            var tracks = parseSearchTracks(json)
+
+            // Fallback: If filtered search returns empty, try unfiltered search
+            if (tracks.isEmpty()) {
+                val unfilteredPayload = createBaseClientJson(client).apply {
+                    put("query", query)
+                }
+                val unfilteredReq = Request.Builder()
+                    .url("$YOUTUBE_MUSIC_BASE_URL/search")
+                    .header("User-Agent", client.userAgent)
+                    .header("Content-Type", "application/json")
+                    .header("Origin", "https://music.youtube.com")
+                    .header("Referer", "https://music.youtube.com/")
+                    .post(unfilteredPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                    .build()
+                val unfilteredRes = okHttpClient.newCall(unfilteredReq).execute()
+                if (unfilteredRes.isSuccessful) {
+                    val unfilteredJson = JSONObject(unfilteredRes.body?.string().orEmpty())
+                    tracks = parseSearchTracks(unfilteredJson)
+                }
+            }
+
             Result.success(tracks)
         } catch (e: Exception) {
             Result.failure(e)
@@ -144,15 +167,18 @@ class InnerTubeClient(
      */
     suspend fun getExploreCharts(): Result<List<StreamTrack>> = withContext(Dispatchers.IO) {
         try {
-            val client = PlayerClient.ANDROID_MUSIC
+            val client = PlayerClient.WEB_REMIX
             val payload = createBaseClientJson(client).apply {
-                put("browseId", "FEmusic_charts")
+                put("browseId", "FEmusic_explore")
             }
 
             val vData = cachedVisitorData
             val reqBuilder = Request.Builder()
                 .url("$YOUTUBE_MUSIC_BASE_URL/browse")
                 .header("User-Agent", client.userAgent)
+                .header("Content-Type", "application/json")
+                .header("Origin", "https://music.youtube.com")
+                .header("Referer", "https://music.youtube.com/")
                 .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
 
             if (!vData.isNullOrBlank()) {
@@ -166,7 +192,14 @@ class InnerTubeClient(
 
             val responseBody = response.body?.string().orEmpty()
             val json = JSONObject(responseBody)
-            val tracks = parseExploreTracks(json)
+            var tracks = parseExploreTracks(json)
+
+            // Fallback: If explore charts empty, query trending songs via search
+            if (tracks.isEmpty()) {
+                val trendingResult = search("Top Hits 2026")
+                tracks = trendingResult.getOrDefault(emptyList())
+            }
+
             Result.success(tracks)
         } catch (e: Exception) {
             Result.failure(e)
@@ -329,12 +362,16 @@ class InnerTubeClient(
             for (i in 0 until contents.length()) {
                 val section = contents.optJSONObject(i) ?: continue
                 val shelfRenderer = section.optJSONObject("musicShelfRenderer")
-                    ?: section.optJSONObject("musicCardShelfRenderer") ?: continue
+                    ?: section.optJSONObject("musicCardShelfRenderer")
+                    ?: section.optJSONObject("itemSectionRenderer") ?: continue
 
                 val items = shelfRenderer.optJSONArray("contents") ?: continue
                 for (j in 0 until items.length()) {
                     val item = items.optJSONObject(j) ?: continue
-                    val renderer = item.optJSONObject("musicResponsiveListItemRenderer") ?: continue
+                    val renderer = item.optJSONObject("musicResponsiveListItemRenderer")
+                        ?: item.optJSONObject("musicTwoColumnItemRenderer")
+                        ?: item.optJSONObject("musicTwoRowItemRenderer")
+                        ?: item.optJSONObject("musicMultiRowListItemRenderer") ?: continue
                     parseItemRenderer(renderer)?.let { results.add(it) }
                 }
             }
@@ -365,7 +402,9 @@ class InnerTubeClient(
                 for (j in 0 until contents.length()) {
                     val item = contents.optJSONObject(j) ?: continue
                     val renderer = item.optJSONObject("musicResponsiveListItemRenderer")
-                        ?: item.optJSONObject("musicTwoRowItemRenderer") ?: continue
+                        ?: item.optJSONObject("musicTwoRowItemRenderer")
+                        ?: item.optJSONObject("musicTwoColumnItemRenderer")
+                        ?: item.optJSONObject("musicMultiRowListItemRenderer") ?: continue
                     parseItemRenderer(renderer)?.let { results.add(it) }
                 }
             }
@@ -379,32 +418,56 @@ class InnerTubeClient(
         return try {
             val videoId = renderer.optJSONObject("playlistItemData")?.optString("videoId")
                 ?: renderer.optJSONObject("navigationEndpoint")?.optJSONObject("watchEndpoint")?.optString("videoId")
+                ?: renderer.optJSONObject("onTap")?.optJSONObject("watchEndpoint")?.optString("videoId")
                 ?: return null
 
             if (videoId.isBlank()) return null
 
-            val flexColumns = renderer.optJSONArray("flexColumns") ?: return null
-            if (flexColumns.length() == 0) return null
-
-            // Title
-            val titleCol = flexColumns.optJSONObject(0)
-                ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
-                ?.optJSONObject("text")
-                ?.optJSONArray("runs")
-            val title = titleCol?.optJSONObject(0)?.optString("text").orEmpty()
-            if (title.isBlank()) return null
-
-            // Artist, Album, Duration
+            var title = ""
             var artist = "Unknown Artist"
             var album = "Unknown Album"
-            var durationMs = 180000L // 3 min default fallback
+            var durationMs = 180000L
 
-            if (flexColumns.length() > 1) {
-                val subtitleRuns = flexColumns.optJSONObject(1)
+            val flexColumns = renderer.optJSONArray("flexColumns")
+            if (flexColumns != null && flexColumns.length() > 0) {
+                // musicResponsiveListItemRenderer format
+                val titleCol = flexColumns.optJSONObject(0)
                     ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
                     ?.optJSONObject("text")
                     ?.optJSONArray("runs")
+                title = titleCol?.optJSONObject(0)?.optString("text").orEmpty()
 
+                if (flexColumns.length() > 1) {
+                    val subtitleRuns = flexColumns.optJSONObject(1)
+                        ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+                        ?.optJSONObject("text")
+                        ?.optJSONArray("runs")
+
+                    if (subtitleRuns != null) {
+                        val textList = mutableListOf<String>()
+                        for (k in 0 until subtitleRuns.length()) {
+                            val runText = subtitleRuns.optJSONObject(k)?.optString("text").orEmpty().trim()
+                            if (runText.isNotEmpty() && runText != "•") {
+                                textList.add(runText)
+                            }
+                        }
+
+                        if (textList.isNotEmpty()) artist = textList[0]
+                        if (textList.size > 1) album = textList[1]
+                        for (text in textList) {
+                            if (text.contains(":")) {
+                                durationMs = parseDurationMs(text)
+                                break
+                            }
+                        }
+                    }
+                }
+            } else {
+                // musicTwoColumnItemRenderer / musicTwoRowItemRenderer format
+                val titleRuns = renderer.optJSONObject("title")?.optJSONArray("runs")
+                title = titleRuns?.optJSONObject(0)?.optString("text").orEmpty()
+
+                val subtitleRuns = renderer.optJSONObject("subtitle")?.optJSONArray("runs")
                 if (subtitleRuns != null) {
                     val textList = mutableListOf<String>()
                     for (k in 0 until subtitleRuns.length()) {
@@ -416,14 +479,19 @@ class InnerTubeClient(
 
                     if (textList.isNotEmpty()) artist = textList[0]
                     if (textList.size > 1) album = textList[1]
-                    if (textList.size > 2 && textList.last().contains(":")) {
-                        durationMs = parseDurationMs(textList.last())
+                    for (text in textList) {
+                        if (text.contains(":")) {
+                            durationMs = parseDurationMs(text)
+                            break
+                        }
                     }
                 }
             }
 
+            if (title.isBlank()) return null
+
             // Thumbnail / Artwork
-            val thumbnails = renderer.optJSONObject("thumbnail")
+            val thumbnails = (renderer.optJSONObject("thumbnail") ?: renderer.optJSONObject("thumbnailRenderer"))
                 ?.optJSONObject("musicThumbnailRenderer")
                 ?.optJSONObject("thumbnail")
                 ?.optJSONArray("thumbnails")

@@ -15,8 +15,8 @@ android {
         applicationId = "com.codewave.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.5.1"
+        versionCode = 17
+        versionName = "1.5.2"
     }
 
     val keystorePropsFile = rootProject.file("keystore.properties").takeIf { it.exists() }

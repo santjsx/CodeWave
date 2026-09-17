@@ -85,8 +85,13 @@ class LosslessSourceProvider(
 
         // Tier 4: YouTube Music InnerTube Studio Fallback (Opus 160 kbps)
         val cleanQuery = metadataResolver.cleanSearchQuery(title, artist)
-        val searchResult = innerTubeClient.search(cleanQuery)
-        val tracks = searchResult.getOrNull().orEmpty()
+        var searchResult = innerTubeClient.search(cleanQuery)
+        var tracks = searchResult.getOrNull().orEmpty()
+
+        if (tracks.isEmpty() && cleanQuery != title.trim()) {
+            searchResult = innerTubeClient.search(title.trim())
+            tracks = searchResult.getOrNull().orEmpty()
+        }
 
         if (tracks.isNotEmpty()) {
             val bestTrack = tracks.first()
@@ -128,7 +133,7 @@ class LosslessSourceProvider(
 
             val request = Request.Builder()
                 .url(urlBuilder.build())
-                .header("User-Agent", "CodeWave/1.5.1 (Android; Hi-Res Audio Workstation)")
+                .header("User-Agent", "CodeWave/1.5.2 (Android; Hi-Res Audio Workstation)")
                 .build()
 
             val response = okHttpClient.newCall(request).execute()

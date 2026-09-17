@@ -42,7 +42,8 @@ class MetadataResolver(
 
     /**
      * Resolves Spotify link into clean, structured metadata without requiring any user account/login.
-     * Uses public Spotify oEmbed and open widget embed payloads.
+     * Prioritizes Spotify open embed JSON payload (__NEXT_DATA__) for exact artists, duration, and cover art.
+     * Falls back to OpenGraph meta tags and oEmbed.
      */
     suspend fun resolveSpotifyTrack(url: String): Result<ResolvedMetadata> = withContext(Dispatchers.IO) {
         val matcher = SPOTIFY_TRACK_PATTERN.matcher(url)
@@ -53,11 +54,63 @@ class MetadataResolver(
         val trackId = matcher.group(1) ?: return@withContext Result.failure(IllegalArgumentException("Missing track ID"))
 
         try {
-            // First attempt: Spotify oEmbed endpoint
+            // Priority 1: Spotify open embed page with rich __NEXT_DATA__ JSON payload
+            val embedUrl = "https://open.spotify.com/embed/track/$trackId"
+            val embedReq = Request.Builder()
+                .url(embedUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
+                .build()
+
+            val embedRes = okHttpClient.newCall(embedReq).execute()
+            if (embedRes.isSuccessful) {
+                val html = embedRes.body?.string().orEmpty()
+                val nextDataMatcher = Pattern.compile("<script id=\"__NEXT_DATA__\"[^>]*>(.*?)</script>").matcher(html)
+                if (nextDataMatcher.find()) {
+                    val jsonStr = nextDataMatcher.group(1).orEmpty()
+                    val nextJson = JSONObject(jsonStr)
+                    val entity = nextJson.optJSONObject("props")
+                        ?.optJSONObject("pageProps")
+                        ?.optJSONObject("state")
+                        ?.optJSONObject("data")
+                        ?.optJSONObject("entity")
+
+                    if (entity != null) {
+                        val title = entity.optString("name").ifBlank { entity.optString("title") }
+                        val artistsList = mutableListOf<String>()
+                        val artistsArray = entity.optJSONArray("artists")
+                        if (artistsArray != null) {
+                            for (i in 0 until artistsArray.length()) {
+                                val aName = artistsArray.optJSONObject(i)?.optString("name")
+                                if (!aName.isNullOrBlank()) artistsList.add(aName)
+                            }
+                        }
+                        val artist = if (artistsList.isNotEmpty()) artistsList.joinToString(", ") else "Unknown Artist"
+                        val durationMs = entity.optLong("duration", 180000L)
+                        val visualIdentity = entity.optJSONObject("visualIdentity")
+                        val coverArt = visualIdentity?.optJSONArray("image")?.optJSONObject(0)?.optString("url")
+                            ?: visualIdentity?.optJSONObject("image")?.optString("url")
+
+                        if (title.isNotBlank()) {
+                            return@withContext Result.success(
+                                ResolvedMetadata(
+                                    title = title,
+                                    artist = artist,
+                                    album = title,
+                                    durationMs = durationMs,
+                                    artworkUrl = coverArt,
+                                    sourceService = "Spotify"
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Priority 2: Spotify public oEmbed endpoint
             val oembedUrl = "https://open.spotify.com/oembed?url=https://open.spotify.com/track/$trackId"
             val request = Request.Builder()
                 .url(oembedUrl)
-                .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:128.0) Gecko/128.0 Firefox/128.0")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
@@ -66,7 +119,6 @@ class MetadataResolver(
                 val titleRaw = json.optString("title")
                 val thumbnail = json.optString("thumbnail_url")
 
-                // oEmbed title format is typically "Track Title by Artist" or just "Track Title"
                 var title = titleRaw
                 var artist = "Unknown Artist"
 
@@ -76,11 +128,35 @@ class MetadataResolver(
                     artist = split.getOrNull(1)?.trim() ?: "Unknown Artist"
                 }
 
+                // If artist still unknown, attempt track page scraping for og:description (e.g. "Listen on Spotify. Artist · Song · 2024")
+                if (artist == "Unknown Artist") {
+                    try {
+                        val pageReq = Request.Builder()
+                            .url("https://open.spotify.com/track/$trackId")
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                            .build()
+                        val pageRes = okHttpClient.newCall(pageReq).execute()
+                        if (pageRes.isSuccessful) {
+                            val pageHtml = pageRes.body?.string().orEmpty()
+                            val ogDescMatcher = Pattern.compile("<meta\\s+property=\"og:description\"\\s+content=\"(.*?)\"").matcher(pageHtml)
+                            if (ogDescMatcher.find()) {
+                                val desc = ogDescMatcher.group(1).orEmpty()
+                                // Example: "Listen to Never Gonna Give You Up on Spotify. Rick Astley · Song · 1987."
+                                val dotSplit = desc.split("·")
+                                if (dotSplit.isNotEmpty()) {
+                                    val candidate = dotSplit[0].substringAfter("Spotify.").trim()
+                                    if (candidate.isNotBlank()) artist = candidate
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 return@withContext Result.success(
                     ResolvedMetadata(
                         title = title,
                         artist = artist,
-                        album = title, // Fallback if embed doesn't specify album
+                        album = title,
                         durationMs = 180000L,
                         artworkUrl = thumbnail.ifEmpty { null },
                         sourceService = "Spotify"
@@ -108,6 +184,12 @@ class MetadataResolver(
             .replace(Regex("\\s+"), " ")
             .trim()
 
-        return "$cleanedTitle $artist".trim()
+        val cleanArtist = if (artist.equals("Unknown Artist", ignoreCase = true) || artist.isBlank()) {
+            ""
+        } else {
+            artist.trim()
+        }
+
+        return if (cleanArtist.isNotEmpty()) "$cleanedTitle $cleanArtist".trim() else cleanedTitle
     }
 }

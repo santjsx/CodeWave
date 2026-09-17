@@ -25,6 +25,7 @@ interface DownloadRepository {
     fun cancelDownload(id: String)
     fun removeDownload(id: String)
     fun clearCompleted()
+    fun retryDownload(task: DownloadTask)
 }
 
 class DefaultDownloadRepository(
@@ -79,5 +80,18 @@ class DefaultDownloadRepository(
 
     override fun clearCompleted() {
         downloadManager.clearCompleted()
+    }
+
+    override fun retryDownload(task: DownloadTask) {
+        downloadManager.enqueueDownload(
+            id = task.id,
+            title = task.title,
+            artist = task.artist,
+            album = task.album,
+            durationMs = task.durationMs,
+            artworkUri = task.artworkUri,
+            isrc = task.isrc,
+            targetFormat = task.targetFormat
+        )
     }
 }

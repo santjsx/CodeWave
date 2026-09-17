@@ -94,7 +94,7 @@ object Media3CacheManager {
                 factory.setUserAgent(client.userAgent)
                 factory.setDefaultRequestProperties(client.mediaHeaders())
             } else {
-                factory.setUserAgent("CodeWave/1.5.1 (Android; Hi-Res Audio Workstation)")
+                factory.setUserAgent("CodeWave/1.5.2 (Android; Hi-Res Audio Workstation)")
             }
 
             val ds = factory.createDataSource()

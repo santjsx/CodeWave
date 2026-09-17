@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -279,7 +280,8 @@ fun DownloadCenterScreen(
                 items(activeDownloads, key = { it.id }) { task ->
                     ActiveDownloadCard(
                         task = task,
-                        onCancel = { viewModel.cancelDownload(task.id) }
+                        onCancel = { viewModel.cancelDownload(task.id) },
+                        onRetry = { viewModel.retryDownload(task) }
                     )
                 }
             }
@@ -344,14 +346,15 @@ fun DownloadCenterScreen(
 @Composable
 private fun ActiveDownloadCard(
     task: DownloadTask,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onRetry: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(CWShapes.RadiusMedium))
             .background(CWColors.SurfacePrimary)
-            .border(1.dp, CWColors.BorderFocus, RoundedCornerShape(CWShapes.RadiusMedium))
+            .border(1.dp, if (task.status == DownloadStatus.FAILED) CWColors.Danger.copy(alpha = 0.5f) else CWColors.BorderFocus, RoundedCornerShape(CWShapes.RadiusMedium))
             .padding(12.dp)
     ) {
         Row(
@@ -376,7 +379,7 @@ private fun ActiveDownloadCard(
                     Icon(
                         imageVector = Icons.Default.Download,
                         contentDescription = null,
-                        tint = CWColors.AccentCyan
+                        tint = if (task.status == DownloadStatus.FAILED) CWColors.Danger else CWColors.AccentCyan
                     )
                 }
             }
@@ -404,23 +407,34 @@ private fun ActiveDownloadCard(
             IconButton(onClick = onCancel, modifier = Modifier.size(28.dp)) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Cancel",
+                    contentDescription = "Dismiss",
                     tint = CWColors.TextSecondary,
                     modifier = Modifier.size(16.dp)
                 )
             }
         }
 
+        if (task.status == DownloadStatus.FAILED && !task.errorMessage.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = task.errorMessage,
+                style = CWTypography.AppTypography.labelSmall,
+                color = CWColors.Danger,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Progress bar with glowing cyan/green
+        // Progress bar with glowing cyan/green (or red if failed)
         LinearProgressIndicator(
-            progress = { task.progress },
+            progress = { if (task.status == DownloadStatus.FAILED) 1f else task.progress },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
-            color = CWColors.AccentCyan,
+            color = if (task.status == DownloadStatus.FAILED) CWColors.Danger else CWColors.AccentCyan,
             trackColor = CWColors.SurfaceElevated
         )
 
@@ -432,7 +446,7 @@ private fun ActiveDownloadCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${task.status.name} (${task.progressPercent}%)",
+                text = if (task.status == DownloadStatus.FAILED) "FAILED" else "${task.status.name} (${task.progressPercent}%)",
                 style = CWTypography.TechTelemetry,
                 color = when (task.status) {
                     DownloadStatus.DOWNLOADING -> CWColors.AccentCyan
@@ -442,19 +456,33 @@ private fun ActiveDownloadCard(
                 }
             )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Speed,
-                    contentDescription = null,
-                    tint = CWColors.Success,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = task.speedFormatted,
-                    style = CWTypography.TechTelemetry,
-                    color = CWColors.Success
-                )
+            if (task.status == DownloadStatus.FAILED) {
+                IconButton(
+                    onClick = onRetry,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Retry Download",
+                        tint = CWColors.AccentCyan,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Speed,
+                        contentDescription = null,
+                        tint = CWColors.Success,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = task.speedFormatted,
+                        style = CWTypography.TechTelemetry,
+                        color = CWColors.Success
+                    )
+                }
             }
         }
     }

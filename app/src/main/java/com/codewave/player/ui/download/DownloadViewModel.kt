@@ -92,6 +92,10 @@ class DownloadViewModel(
         downloadRepository.clearCompleted()
     }
 
+    fun retryDownload(task: DownloadTask) {
+        downloadRepository.retryDownload(task)
+    }
+
     companion object {
         fun provideFactory(
             downloadRepository: DownloadRepository,
