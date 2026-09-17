@@ -115,11 +115,11 @@ fun CodeWaveApp(
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Back handling (PRD Section 96)
-    BackHandler(enabled = activeCollectionTarget != null || isNowPlayingExpanded || currentScreen != Screen.Home) {
-        if (activeCollectionTarget != null) {
-            activeCollectionTarget = null
-        } else if (isNowPlayingExpanded) {
+    BackHandler(enabled = isNowPlayingExpanded || activeCollectionTarget != null || currentScreen != Screen.Home) {
+        if (isNowPlayingExpanded) {
             isNowPlayingExpanded = false
+        } else if (activeCollectionTarget != null) {
+            activeCollectionTarget = null
         } else if (currentScreen != Screen.Home) {
             currentScreen = Screen.Home
         }
@@ -234,6 +234,19 @@ fun CodeWaveApp(
                 )
             }
 
+            // Global Collection Detail Overlay (Album / Artist target from anywhere in app)
+            activeCollectionTarget?.let { target ->
+                BackHandler(enabled = !isNowPlayingExpanded) { activeCollectionTarget = null }
+                CollectionDetailSheet(
+                    target = target,
+                    libraryRepository = container.libraryRepository,
+                    playbackRepository = container.playbackRepository,
+                    onBack = { activeCollectionTarget = null },
+                    onTrackInspect = { inspectedTrack = it },
+                    onTrackOptions = { selectedTrackForOptions = it }
+                )
+            }
+
             // Fullscreen Now Playing Overlay
             AnimatedVisibility(
                 visible = isNowPlayingExpanded,
@@ -319,19 +332,6 @@ fun CodeWaveApp(
                     track = track,
                     libraryRepository = container.libraryRepository,
                     onDismiss = { selectedTrackForPlaylist = null }
-                )
-            }
-
-            // Global Collection Detail Overlay (Album / Artist target from anywhere in app)
-            activeCollectionTarget?.let { target ->
-                BackHandler { activeCollectionTarget = null }
-                CollectionDetailSheet(
-                    target = target,
-                    libraryRepository = container.libraryRepository,
-                    playbackRepository = container.playbackRepository,
-                    onBack = { activeCollectionTarget = null },
-                    onTrackInspect = { inspectedTrack = it },
-                    onTrackOptions = { selectedTrackForOptions = it }
                 )
             }
 

@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -53,7 +55,7 @@ import androidx.activity.compose.BackHandler
 import com.codewave.player.ui.collection.CollectionDetailSheet
 import com.codewave.player.ui.collection.CollectionTarget
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,7 +89,11 @@ fun LibraryScreen(
     onNavigateToArtist: (Artist) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableIntStateOf(initialTab) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
+    val albumGridState = rememberSaveable(saver = LazyGridState.Saver) { LazyGridState() }
+    val albumListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val songsListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val artistsListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val tabs = listOf("Songs", "Albums", "Artists")
 
     val songs by viewModel.songs.collectAsState()
@@ -291,16 +297,20 @@ fun LibraryScreen(
                 onFavoriteClick = { viewModel.toggleFavorite(it) },
                 onMoreClick = { onTrackOptions?.invoke(it) ?: onTrackInspect(it) },
                 onPlayAllClick = { viewModel.playAll() },
-                onShuffleClick = { viewModel.shuffleAll() }
+                onShuffleClick = { viewModel.shuffleAll() },
+                state = songsListState
             )
             1 -> AlbumsTab(
                 albums = albums,
                 viewMode = albumViewMode,
-                onAlbumClick = onNavigateToAlbum
+                onAlbumClick = onNavigateToAlbum,
+                gridState = albumGridState,
+                listState = albumListState
             )
             2 -> ArtistsTab(
                 artists = artists,
-                onArtistClick = onNavigateToArtist
+                onArtistClick = onNavigateToArtist,
+                state = artistsListState
             )
         }
     }
@@ -316,7 +326,8 @@ private fun SongsTab(
     onFavoriteClick: (Track) -> Unit,
     onMoreClick: (Track) -> Unit,
     onPlayAllClick: () -> Unit,
-    onShuffleClick: () -> Unit
+    onShuffleClick: () -> Unit,
+    state: LazyListState
 ) {
     if (songs.isEmpty()) {
         CWEmptyState(
@@ -327,6 +338,7 @@ private fun SongsTab(
     }
 
     LazyColumn(
+        state = state,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
@@ -378,7 +390,9 @@ private fun SongsTab(
 private fun AlbumsTab(
     albums: List<Album>,
     viewMode: ViewMode,
-    onAlbumClick: (Album) -> Unit
+    onAlbumClick: (Album) -> Unit,
+    gridState: LazyGridState,
+    listState: LazyListState
 ) {
     if (albums.isEmpty()) {
         CWEmptyState(
@@ -391,21 +405,23 @@ private fun AlbumsTab(
     if (viewMode == ViewMode.GRID) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
+            state = gridState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 100.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(albums, key = { it.id }) { album ->
+            items(albums, key = { "${it.title}_${it.artist}" }) { album ->
                 CWAlbumCard(album = album, onClick = { onAlbumClick(album) })
             }
         }
     } else {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            items(albums, key = { it.id }) { album ->
+            items(albums, key = { "${it.title}_${it.artist}" }) { album ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -488,7 +504,8 @@ private fun AlbumsTab(
 @Composable
 private fun ArtistsTab(
     artists: List<Artist>,
-    onArtistClick: (Artist) -> Unit
+    onArtistClick: (Artist) -> Unit,
+    state: LazyListState
 ) {
     if (artists.isEmpty()) {
         CWEmptyState(
@@ -499,10 +516,11 @@ private fun ArtistsTab(
     }
 
     LazyColumn(
+        state = state,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        items(artists, key = { it.id }) { artist ->
+        items(artists, key = { it.name }) { artist ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

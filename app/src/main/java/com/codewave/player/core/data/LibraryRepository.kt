@@ -68,9 +68,9 @@ class DefaultLibraryRepository(
 
     override fun getAllAlbums(): Flow<List<Album>> {
         return trackDao.getAllAlbumsFlow().map { summaries ->
-            summaries.mapIndexed { index, summary ->
+            summaries.map { summary ->
                 Album(
-                    id = index.toLong() + 1,
+                    id = (summary.album.hashCode().toLong() shl 32) xor (summary.artist.hashCode().toLong() and 0xFFFFFFFFL),
                     title = summary.album,
                     artist = summary.artist,
                     trackCount = summary.trackCount,
@@ -85,9 +85,9 @@ class DefaultLibraryRepository(
 
     override fun getAllArtists(): Flow<List<Artist>> {
         return trackDao.getAllArtistsFlow().map { summaries ->
-            summaries.mapIndexed { index, summary ->
+            summaries.map { summary ->
                 Artist(
-                    id = index.toLong() + 1,
+                    id = summary.artist.hashCode().toLong(),
                     name = summary.artist,
                     trackCount = summary.trackCount,
                     albumCount = summary.albumCount
