@@ -129,7 +129,7 @@ class DownloadManager(
                 val filename = "$sanitizedArtist - $sanitizedTitle.${sourceResult.format.extension}"
 
                 val tempFile = File(context.cacheDir, "${task.id}_download.tmp")
-                downloadStream(sourceResult.downloadUrl, tempFile, task.id)
+                downloadStream(sourceResult.downloadUrl, tempFile, task.id, sourceResult.requestHeaders)
 
                 // 3. Tag FLAC with audiophile metadata if target is FLAC
                 downloadDao.updateStatus(task.id, DownloadStatus.TAGGING.name)
@@ -186,12 +186,29 @@ class DownloadManager(
         activeJobs[task.id] = job
     }
 
-    private suspend fun downloadStream(url: String, targetFile: File, taskId: String) = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", "CodeWave/1.4.0 (Android; Hi-Res Audio Workstation)")
-            .build()
+    private suspend fun downloadStream(
+        url: String,
+        targetFile: File,
+        taskId: String,
+        requestHeaders: Map<String, String> = emptyMap()
+    ) = withContext(Dispatchers.IO) {
+        val requestBuilder = Request.Builder().url(url)
 
+        val effectiveHeaders = mutableMapOf<String, String>()
+        if (url.contains("googlevideo.com")) {
+            effectiveHeaders.putAll(com.codewave.player.core.network.innertube.PlayerClient.forStreamUrl(url).mediaHeaders())
+        }
+        effectiveHeaders.putAll(requestHeaders)
+
+        if (effectiveHeaders.isEmpty() || !effectiveHeaders.containsKey("User-Agent")) {
+            effectiveHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+        }
+
+        effectiveHeaders.forEach { (name, value) ->
+            requestBuilder.header(name, value)
+        }
+
+        val request = requestBuilder.build()
         val response = okHttpClient.newCall(request).execute()
         if (!response.isSuccessful) throw Exception("HTTP ${response.code} downloading audio stream")
 

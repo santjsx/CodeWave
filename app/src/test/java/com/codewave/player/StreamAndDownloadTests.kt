@@ -114,4 +114,64 @@ class StreamAndDownloadTests {
         )
         assertFalse(result)
     }
+
+    @Test
+    fun testPlayerClientMatchingAndHeaders() {
+        val vrUrl = "https://rr1---sn-5go7yn7z.googlevideo.com/videoplayback?expire=123&c=ANDROID_VR&cver=1.65.10"
+        val clientVr = com.codewave.player.core.network.innertube.PlayerClient.forStreamUrl(vrUrl)
+        assertEquals(com.codewave.player.core.network.innertube.PlayerClient.ANDROID_VR, clientVr)
+
+        val vrHeaders = clientVr.mediaHeaders()
+        assertTrue(vrHeaders.containsKey("User-Agent"))
+        assertTrue(vrHeaders["User-Agent"]!!.contains("com.google.android.apps.youtube.vr.oculus/1.65.10"))
+
+        val tvUrl = "https://rr1---sn-5go7yn7z.googlevideo.com/videoplayback?expire=123&c=TVHTML5&cver=7.20230405"
+        val clientTv = com.codewave.player.core.network.innertube.PlayerClient.forStreamUrl(tvUrl)
+        assertEquals(com.codewave.player.core.network.innertube.PlayerClient.TVHTML5, clientTv)
+
+        val unknownUrl = "https://example.com/audio.mp3"
+        val defaultClient = com.codewave.player.core.network.innertube.PlayerClient.forStreamUrl(unknownUrl)
+        assertEquals(com.codewave.player.core.network.innertube.PlayerClient.ANDROID_VR, defaultClient)
+    }
+
+    @Test
+    fun testJioSaavnDesDecryption() {
+        val jioSaavnProvider = com.codewave.player.core.network.downloader.JioSaavnProvider()
+
+        // Encrypt known URL with standard JioSaavn DES key "38346591"
+        val originalUrl = "https://aac.saavncdn.com/123/sample_song_320kbps.mp4"
+        val keySpec = javax.crypto.spec.SecretKeySpec("38346591".toByteArray(Charsets.UTF_8), "DES")
+        val cipher = javax.crypto.Cipher.getInstance("DES/ECB/PKCS5Padding")
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, keySpec)
+        val encryptedBase64 = java.util.Base64.getEncoder().encodeToString(cipher.doFinal(originalUrl.toByteArray(Charsets.UTF_8)))
+
+        val decrypted = jioSaavnProvider.decryptUrl(encryptedBase64)
+        assertEquals(originalUrl, decrypted)
+    }
+
+    @Test
+    fun testPlatformResolverExtractors() {
+        val resolver = com.codewave.player.core.network.resolver.PlatformResolver()
+
+        val sampleHtml = """
+            <html>
+                <head>
+                    <meta property="og:title" content="Song Title - Artist" />
+                </head>
+                <body>
+                    <a href="https://listen.tidal.com/track/123456789">Tidal</a>
+                    <a href="https://www.deezer.com/track/987654321">Deezer</a>
+                    <a href="https://open.qobuz.com/track/11223344">Qobuz</a>
+                    <a href="https://music.youtube.com/watch?v=abcdef12345">YouTube Music</a>
+                </body>
+            </html>
+        """.trimIndent()
+
+        val links = resolver.extractPlatformLinksFromHtml(sampleHtml)
+        assertEquals("https://listen.tidal.com/track/123456789", links.tidalUrl)
+        assertEquals("https://www.deezer.com/track/987654321", links.deezerUrl)
+        assertEquals("https://open.qobuz.com/track/11223344", links.qobuzUrl)
+        assertEquals("https://music.youtube.com/watch?v=abcdef12345", links.youtubeUrl)
+    }
 }
+
