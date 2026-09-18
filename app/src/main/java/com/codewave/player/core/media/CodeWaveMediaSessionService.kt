@@ -29,8 +29,10 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CodeWaveMediaSessionService : MediaSessionService() {
 
@@ -94,8 +96,12 @@ class CodeWaveMediaSessionService : MediaSessionService() {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 if (isPlaying) {
+                    val focusGranted = audioFocusManager.requestAudioFocus()
+                    if (!focusGranted) {
+                        player.pause()
+                        return
+                    }
                     noisyReceiver.register()
-                    audioFocusManager.requestAudioFocus()
                 } else {
                     noisyReceiver.unregister()
                 }
@@ -126,12 +132,14 @@ class CodeWaveMediaSessionService : MediaSessionService() {
                 viperAudioProcessor.applyConfig(config)
 
                 if (config.isConvolverEnabled && !config.irsName.isNullOrBlank()) {
-                    val irsDir = File(filesDir, "irs")
-                    val file = File(irsDir, config.irsName)
-                    if (file.exists()) {
-                        val irsData = IrsParser.parse(file)
-                        viperAudioProcessor.loadImpulseResponse(irsData)
+                    val irsData = withContext(Dispatchers.IO) {
+                        val irsDir = File(filesDir, "irs")
+                        val file = File(irsDir, config.irsName)
+                        if (file.exists()) {
+                            IrsParser.parse(file)
+                        } else null
                     }
+                    viperAudioProcessor.loadImpulseResponse(irsData)
                 } else if (!config.isConvolverEnabled || config.irsName.isNullOrBlank()) {
                     viperAudioProcessor.loadImpulseResponse(null)
                 }
@@ -144,7 +152,7 @@ class CodeWaveMediaSessionService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        eqJob?.cancel()
+        serviceScope.cancel()
         noisyReceiver.unregister()
         audioFocusManager.abandonAudioFocus()
         dspEngine.release()

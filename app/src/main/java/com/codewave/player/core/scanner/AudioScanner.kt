@@ -160,6 +160,9 @@ class AudioScanner(
 
         _scanProgress.value = _scanProgress.value.copy(totalCount = candidates.size)
 
+        // Preload all existing tracks into memory to eliminate N+1 database queries
+        val existingTracksMap = trackDao.getAllTracks().associateBy { it.mediaStoreId }
+
         // Reconcile and extract
         val batchEntities = mutableListOf<TrackEntity>()
         var processed = 0
@@ -168,7 +171,7 @@ class AudioScanner(
 
         for (candidate in candidates) {
             // Check if track modified or already present
-            val existing = trackDao.getTrackByMediaStoreId(candidate.mediaStoreId)
+            val existing = existingTracksMap[candidate.mediaStoreId]
             if (existing != null && existing.dateModified == candidate.dateModified && existing.fileSize == candidate.size) {
                 processed++
                 val now = System.currentTimeMillis()
@@ -255,6 +258,16 @@ class AudioScanner(
         if (batchEntities.isNotEmpty()) {
             trackDao.insertTracks(batchEntities)
             batchEntities.clear()
+        }
+
+        // Purge orphan tracks that were deleted or moved from storage outside the app
+        val scannedIdSet = mediaStoreIds.toSet()
+        val orphanIds = existingTracksMap.keys.filter { it !in scannedIdSet }
+        if (orphanIds.isNotEmpty()) {
+            // Delete in safe chunks of 500 to stay well below the SQLite 999 parameter bind limit
+            orphanIds.chunked(500).forEach { batch ->
+                trackDao.deleteTracksByMediaStoreIds(batch)
+            }
         }
 
         _scanProgress.value = _scanProgress.value.copy(

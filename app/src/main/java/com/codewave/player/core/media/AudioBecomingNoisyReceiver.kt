@@ -21,11 +21,21 @@ class AudioBecomingNoisyReceiver(
 
     fun register() {
         if (!isRegistered) {
-            context.registerReceiver(
-                this,
-                IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-            )
-            isRegistered = true
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    context.registerReceiver(
+                        this,
+                        IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+                        Context.RECEIVER_NOT_EXPORTED
+                    )
+                } else {
+                    context.registerReceiver(
+                        this,
+                        IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+                    )
+                }
+                isRegistered = true
+            } catch (_: Exception) {}
         }
     }
 

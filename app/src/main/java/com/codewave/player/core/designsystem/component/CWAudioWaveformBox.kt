@@ -42,6 +42,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,6 +63,7 @@ fun CWAudioWaveformBox(
     isPlaying: Boolean,
     volumePercent: Int,
     waveformBands: FloatArray? = null,
+    waveformBandsProvider: (() -> FloatArray)? = null,
     onVolumeChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -76,6 +82,7 @@ fun CWAudioWaveformBox(
     val frameTick = remember { mutableLongStateOf(0L) }
     val currentIsPlaying by rememberUpdatedState(isPlaying)
     val latestBands by rememberUpdatedState(waveformBands)
+    val latestBandsProvider by rememberUpdatedState(waveformBandsProvider)
 
     LaunchedEffect(Unit) {
         var lastNanos = 0L
@@ -99,7 +106,7 @@ fun CWAudioWaveformBox(
             withFrameNanos { nowNanos ->
                 if (lastNanos != 0L) {
                     val dt = ((nowNanos - lastNanos) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
-                    val bands = latestBands
+                    val bands = latestBandsProvider?.invoke() ?: latestBands
                     val hasLiveBands = currentIsPlaying && bands != null && bands.size >= 48
 
                     for (i in 0 until 48) {
@@ -184,7 +191,12 @@ fun CWAudioWaveformBox(
                     Box(
                         modifier = Modifier
                             .width(barWidthDp)
-                            .height(10.dp)
+                            .height(20.dp)
+                            .semantics {
+                                progressBarRangeInfo = ProgressBarRangeInfo(volumePercent.toFloat(), 0f..100f)
+                                contentDescription = "System Volume"
+                                stateDescription = "$volumePercent percent"
+                            }
                             .pointerInput(onVolumeChange) {
                                 if (onVolumeChange != null) {
                                     detectTapGestures { offset ->

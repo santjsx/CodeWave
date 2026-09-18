@@ -52,7 +52,9 @@ abstract class CodeWaveDatabase : RoomDatabase() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
                             CoroutineScope(Dispatchers.IO).launch {
-                                populateInitialData(getInstance(context))
+                                try {
+                                    populateInitialData(getInstance(context))
+                                } catch (_: Exception) {}
                             }
                         }
                     })

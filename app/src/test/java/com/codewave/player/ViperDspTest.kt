@@ -198,4 +198,31 @@ class ViperDspTest {
         val output = processor.output
         assertTrue("Output buffer should have remaining bytes", output.remaining() > 0)
     }
+
+    @Test
+    fun testViperAudioProcessorMonoInputUpmixing() {
+        val processor = ViperAudioProcessor()
+
+        // Configure mono 16-bit PCM input
+        val monoFormat = androidx.media3.common.audio.AudioProcessor.AudioFormat(
+            44100,
+            1, // Mono channel
+            androidx.media3.common.C.ENCODING_PCM_16BIT
+        )
+        val outputFormat = processor.configure(monoFormat)
+        assertEquals(2, outputFormat.channelCount)
+        processor.flush()
+
+        // 8 mono samples = 16 bytes
+        val input = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN)
+        for (i in 0 until 8) {
+            input.putShort((i * 1000).toShort())
+        }
+        input.flip()
+
+        // Queue input - must not throw BufferUnderflowException and must output stereo (8 frames * 2 channels * 2 bytes = 32 bytes)
+        processor.queueInput(input)
+        val output = processor.output
+        assertEquals("Output should have 32 bytes for 8 stereo frames", 32, output.remaining())
+    }
 }

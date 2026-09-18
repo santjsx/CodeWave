@@ -18,12 +18,12 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -120,9 +120,9 @@ fun CodeWaveApp(
     var isThemeSheetOpen by remember { mutableStateOf(false) }
     var isCommandPaletteOpen by remember { mutableStateOf(false) }
 
-    val currentThemeId by container.settingsRepository.themeId.collectAsState(initial = "obsidian")
-    val playbackState by container.playbackRepository.playbackState.collectAsState()
-    val otaStatus by container.otaUpdateManager.updateStatus.collectAsState()
+    val currentThemeId by container.settingsRepository.themeId.collectAsStateWithLifecycle(initialValue = "obsidian")
+    val playbackState by container.playbackRepository.playbackState.collectAsStateWithLifecycle()
+    val otaStatus by container.otaUpdateManager.updateStatus.collectAsStateWithLifecycle()
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Back handling (PRD Section 96)

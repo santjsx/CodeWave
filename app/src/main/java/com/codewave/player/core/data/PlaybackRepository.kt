@@ -110,6 +110,7 @@ class DefaultPlaybackRepository(
     private var controller: MediaController? = null
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
+    @Volatile
     private var currentQueue: List<Track> = emptyList()
     private var pendingPlayAction: (() -> Unit)? = null
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager

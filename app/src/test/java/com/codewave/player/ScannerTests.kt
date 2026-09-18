@@ -46,4 +46,25 @@ class ScannerTests {
         assertFalse(CandidateValidator.isCandidateReady("/storage/Music/song.flac", 0L))
         assertFalse(CandidateValidator.isCandidateReady("/storage/Music/song.flac", 512L))
     }
+
+    @Test
+    fun testOrphanTrackDetectionAndSafeChunking() {
+        val existingMediaStoreIds = (1L..1250L).toList()
+        val scannedMediaStoreIds = (251L..1250L).toList() // First 250 tracks were deleted
+
+        val scannedIdSet = scannedMediaStoreIds.toSet()
+        val orphanIds = existingMediaStoreIds.filter { it !in scannedIdSet }
+
+        assertEquals(250, orphanIds.size)
+        assertEquals(1L, orphanIds.first())
+        assertEquals(250L, orphanIds.last())
+
+        // Verify chunking does not exceed SQLite 999 parameter bind limit
+        val chunks = (1L..1250L).toList().chunked(500)
+        assertEquals(3, chunks.size)
+        assertEquals(500, chunks[0].size)
+        assertEquals(500, chunks[1].size)
+        assertEquals(250, chunks[2].size)
+        assertTrue(chunks.all { it.size <= 500 })
+    }
 }

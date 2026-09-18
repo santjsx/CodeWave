@@ -52,12 +52,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -120,14 +120,13 @@ fun NowPlayingScreen(
     androidx.activity.compose.BackHandler { onCollapse() }
 
     val coroutineScope = rememberCoroutineScope()
-    val state by playbackRepository.playbackState.collectAsState()
-    val sleepTimerRemainingMs by playbackRepository.sleepTimerRemainingMs.collectAsState()
-    val waveformBands by playbackRepository.audioWaveformBands.collectAsState()
-    val workspaces by playbackRepository.queueWorkspaces.collectAsState()
-    val viewingWorkspaceId by playbackRepository.viewingWorkspaceId.collectAsState()
-    val abLoopState by playbackRepository.abLoopState.collectAsState()
-    val pitchSemitones by playbackRepository.pitchSemitones.collectAsState()
-    val eqConfigState = equalizerRepository?.equalizerConfig?.collectAsState()
+    val state by playbackRepository.playbackState.collectAsStateWithLifecycle()
+    val sleepTimerRemainingMs by playbackRepository.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    val workspaces by playbackRepository.queueWorkspaces.collectAsStateWithLifecycle()
+    val viewingWorkspaceId by playbackRepository.viewingWorkspaceId.collectAsStateWithLifecycle()
+    val abLoopState by playbackRepository.abLoopState.collectAsStateWithLifecycle()
+    val pitchSemitones by playbackRepository.pitchSemitones.collectAsStateWithLifecycle()
+    val eqConfigState = equalizerRepository?.equalizerConfig?.collectAsStateWithLifecycle(initialValue = EqualizerConfig())
     val eqConfig = eqConfigState?.value ?: EqualizerConfig()
     val track = state.currentTrack ?: return
 
@@ -194,7 +193,7 @@ fun NowPlayingScreen(
         ) {
             IconButton(
                 onClick = onCollapse,
-                modifier = Modifier.size(38.dp).tactilePress()
+                modifier = Modifier.size(48.dp).tactilePress()
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
@@ -221,7 +220,7 @@ fun NowPlayingScreen(
 
             IconButton(
                 onClick = { onOpenTrackOptions?.invoke(track) },
-                modifier = Modifier.size(38.dp).tactilePress()
+                modifier = Modifier.size(48.dp).tactilePress()
             ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
@@ -332,7 +331,7 @@ fun NowPlayingScreen(
 
                 IconButton(
                     onClick = { onToggleFavorite(track) },
-                    modifier = Modifier.size(38.dp).tactilePress()
+                    modifier = Modifier.size(48.dp).tactilePress()
                 ) {
                     Icon(
                         imageVector = if (track.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -386,7 +385,7 @@ fun NowPlayingScreen(
                 // Shuffle
                 IconButton(
                     onClick = { playbackRepository.setShuffle(!state.shuffleMode) },
-                    modifier = Modifier.size(38.dp).tactilePress()
+                    modifier = Modifier.size(48.dp).tactilePress()
                 ) {
                     Icon(
                         imageVector = Icons.Default.Shuffle,
@@ -399,7 +398,7 @@ fun NowPlayingScreen(
                 // Skip Previous
                 IconButton(
                     onClick = { playbackRepository.skipPrevious() },
-                    modifier = Modifier.size(44.dp).tactilePress()
+                    modifier = Modifier.size(48.dp).tactilePress()
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
@@ -432,7 +431,7 @@ fun NowPlayingScreen(
                 // Skip Next
                 IconButton(
                     onClick = { playbackRepository.skipNext() },
-                    modifier = Modifier.size(44.dp).tactilePress()
+                    modifier = Modifier.size(48.dp).tactilePress()
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
@@ -452,7 +451,7 @@ fun NowPlayingScreen(
                         }
                         playbackRepository.setRepeatMode(nextMode)
                     },
-                    modifier = Modifier.size(38.dp).tactilePress()
+                    modifier = Modifier.size(48.dp).tactilePress()
                 ) {
                     Icon(
                         imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
@@ -530,7 +529,7 @@ fun NowPlayingScreen(
             CWAudioWaveformBox(
                 isPlaying = state.isPlaying,
                 volumePercent = state.volumePercent,
-                waveformBands = waveformBands,
+                waveformBandsProvider = { playbackRepository.audioWaveformBands.value },
                 onVolumeChange = { newPercent -> playbackRepository.setVolumePercent(newPercent) }
             )
 

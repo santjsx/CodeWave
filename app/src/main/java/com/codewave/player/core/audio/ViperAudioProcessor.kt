@@ -49,7 +49,7 @@ class ViperAudioProcessor : BaseAudioProcessor() {
 
     override fun isActive(): Boolean {
         // Active when configured so dynamic slider changes take effect immediately without sink re-allocations
-        return inputAudioFormat != AudioProcessor.AudioFormat.NOT_SET
+        return super.isActive()
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -58,7 +58,8 @@ class ViperAudioProcessor : BaseAudioProcessor() {
 
         val is16Bit = inputAudioFormat.encoding == C.ENCODING_PCM_16BIT
         val bytesPerSample = if (is16Bit) 2 else 4
-        val bytesPerFrame = bytesPerSample * 2 // Stereo = 2 channels
+        val inputChannels = inputAudioFormat.channelCount
+        val bytesPerFrame = bytesPerSample * inputChannels
         val frameCount = remainingBytes / bytesPerFrame
         if (frameCount <= 0) return
 
@@ -69,13 +70,41 @@ class ViperAudioProcessor : BaseAudioProcessor() {
 
         // STEP 1: Translate raw PCM stream into Float32 normalized to [-1.0, 1.0]
         inputBuffer.order(ByteOrder.LITTLE_ENDIAN)
-        if (is16Bit) {
-            for (i in 0 until samplesCount) {
-                floatBuffer[i] = inputBuffer.short.toFloat() / 32768.0f
+        if (inputChannels == 1) {
+            // Upmix Mono to Stereo Left & Right
+            if (is16Bit) {
+                for (f in 0 until frameCount) {
+                    val sample = inputBuffer.short.toFloat() / 32768.0f
+                    floatBuffer[f * 2] = sample
+                    floatBuffer[f * 2 + 1] = sample
+                }
+            } else {
+                for (f in 0 until frameCount) {
+                    val sample = inputBuffer.float.coerceIn(-1.0f, 1.0f)
+                    floatBuffer[f * 2] = sample
+                    floatBuffer[f * 2 + 1] = sample
+                }
             }
         } else {
-            for (i in 0 until samplesCount) {
-                floatBuffer[i] = inputBuffer.float.coerceIn(-1.0f, 1.0f)
+            val channelsToSkip = (inputChannels - 2).coerceAtLeast(0)
+            if (channelsToSkip == 0) {
+                if (is16Bit) {
+                    for (i in 0 until samplesCount) {
+                        floatBuffer[i] = inputBuffer.short.toFloat() / 32768.0f
+                    }
+                } else {
+                    for (i in 0 until samplesCount) {
+                        floatBuffer[i] = inputBuffer.float.coerceIn(-1.0f, 1.0f)
+                    }
+                }
+            } else {
+                for (f in 0 until frameCount) {
+                    floatBuffer[f * 2] = if (is16Bit) inputBuffer.short.toFloat() / 32768.0f else inputBuffer.float.coerceIn(-1.0f, 1.0f)
+                    floatBuffer[f * 2 + 1] = if (is16Bit) inputBuffer.short.toFloat() / 32768.0f else inputBuffer.float.coerceIn(-1.0f, 1.0f)
+                    for (c in 0 until channelsToSkip) {
+                        if (is16Bit) inputBuffer.short else inputBuffer.float
+                    }
+                }
             }
         }
 
@@ -121,7 +150,9 @@ class ViperAudioProcessor : BaseAudioProcessor() {
         }
 
         // STEP 3: Convert processed Float32 samples back to output PCM byte buffer
-        val outputBuffer = replaceOutputBuffer(frameCount * bytesPerFrame)
+        // Note that outputAudioFormat is always stereo (2 channels)
+        val outputBytesPerFrame = bytesPerSample * 2
+        val outputBuffer = replaceOutputBuffer(frameCount * outputBytesPerFrame)
         outputBuffer.order(ByteOrder.LITTLE_ENDIAN)
 
         if (is16Bit) {
