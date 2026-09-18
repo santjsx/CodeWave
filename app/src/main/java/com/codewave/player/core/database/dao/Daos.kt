@@ -118,6 +118,42 @@ interface TrackDao {
     """)
     suspend fun searchTracks(query: String): List<TrackEntity>
 
+    @Query("""
+        SELECT * FROM tracks 
+        WHERE title LIKE '%' || :query || '%' 
+           OR artist LIKE '%' || :query || '%' 
+           OR album LIKE '%' || :query || '%'
+        ORDER BY title COLLATE NOCASE ASC
+        LIMIT 100
+    """)
+    suspend fun searchTracksFallback(query: String): List<TrackEntity>
+
+    @Query("DELETE FROM playlist_tracks WHERE trackId NOT IN (SELECT id FROM tracks)")
+    suspend fun deleteOrphanPlaylistTracks()
+
+    @Transaction
+    suspend fun deleteTracksAndCleanReferences(mediaStoreIds: List<Long>) {
+        deleteTracksByMediaStoreIds(mediaStoreIds)
+        deleteOrphanPlaylistTracks()
+    }
+
+    @Transaction
+    suspend fun reconcileLibrary(
+        tracksToInsertOrUpdate: List<TrackEntity>,
+        orphanMediaStoreIds: List<Long>
+    ) {
+        if (tracksToInsertOrUpdate.isNotEmpty()) {
+            tracksToInsertOrUpdate.chunked(500).forEach { batch ->
+                insertTracks(batch)
+            }
+        }
+        if (orphanMediaStoreIds.isNotEmpty()) {
+            orphanMediaStoreIds.chunked(500).forEach { batch ->
+                deleteTracksAndCleanReferences(batch)
+            }
+        }
+    }
+
     @Query("SELECT * FROM tracks WHERE isLossless = 1 OR isHiRes = 1 ORDER BY dateAdded DESC")
     fun getLosslessTracksFlow(): Flow<List<TrackEntity>>
 
@@ -193,13 +229,18 @@ interface PlaylistDao {
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND trackId = :trackId")
     suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long)
 
-    @Query("SELECT COUNT(*) FROM playlist_tracks WHERE playlistId = :playlistId")
+    @Query("""
+        SELECT COUNT(t.id) FROM playlist_tracks pt
+        INNER JOIN tracks t ON t.id = pt.trackId
+        WHERE pt.playlistId = :playlistId
+    """)
     fun getPlaylistTrackCountFlow(playlistId: Long): Flow<Int>
 
     @Query("""
-        SELECT playlistId, COUNT(*) as trackCount
-        FROM playlist_tracks
-        GROUP BY playlistId
+        SELECT pt.playlistId, COUNT(t.id) as trackCount
+        FROM playlist_tracks pt
+        INNER JOIN tracks t ON t.id = pt.trackId
+        GROUP BY pt.playlistId
     """)
     fun getPlaylistTrackCountsFlow(): Flow<List<PlaylistTrackCount>>
 }

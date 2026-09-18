@@ -31,3 +31,4 @@ dump.xml
 emulator_*.png
 *.hprof
 .kotlin/
+scratch/

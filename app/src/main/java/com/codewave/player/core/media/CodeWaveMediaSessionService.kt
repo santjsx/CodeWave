@@ -63,7 +63,10 @@ class CodeWaveMediaSessionService : MediaSessionService() {
 
         noisyReceiver = AudioBecomingNoisyReceiver(
             context = this,
-            onNoisyEvent = { player.pause() }
+            onNoisyEvent = {
+                audioFocusManager.onUserPaused()
+                player.pause()
+            }
         )
 
         val audioAttributes = AudioAttributes.Builder()
@@ -93,6 +96,15 @@ class CodeWaveMediaSessionService : MediaSessionService() {
         val eqRepo = appContainer.equalizerRepository
 
         player.addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                super.onPlayWhenReadyChanged(playWhenReady, reason)
+                if (!playWhenReady && !audioFocusManager.isTransientPause &&
+                    (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST || reason == Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE)
+                ) {
+                    audioFocusManager.onUserPaused()
+                }
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 if (isPlaying) {
@@ -124,6 +136,23 @@ class CodeWaveMediaSessionService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivityPendingIntent)
+            .setCallback(object : MediaSession.Callback {
+                @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+                override fun onPlayerCommandRequest(
+                    session: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                    playerCommand: Int
+                ): Int {
+                    if (playerCommand == Player.COMMAND_PLAY_PAUSE) {
+                        if (player.playWhenReady) {
+                            audioFocusManager.onUserPaused()
+                        }
+                    } else if (playerCommand == Player.COMMAND_STOP) {
+                        audioFocusManager.onUserPaused()
+                    }
+                    return super.onPlayerCommandRequest(session, controller, playerCommand)
+                }
+            })
             .build()
 
         // Observe Equalizer updates and push to master ViperAudioProcessor pipeline

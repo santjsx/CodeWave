@@ -48,6 +48,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -97,18 +98,18 @@ fun LibraryScreen(
     val artistsListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val tabs = listOf("Songs", "Albums", "Artists")
 
-    val songs by viewModel.songs.collectAsState()
-    val albums by viewModel.albums.collectAsState()
-    val artists by viewModel.artists.collectAsState()
+    val songs by viewModel.songs.collectAsStateWithLifecycle()
+    val albums by viewModel.albums.collectAsStateWithLifecycle()
+    val artists by viewModel.artists.collectAsStateWithLifecycle()
 
-    val songSort by viewModel.songSortOption.collectAsState()
-    val albumSort by viewModel.albumSortOption.collectAsState()
-    val artistSort by viewModel.artistSortOption.collectAsState()
+    val songSort by viewModel.songSortOption.collectAsStateWithLifecycle()
+    val albumSort by viewModel.albumSortOption.collectAsStateWithLifecycle()
+    val artistSort by viewModel.artistSortOption.collectAsStateWithLifecycle()
 
-    val songViewMode by viewModel.songViewMode.collectAsState()
-    val albumViewMode by viewModel.albumViewMode.collectAsState()
+    val songViewMode by viewModel.songViewMode.collectAsStateWithLifecycle()
+    val albumViewMode by viewModel.albumViewMode.collectAsStateWithLifecycle()
 
-    val selectedTrackIds by viewModel.selectedTrackIds.collectAsState()
+    val selectedTrackIds by viewModel.selectedTrackIds.collectAsStateWithLifecycle()
     val isSelectionMode = viewModel.isSelectionMode
 
     var sortMenuExpanded by remember { mutableStateOf(false) }

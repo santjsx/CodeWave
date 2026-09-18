@@ -47,6 +47,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,12 +94,12 @@ fun PlaylistsScreen(
     onNavigateToCollection: (CollectionTarget) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val playlists by viewModel.playlists.collectAsState()
-    val favorites by viewModel.favoriteTracks.collectAsState()
-    val playlistCovers by viewModel.playlistCovers.collectAsState()
-    val hiResTracks by viewModel.hiResLosslessTracks.collectAsState()
-    val heavyRotationTracks by viewModel.heavyRotationTracks.collectAsState()
-    val recentlyAddedTracks by viewModel.recentlyAddedTracks.collectAsState()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val favorites by viewModel.favoriteTracks.collectAsStateWithLifecycle()
+    val playlistCovers by viewModel.playlistCovers.collectAsStateWithLifecycle()
+    val hiResTracks by viewModel.hiResLosslessTracks.collectAsStateWithLifecycle()
+    val heavyRotationTracks by viewModel.heavyRotationTracks.collectAsStateWithLifecycle()
+    val recentlyAddedTracks by viewModel.recentlyAddedTracks.collectAsStateWithLifecycle()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }

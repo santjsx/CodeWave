@@ -66,7 +66,6 @@ class MainActivity : ComponentActivity() {
         val app = application as CodeWaveApplication
         CoroutineScope(Dispatchers.IO).launch {
             app.container.libraryRepository.scanLibrary()
-            app.container.audioScanner.startObservingMediaStore(this)
         }
     }
 

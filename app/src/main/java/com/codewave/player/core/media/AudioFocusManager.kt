@@ -14,7 +14,11 @@ class AudioFocusManager(
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var focusRequest: AudioFocusRequest? = null
-    private var resumeOnFocusGain = false
+    var resumeOnFocusGain = false
+        internal set
+
+    var isTransientPause = false
+        internal set
 
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
@@ -24,7 +28,12 @@ class AudioFocusManager(
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 resumeOnFocusGain = true
-                onPausePlayback()
+                isTransientPause = true
+                try {
+                    onPausePlayback()
+                } finally {
+                    isTransientPause = false
+                }
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 // Lower volume cleanly during navigation / notifications (PRD Section 30)
@@ -54,18 +63,39 @@ class AudioFocusManager(
                 .build()
 
             focusRequest = request
-            audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            when (audioManager.requestAudioFocus(request)) {
+                AudioManager.AUDIOFOCUS_REQUEST_GRANTED -> {
+                    resumeOnFocusGain = false
+                    true
+                }
+                AudioManager.AUDIOFOCUS_REQUEST_DELAYED -> {
+                    // Arm delayed resumption so AUDIOFOCUS_GAIN will trigger playback once clear
+                    resumeOnFocusGain = true
+                    false
+                }
+                else -> {
+                    resumeOnFocusGain = false
+                    false
+                }
+            }
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
+            val granted = audioManager.requestAudioFocus(
                 focusChangeListener,
                 AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN
             ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            resumeOnFocusGain = false
+            granted
         }
     }
 
+    fun onUserPaused() {
+        resumeOnFocusGain = false
+    }
+
     fun abandonAudioFocus() {
+        resumeOnFocusGain = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         } else {

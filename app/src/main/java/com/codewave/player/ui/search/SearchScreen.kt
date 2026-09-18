@@ -37,7 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,8 +83,8 @@ fun SearchScreen(
     onNavigateToArtist: ((Artist) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val query by viewModel.query.collectAsState()
-    val result by viewModel.searchResult.collectAsState()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val result by viewModel.searchResult.collectAsStateWithLifecycle()
     var selectedCategory by remember { mutableStateOf(SearchCategory.ALL) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current

@@ -824,18 +824,24 @@ class DefaultPlaybackRepository(
     }
 
     override fun addTrackToWorkspace(workspaceId: String, track: Track) {
-        _workspaces.update { list ->
-            list.map { ws ->
-                if (ws.id == workspaceId) ws.copy(tracks = ws.tracks + track) else ws
-            }
-        }
         val targetWs = _workspaces.value.find { it.id == workspaceId }
-        if (targetWs?.isPlaybackActive == true) {
+        val isPlaybackActive = targetWs?.isPlaybackActive == true
+
+        if (isPlaybackActive) {
             addToQueue(track)
+        } else {
+            _workspaces.update { list ->
+                list.map { ws ->
+                    if (ws.id == workspaceId) ws.copy(tracks = ws.tracks + track) else ws
+                }
+            }
         }
     }
 
     override fun removeTrackFromWorkspace(workspaceId: String, trackIndex: Int) {
+        val targetWs = _workspaces.value.find { it.id == workspaceId }
+        val isPlaybackActive = targetWs?.isPlaybackActive == true
+
         _workspaces.update { list ->
             list.map { ws ->
                 if (ws.id == workspaceId) {
@@ -845,6 +851,44 @@ class DefaultPlaybackRepository(
                     }
                     ws.copy(tracks = updated)
                 } else ws
+            }
+        }
+
+        if (isPlaybackActive) {
+            val player = controller
+            val currentIdx = player?.currentMediaItemIndex ?: _playbackState.value.queueIndex
+            val updatedQueue = currentQueue.toMutableList()
+
+            if (trackIndex in updatedQueue.indices) {
+                val trackToRemove = updatedQueue[trackIndex]
+                updatedQueue.removeAt(trackIndex)
+                currentQueue = updatedQueue
+
+                if (player != null) {
+                    val targetMediaId = trackToRemove.id.toString()
+                    val media3Index = if (trackIndex < player.mediaItemCount && player.getMediaItemAt(trackIndex).mediaId == targetMediaId) {
+                        trackIndex
+                    } else {
+                        (0 until player.mediaItemCount).firstOrNull { idx ->
+                            player.getMediaItemAt(idx).mediaId == targetMediaId
+                        } ?: -1
+                    }
+                    if (media3Index in 0 until player.mediaItemCount) {
+                        player.removeMediaItem(media3Index)
+                    }
+                }
+
+                if (updatedQueue.isEmpty()) {
+                    _playbackState.update { it.copy(queue = emptyList(), currentTrack = null, isPlaying = false, queueIndex = -1) }
+                } else {
+                    val newIndex = when {
+                        trackIndex < currentIdx -> currentIdx - 1
+                        trackIndex == currentIdx -> trackIndex.coerceAtMost(updatedQueue.size - 1)
+                        else -> currentIdx
+                    }
+                    val newCurrentTrack = updatedQueue.getOrNull(newIndex)
+                    _playbackState.update { it.copy(queue = updatedQueue, currentTrack = newCurrentTrack, queueIndex = newIndex) }
+                }
             }
         }
     }

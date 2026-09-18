@@ -52,7 +52,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -94,13 +94,13 @@ fun HomeScreen(
     onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val stats by viewModel.stats.collectAsState()
-    val recentlyAdded by viewModel.recentlyAdded.collectAsState()
-    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
-    val scanProgress by viewModel.scanProgress.collectAsState()
-    val lastPositionMs by viewModel.lastPlayedPositionMs.collectAsState()
-    val lastTrackId by viewModel.lastPlayedTrackId.collectAsState()
-    val continueListeningTrack by viewModel.continueListeningTrack.collectAsState()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
+    val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
+    val lastPositionMs by viewModel.lastPlayedPositionMs.collectAsStateWithLifecycle()
+    val lastTrackId by viewModel.lastPlayedTrackId.collectAsStateWithLifecycle()
+    val continueListeningTrack by viewModel.continueListeningTrack.collectAsStateWithLifecycle()
 
     var showBanner by remember { mutableStateOf(false) }
     var isCompleted by remember { mutableStateOf(false) }

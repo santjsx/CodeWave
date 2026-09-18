@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
@@ -154,15 +155,26 @@ class DefaultLibraryRepository(
             return@flow
         }
 
-        // FTS sanitized match query (PRD Section 16, 47)
-        val sanitized = query.trim().split("\\s+".toRegex())
+        // Robust FTS query sanitization and fallback (AUD-SEARCH-01)
+        val tokens = Regex("[\\p{L}\\p{M}\\p{Nd}]+").findAll(query.trim())
+            .map { it.value }
             .filter { it.isNotBlank() }
-            .joinToString(" ") { "$it*" }
+            .toList()
 
-        val trackEntities = try {
-            trackDao.searchTracks(sanitized)
-        } catch (_: Exception) {
-            emptyList()
+        val trackEntities = if (tokens.isNotEmpty()) {
+            val ftsQuery = tokens.joinToString(" ") { "$it*" }
+            try {
+                val ftsResults = trackDao.searchTracks(ftsQuery)
+                if (ftsResults.isNotEmpty()) {
+                    ftsResults
+                } else {
+                    trackDao.searchTracksFallback(query.trim())
+                }
+            } catch (_: Exception) {
+                trackDao.searchTracksFallback(query.trim())
+            }
+        } else {
+            trackDao.searchTracksFallback(query.trim())
         }
 
         val domainTracks = trackEntities.map { it.toDomain() }
@@ -212,7 +224,7 @@ class DefaultLibraryRepository(
                 artists = artists
             )
         )
-    }
+    }.flowOn(Dispatchers.IO)
 
     override suspend fun setFavorite(trackId: Long, isFavorite: Boolean) {
         trackDao.setFavorite(trackId, isFavorite)
