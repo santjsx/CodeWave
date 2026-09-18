@@ -31,26 +31,33 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
-import com.codewave.player.core.designsystem.component.tactileClickable
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
@@ -64,145 +71,254 @@ fun LyricsView(
     trackTitle: String,
     trackArtist: String,
     onSeekTo: (Long) -> Unit,
+    onToggleFullscreen: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    // Touch absorption prevents gestures from leaking through to underlying views
+    var showTimestamps by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
+    val haptic = LocalHapticFeedback.current
+
+    val lineCount = when (lyricsResult) {
+        is LyricsResult.Synchronized -> lyricsResult.lines.size
+        is LyricsResult.Plain -> lyricsResult.lines.size
+        else -> 0
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(CWShapes.RadiusLarge))
-            .background(Color(0xFF090D12))
-            .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.25f), RoundedCornerShape(CWShapes.RadiusLarge))
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF0D1117))
+            .border(1.dp, Color(0xFF21262D), RoundedCornerShape(12.dp))
             .clickable(interactionSource = interactionSource, indication = null) {}
             .padding(12.dp)
     ) {
-        // Terminal Window Header Bar
-        TerminalHeader(
-            badgeText = when (lyricsResult) {
-                is LyricsResult.Synchronized -> "LRC_SYNCED"
-                is LyricsResult.Plain -> "PLAIN_TEXT"
-                is LyricsResult.Loading -> "BUFFERING"
-                else -> "IDLE"
+        // Modern Studio / IDE Terminal Header
+        StudioLyricsHeader(
+            lyricsResult = lyricsResult,
+            lineCount = lineCount,
+            showTimestamps = showTimestamps,
+            onToggleTimestamps = {
+                showTimestamps = !showTimestamps
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             },
-            badgeColor = when (lyricsResult) {
-                is LyricsResult.Synchronized -> CWColors.AccentCyan
-                is LyricsResult.Plain -> CWColors.TextSecondary
-                is LyricsResult.Loading -> CWColors.Warning
-                else -> CWColors.TextTertiary
-            }
+            onToggleFullscreen = onToggleFullscreen
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        when (lyricsResult) {
-            is LyricsResult.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+        // Center Lyrics Canvas with Top & Bottom Dissolve Masks
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            when (lyricsResult) {
+                is LyricsResult.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            color = CWColors.AccentCyan,
-                            modifier = Modifier.size(28.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "$ stream --stdin /lyrics.lrc ...",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            color = CWColors.TextSecondary
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = CWColors.AccentCyan,
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "STREAMING LRC SYNC BUFFER...",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.5.sp,
+                                letterSpacing = 0.8.sp,
+                                color = Color(0xFF8B949E)
+                            )
+                        }
                     }
                 }
+
+                is LyricsResult.Unavailable -> {
+                    StudioNoLyricsState(trackTitle = trackTitle, trackArtist = trackArtist)
+                }
+
+                is LyricsResult.Error -> {
+                    StudioNoLyricsState(
+                        trackTitle = trackTitle,
+                        trackArtist = trackArtist,
+                        statusMessage = "IO_ERROR: lyrics not available"
+                    )
+                }
+
+                is LyricsResult.Plain -> {
+                    StudioPlainLyricsView(lines = lyricsResult.lines)
+                }
+
+                is LyricsResult.Synchronized -> {
+                    StudioSynchronizedLyricsView(
+                        lyrics = lyricsResult.lines,
+                        currentPositionMs = currentPositionMs,
+                        showTimestamps = showTimestamps,
+                        onSeekTo = onSeekTo
+                    )
+                }
             }
-            is LyricsResult.Unavailable -> {
-                TerminalNoLyricsState(trackTitle = trackTitle, trackArtist = trackArtist)
-            }
-            is LyricsResult.Error -> {
-                TerminalNoLyricsState(
-                    trackTitle = trackTitle,
-                    trackArtist = trackArtist,
-                    statusMessage = "IO_ERROR: lyrics not available"
-                )
-            }
-            is LyricsResult.Plain -> {
-                TerminalPlainLyricsView(lines = lyricsResult.lines)
-            }
-            is LyricsResult.Synchronized -> {
-                TerminalSynchronizedLyricsView(
-                    lyrics = lyricsResult.lines,
-                    currentPositionMs = currentPositionMs,
-                    onSeekTo = onSeekTo
-                )
-            }
+
+            // Top Gradient Dissolve Edge Mask
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF0D1117), Color.Transparent)
+                        )
+                    )
+            )
+
+            // Bottom Gradient Dissolve Edge Mask
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color(0xFF0D1117))
+                        )
+                    )
+            )
         }
     }
 }
 
 @Composable
-private fun TerminalHeader(
-    badgeText: String,
-    badgeColor: Color
+private fun StudioLyricsHeader(
+    lyricsResult: LyricsResult,
+    lineCount: Int,
+    showTimestamps: Boolean,
+    onToggleTimestamps: () -> Unit,
+    onToggleFullscreen: (() -> Unit)?
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .background(Color(0xFF161B22), RoundedCornerShape(8.dp))
+            .border(0.5.dp, Color(0xFF30363D), RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        // Left: Studio Status Lights & File Title
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(10.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFFF5F56))
             )
+            Spacer(modifier = Modifier.width(5.dp))
             Box(
                 modifier = Modifier
-                    .size(10.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
                     .background(Color(0xFFFFBD2E))
             )
+            Spacer(modifier = Modifier.width(5.dp))
             Box(
                 modifier = Modifier
-                    .size(10.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
                     .background(Color(0xFF27C93F))
             )
-            Spacer(modifier = Modifier.width(6.dp))
+
+            Spacer(modifier = Modifier.width(10.dp))
+
             Text(
-                text = "sh: codewave --lyrics",
+                text = "lyrics.lrc",
                 fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Medium,
-                fontSize = 11.sp,
-                color = CWColors.TextTertiary
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.5.sp,
+                color = Color(0xFFF0F6FC)
             )
+
+            if (lineCount > 0) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "• $lineCount lines",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = Color(0xFF8B949E)
+                )
+            }
         }
 
-        CWTechnicalBadge(
-            text = badgeText,
-            textColor = badgeColor
-        )
+        // Right: Mode Badge & Quick Action Buttons
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val badgeText = when (lyricsResult) {
+                is LyricsResult.Synchronized -> "SYNCED"
+                is LyricsResult.Plain -> "PLAIN"
+                is LyricsResult.Loading -> "BUFFER"
+                else -> "OFFLINE"
+            }
+            val badgeColor = when (lyricsResult) {
+                is LyricsResult.Synchronized -> CWColors.AccentCyan
+                is LyricsResult.Plain -> Color(0xFF58A6FF)
+                is LyricsResult.Loading -> Color(0xFFE3B341)
+                else -> Color(0xFF6E7681)
+            }
+
+            CWTechnicalBadge(
+                text = badgeText,
+                textColor = badgeColor
+            )
+
+            // Timestamp Toggle Button
+            IconButton(
+                onClick = onToggleTimestamps,
+                modifier = Modifier.size(26.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = "Toggle Timestamps",
+                    tint = if (showTimestamps) CWColors.AccentCyan else Color(0xFF8B949E),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
+            // Fullscreen Expand Button
+            if (onToggleFullscreen != null) {
+                IconButton(
+                    onClick = onToggleFullscreen,
+                    modifier = Modifier.size(26.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.OpenInFull,
+                        contentDescription = "Fullscreen Lyrics",
+                        tint = Color(0xFF8B949E),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun TerminalSynchronizedLyricsView(
+private fun StudioSynchronizedLyricsView(
     lyrics: List<LyricLine>,
     currentPositionMs: Long,
+    showTimestamps: Boolean,
     onSeekTo: (Long) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val haptic = LocalHapticFeedback.current
 
     val activeIndex by remember(lyrics, currentPositionMs) {
         derivedStateOf {
@@ -210,21 +326,9 @@ private fun TerminalSynchronizedLyricsView(
         }
     }
 
-    // Terminal blinking block cursor for active line
-    val infiniteTransition = rememberInfiniteTransition(label = "terminalCursor")
-    val cursorAlpha by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "cursorBlink"
-    )
-
     LaunchedEffect(activeIndex) {
         if (activeIndex in lyrics.indices) {
-            val targetIndex = (activeIndex - 2).coerceAtLeast(0)
+            val targetIndex = (activeIndex - 1).coerceAtLeast(0)
             listState.animateScrollToItem(targetIndex)
         } else if (activeIndex == -1) {
             listState.animateScrollToItem(0)
@@ -234,82 +338,79 @@ private fun TerminalSynchronizedLyricsView(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 24.dp),
+        contentPadding = PaddingValues(top = 18.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         itemsIndexed(lyrics, key = { idx, line -> "${line.timestampMs}_$idx" }) { index, line ->
             val isActive = index == activeIndex && activeIndex != -1
-            val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.40f,
-                animationSpec = tween(durationMillis = 160),
-                label = "lyricAlpha"
-            )
+
             val textColor by animateColorAsState(
-                targetValue = if (isActive) CWColors.AccentCyan else CWColors.TextSecondary,
-                animationSpec = tween(durationMillis = 160),
-                label = "lyricColor"
+                targetValue = if (isActive) Color(0xFFFFFFFF) else Color(0xFF8B949E),
+                animationSpec = tween(durationMillis = 180),
+                label = "lyricTextColor"
             )
 
-            val minutes = line.timestampMs / 60000
-            val seconds = (line.timestampMs % 60000) / 1000
-            val centis = (line.timestampMs % 1000) / 10
+            val textAlpha by animateFloatAsState(
+                targetValue = if (isActive) 1f else 0.40f,
+                animationSpec = tween(durationMillis = 180),
+                label = "lyricAlpha"
+            )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
-                    .background(if (isActive) CWColors.AccentCyan.copy(alpha = 0.10f) else Color.Transparent)
-                    .tactileClickable(targetScale = 0.98f) { onSeekTo(line.timestampMs) }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isActive) CWColors.AccentCyan.copy(alpha = 0.12f) else Color.Transparent)
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSeekTo(line.timestampMs)
+                    }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Timestamp in terminal brackets
-                Text(
-                    text = String.format("[%02d:%02d.%02d]", minutes, seconds, centis),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = if (isActive) CWColors.AccentCyan.copy(alpha = 0.85f) else CWColors.TextTertiary,
-                    modifier = Modifier.width(76.dp)
-                )
+                // Optional Timestamp Indicator
+                if (showTimestamps) {
+                    val minutes = line.timestampMs / 60000
+                    val seconds = (line.timestampMs % 60000) / 1000
+                    Text(
+                        text = String.format("%02d:%02d", minutes, seconds),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        color = if (isActive) CWColors.AccentCyan else Color(0xFF484F58),
+                        modifier = Modifier.width(44.dp)
+                    )
+                }
 
-                // Terminal prompt on active line
-                Text(
-                    text = if (isActive) "❯ " else "  ",
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = CWColors.AccentCyan,
-                    modifier = Modifier.width(18.dp)
-                )
+                // Active Left Glowing Accent Bar
+                if (isActive) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 3.dp, height = 20.dp)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(CWColors.AccentCyan)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
 
+                // Lyric Text (Using natural, modern typography)
                 Text(
                     text = line.text,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                    fontSize = if (isActive) 15.sp else 13.sp,
-                    lineHeight = 20.sp,
+                    fontFamily = FontFamily.Default,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = if (isActive) 19.sp else 15.sp,
+                    lineHeight = if (isActive) 26.sp else 21.sp,
                     color = textColor,
                     modifier = Modifier
                         .weight(1f)
-                        .alpha(alpha)
+                        .alpha(textAlpha)
                 )
-
-                if (isActive) {
-                    Text(
-                        text = " ▋",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                        color = CWColors.AccentCyan,
-                        modifier = Modifier.alpha(cursorAlpha)
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun TerminalPlainLyricsView(lines: List<String>) {
+private fun StudioPlainLyricsView(lines: List<String>) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 16.dp),
@@ -319,22 +420,23 @@ private fun TerminalPlainLyricsView(lines: List<String>) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 Text(
-                    text = String.format("%02d | ", index + 1),
+                    text = String.format("%02d", index + 1),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
-                    color = CWColors.TextTertiary,
-                    modifier = Modifier.width(36.dp)
+                    color = Color(0xFF484F58),
+                    modifier = Modifier.width(28.dp)
                 )
                 Text(
                     text = line,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = CWColors.TextPrimary,
+                    fontFamily = FontFamily.Default,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                    color = Color(0xFFC9D1D9),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -343,7 +445,7 @@ private fun TerminalPlainLyricsView(lines: List<String>) {
 }
 
 @Composable
-private fun TerminalNoLyricsState(
+private fun StudioNoLyricsState(
     trackTitle: String,
     trackArtist: String,
     statusMessage: String? = null
@@ -351,7 +453,7 @@ private fun TerminalNoLyricsState(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(20.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -360,52 +462,51 @@ private fun TerminalNoLyricsState(
         ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(CWColors.AccentCyan.copy(alpha = 0.12f))
-                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.35f), CircleShape),
+                    .background(CWColors.AccentCyan.copy(alpha = 0.10f))
+                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.30f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.GraphicEq,
                     contentDescription = null,
                     tint = CWColors.AccentCyan,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "NO LYRICS AVAILABLE",
                 style = CWTypography.TechBadge,
                 letterSpacing = 1.2.sp,
-                color = CWColors.TextPrimary
+                color = Color(0xFFF0F6FC)
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Add a .lrc file in the track folder or add embedded ID3 lyrics tags.",
+                text = "Place a matching .lrc file in your audio directory or embed ID3 lyrics tags.",
                 style = CWTypography.AppTypography.bodyMedium,
-                color = CWColors.TextSecondary,
+                color = Color(0xFF8B949E),
                 textAlign = TextAlign.Center,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = 11.5.sp,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(horizontal = 14.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CWTechnicalBadge(text = ".LRC", textColor = CWColors.AccentCyan)
-                CWTechnicalBadge(text = ".TXT", textColor = CWColors.TextSecondary)
-                CWTechnicalBadge(text = "ID3 USLT", textColor = CWColors.TextSecondary)
+                CWTechnicalBadge(text = ".TXT", textColor = Color(0xFF8B949E))
+                CWTechnicalBadge(text = "ID3 USLT", textColor = Color(0xFF8B949E))
             }
         }
     }
 }
-

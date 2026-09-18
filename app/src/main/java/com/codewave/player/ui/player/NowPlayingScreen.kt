@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.data.PlaybackRepository
 import com.codewave.player.core.designsystem.component.CWAudioWaveformBox
+import com.codewave.player.core.designsystem.component.CWFullscreenLyricsSheet
 import com.codewave.player.core.designsystem.component.CWPlayTimeBar
 import com.codewave.player.core.designsystem.component.CWQueueSheet
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
@@ -117,6 +118,7 @@ fun NowPlayingScreen(
     var isSpeedSelectorOpen by remember { mutableStateOf(false) }
     var isQueueExpanded by remember { mutableStateOf(false) }
     var isQueueSheetOpen by remember { mutableStateOf(false) }
+    var isFullscreenLyricsOpen by remember { mutableStateOf(false) }
 
     val duration = state.durationMs.coerceAtLeast(1L)
     var lyricsResult by remember(track.id) { mutableStateOf<LyricsResult>(LyricsResult.Loading) }
@@ -189,52 +191,58 @@ fun NowPlayingScreen(
         }
 
         // 2. Center Content: Vinyl Record Peek-Out OR Synced Lyrics Code View
+        // Fixed container height guarantees ZERO page layout shift when switching tabs
+        val centerSlotHeight = 230.dp
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .height(centerSlotHeight)
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
-            Crossfade(targetState = centerView, label = "np_center_crossfade") { view ->
+            Crossfade(
+                targetState = centerView,
+                label = "np_center_crossfade",
+                modifier = Modifier.fillMaxSize()
+            ) { view ->
                 when (view) {
                     NowPlayingCenterView.ARTWORK -> {
-                        CWVinylRecordArt(
-                            albumArtUri = track.albumArtUri,
-                            isPlaying = state.isPlaying,
-                            sleeveSize = 200,
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        )
-                    }
-                        NowPlayingCenterView.LYRICS -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(230.dp)
-                            ) {
-                                LyricsView(
-                                    lyricsResult = lyricsResult,
-                                    currentPositionMs = state.positionMs,
-                                    trackTitle = track.title,
-                                    trackArtist = track.artist,
-                                    onSeekTo = { posMs -> playbackRepository.seekTo(posMs) },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CWVinylRecordArt(
+                                albumArtUri = track.albumArtUri,
+                                isPlaying = state.isPlaying,
+                                sleeveSize = 200,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
                         }
+                    }
+                    NowPlayingCenterView.LYRICS -> {
+                        LyricsView(
+                            lyricsResult = lyricsResult,
+                            currentPositionMs = state.positionMs,
+                            trackTitle = track.title,
+                            trackArtist = track.artist,
+                            onSeekTo = { posMs -> playbackRepository.seekTo(posMs) },
+                            onToggleFullscreen = { isFullscreenLyricsOpen = true },
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 3. Track Metadata & Favorite Blue Heart
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        // 3. Track Metadata & Favorite Blue Heart
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
@@ -494,6 +502,22 @@ fun NowPlayingScreen(
             onTrackClick = { t -> playbackRepository.playTrack(t, state.queue) },
             onTrackOptions = { t -> onOpenTrackOptions?.invoke(t) },
             onDismiss = { isQueueSheetOpen = false }
+        )
+    }
+
+    // Modal: Fullscreen Immersive Lyrics Sheet
+    if (isFullscreenLyricsOpen) {
+        CWFullscreenLyricsSheet(
+            track = track,
+            lyricsResult = lyricsResult,
+            currentPositionMs = state.positionMs,
+            durationMs = state.durationMs,
+            isPlaying = state.isPlaying,
+            onPlayPause = { playbackRepository.togglePlayPause() },
+            onSkipNext = { playbackRepository.skipNext() },
+            onSkipPrevious = { playbackRepository.skipPrevious() },
+            onSeekTo = { posMs -> playbackRepository.seekTo(posMs) },
+            onDismiss = { isFullscreenLyricsOpen = false }
         )
     }
 
