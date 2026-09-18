@@ -90,6 +90,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onTrackInspect: (Track) -> Unit,
     onOpenThemes: (() -> Unit)? = null,
+    onOpenCommandPalette: (() -> Unit)? = null,
     onTrackOptions: ((Track) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -144,7 +145,15 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = if (onOpenCommandPalette != null) {
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onOpenCommandPalette() }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    } else Modifier
+                ) {
                     Text(
                         text = ">",
                         style = CWTypography.TechInspectorHeader,
@@ -157,6 +166,10 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold,
                         color = CWColors.TextPrimary
                     )
+                    if (onOpenCommandPalette != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        CWTechnicalBadge(text = "CMD", textColor = CWColors.AccentCyan)
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {

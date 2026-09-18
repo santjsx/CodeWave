@@ -46,6 +46,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,7 +56,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.codewave.player.core.data.SettingsRepository
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,6 +104,7 @@ fun NowPlayingScreen(
     playbackRepository: PlaybackRepository,
     onCollapse: () -> Unit,
     onToggleFavorite: (Track) -> Unit,
+    settingsRepository: SettingsRepository? = null,
     onOpenTrackOptions: ((Track) -> Unit)? = null,
     onNavigateToEqualizer: (() -> Unit)? = null,
     onNavigateToSearch: (() -> Unit)? = null,
@@ -107,6 +113,7 @@ fun NowPlayingScreen(
 ) {
     androidx.activity.compose.BackHandler { onCollapse() }
 
+    val coroutineScope = rememberCoroutineScope()
     val state by playbackRepository.playbackState.collectAsState()
     val sleepTimerRemainingMs by playbackRepository.sleepTimerRemainingMs.collectAsState()
     val waveformBands by playbackRepository.audioWaveformBands.collectAsState()
@@ -120,6 +127,9 @@ fun NowPlayingScreen(
     var isQueueExpanded by remember { mutableStateOf(false) }
     var isQueueSheetOpen by remember { mutableStateOf(false) }
     var isFullscreenLyricsOpen by remember { mutableStateOf(false) }
+    var userLyricsOffsetMs by remember(track.id, track.path) { mutableStateOf(0L) }
+    var finishCurrentTrackOnSleep by remember { mutableStateOf(false) }
+    var sleepFadeOutEnabled by remember { mutableStateOf(true) }
 
     val duration = state.durationMs.coerceAtLeast(1L)
     var lyricsResult by remember(track.id) { mutableStateOf<LyricsResult>(LyricsResult.Loading) }
@@ -129,6 +139,24 @@ fun NowPlayingScreen(
         withContext(Dispatchers.IO) {
             val res = LrcParser.loadLyricsForTrack(track.path)
             lyricsResult = res
+        }
+    }
+
+    LaunchedEffect(track.path, settingsRepository) {
+        settingsRepository?.getLyricsOffset(track.path)?.collect { savedOffset ->
+            userLyricsOffsetMs = savedOffset
+        }
+    }
+
+    LaunchedEffect(settingsRepository) {
+        settingsRepository?.finishTrackOnSleep?.collect {
+            finishCurrentTrackOnSleep = it
+        }
+    }
+
+    LaunchedEffect(settingsRepository) {
+        settingsRepository?.sleepFadeOut?.collect {
+            sleepFadeOutEnabled = it
         }
     }
 
@@ -227,6 +255,20 @@ fun NowPlayingScreen(
                             trackTitle = track.title,
                             trackArtist = track.artist,
                             onSeekTo = { posMs -> playbackRepository.seekTo(posMs) },
+                            userOffsetMs = userLyricsOffsetMs,
+                            onAdjustOffset = { delta ->
+                                val newOffset = userLyricsOffsetMs + delta
+                                userLyricsOffsetMs = newOffset
+                                coroutineScope.launch {
+                                    settingsRepository?.setLyricsOffset(track.path, newOffset)
+                                }
+                            },
+                            onResetOffset = {
+                                userLyricsOffsetMs = 0L
+                                coroutineScope.launch {
+                                    settingsRepository?.clearLyricsOffset(track.path)
+                                }
+                            },
                             onToggleFullscreen = { isFullscreenLyricsOpen = true },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -519,6 +561,20 @@ fun NowPlayingScreen(
             onSkipNext = { playbackRepository.skipNext() },
             onSkipPrevious = { playbackRepository.skipPrevious() },
             onSeekTo = { posMs -> playbackRepository.seekTo(posMs) },
+            userOffsetMs = userLyricsOffsetMs,
+            onAdjustOffset = { delta ->
+                val newOffset = userLyricsOffsetMs + delta
+                userLyricsOffsetMs = newOffset
+                coroutineScope.launch {
+                    settingsRepository?.setLyricsOffset(track.path, newOffset)
+                }
+            },
+            onResetOffset = {
+                userLyricsOffsetMs = 0L
+                coroutineScope.launch {
+                    settingsRepository?.clearLyricsOffset(track.path)
+                }
+            },
             onDismiss = { isFullscreenLyricsOpen = false }
         )
     }
@@ -591,7 +647,7 @@ fun NowPlayingScreen(
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val remainingMs = sleepTimerRemainingMs
                     if (remainingMs > 0L) {
                         val totalSecs = (remainingMs + 999L) / 1000L
@@ -626,7 +682,110 @@ fun NowPlayingScreen(
                             }
                             CWTechnicalBadge(text = "STOP", textColor = CWColors.Danger)
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Smart Sleep Options
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                            .background(CWColors.SurfacePrimary)
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Finish Current Song",
+                                    style = CWTypography.AppTypography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = CWColors.TextPrimary
+                                )
+                                Text(
+                                    text = "Plays track to end before pausing",
+                                    style = CWTypography.TechTelemetry,
+                                    fontSize = 11.sp,
+                                    color = CWColors.TextSecondary
+                                )
+                            }
+                            Switch(
+                                checked = finishCurrentTrackOnSleep,
+                                onCheckedChange = { checked ->
+                                    finishCurrentTrackOnSleep = checked
+                                    coroutineScope.launch {
+                                        settingsRepository?.setFinishTrackOnSleep(checked)
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = CWColors.AccentCyan,
+                                    checkedTrackColor = CWColors.AccentCyan.copy(alpha = 0.3f)
+                                )
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "10s Fade-Out",
+                                    style = CWTypography.AppTypography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = CWColors.TextPrimary
+                                )
+                                Text(
+                                    text = "Smoothly lowers volume before pause",
+                                    style = CWTypography.TechTelemetry,
+                                    fontSize = 11.sp,
+                                    color = CWColors.TextSecondary
+                                )
+                            }
+                            Switch(
+                                checked = sleepFadeOutEnabled,
+                                onCheckedChange = { checked ->
+                                    sleepFadeOutEnabled = checked
+                                    coroutineScope.launch {
+                                        settingsRepository?.setSleepFadeOut(checked)
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = CWColors.AccentCyan,
+                                    checkedTrackColor = CWColors.AccentCyan.copy(alpha = 0.3f)
+                                )
+                            )
+                        }
+                    }
+
+                    // End of Song Option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                            .background(CWColors.SurfacePrimary)
+                            .clickable {
+                                playbackRepository.startSleepTimer(
+                                    minutes = 0,
+                                    finishCurrentTrack = true,
+                                    enableFadeOut = sleepFadeOutEnabled
+                                )
+                                isSleepTimerOpen = false
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "End of Current Song",
+                            style = CWTypography.AppTypography.bodyLarge,
+                            color = CWColors.TextPrimary
+                        )
+                        CWTechnicalBadge(text = "SONG END", textColor = CWColors.AccentCyan)
                     }
 
                     listOf(15, 30, 45, 60, 90).forEach { mins ->
@@ -635,7 +794,11 @@ fun NowPlayingScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(CWShapes.RadiusMedium))
                                 .clickable {
-                                    playbackRepository.startSleepTimer(mins)
+                                    playbackRepository.startSleepTimer(
+                                        minutes = mins,
+                                        finishCurrentTrack = finishCurrentTrackOnSleep,
+                                        enableFadeOut = sleepFadeOutEnabled
+                                    )
                                     isSleepTimerOpen = false
                                 }
                                 .padding(horizontal = 14.dp, vertical = 10.dp),

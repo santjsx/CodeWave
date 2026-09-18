@@ -29,6 +29,13 @@ interface SettingsRepository {
     val themeId: Flow<String>
     val lastPlayedTrackId: Flow<Long?>
     val lastPlayedPositionMs: Flow<Long>
+    val minDurationSeconds: Flow<Int>
+    val finishTrackOnSleep: Flow<Boolean>
+    val sleepFadeOut: Flow<Boolean>
+
+    fun getLyricsOffset(trackPath: String): Flow<Long>
+    suspend fun setLyricsOffset(trackPath: String, offsetMs: Long)
+    suspend fun clearLyricsOffset(trackPath: String)
 
     suspend fun setSongSortOption(sort: SongSortOption)
     suspend fun setAlbumSortOption(sort: AlbumSortOption)
@@ -40,6 +47,9 @@ interface SettingsRepository {
     suspend fun setPlaybackSpeed(speed: Float)
     suspend fun setThemeId(themeId: String)
     suspend fun setLastPlayed(trackId: Long, positionMs: Long)
+    suspend fun setMinDurationSeconds(seconds: Int)
+    suspend fun setFinishTrackOnSleep(enabled: Boolean)
+    suspend fun setSleepFadeOut(enabled: Boolean)
 }
 
 class DefaultSettingsRepository(private val context: Context) : SettingsRepository {
@@ -56,6 +66,11 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
         val THEME_ID = stringPreferencesKey("theme_id")
         val LAST_PLAYED_TRACK_ID = longPreferencesKey("last_played_track_id")
         val LAST_PLAYED_POSITION_MS = longPreferencesKey("last_played_position_ms")
+        val MIN_DURATION_SECONDS = intPreferencesKey("min_duration_seconds")
+        val FINISH_TRACK_ON_SLEEP = booleanPreferencesKey("finish_track_on_sleep")
+        val SLEEP_FADE_OUT = booleanPreferencesKey("sleep_fade_out")
+
+        fun lyricsOffsetKey(trackPath: String) = longPreferencesKey("lyrics_offset_${trackPath.hashCode()}")
     }
 
     override val songSortOption: Flow<SongSortOption> = context.settingsDataStore.data.map { prefs ->
@@ -110,6 +125,46 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
 
     override val lastPlayedPositionMs: Flow<Long> = context.settingsDataStore.data.map { prefs ->
         prefs[Keys.LAST_PLAYED_POSITION_MS] ?: 0L
+    }
+
+    override val minDurationSeconds: Flow<Int> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.MIN_DURATION_SECONDS] ?: 30
+    }
+
+    override val finishTrackOnSleep: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.FINISH_TRACK_ON_SLEEP] ?: false
+    }
+
+    override val sleepFadeOut: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.SLEEP_FADE_OUT] ?: true
+    }
+
+    override fun getLyricsOffset(trackPath: String): Flow<Long> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.lyricsOffsetKey(trackPath)] ?: 0L
+    }
+
+    override suspend fun setLyricsOffset(trackPath: String, offsetMs: Long) {
+        context.settingsDataStore.edit {
+            it[Keys.lyricsOffsetKey(trackPath)] = offsetMs
+        }
+    }
+
+    override suspend fun clearLyricsOffset(trackPath: String) {
+        context.settingsDataStore.edit {
+            it.remove(Keys.lyricsOffsetKey(trackPath))
+        }
+    }
+
+    override suspend fun setMinDurationSeconds(seconds: Int) {
+        context.settingsDataStore.edit { it[Keys.MIN_DURATION_SECONDS] = seconds }
+    }
+
+    override suspend fun setFinishTrackOnSleep(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.FINISH_TRACK_ON_SLEEP] = enabled }
+    }
+
+    override suspend fun setSleepFadeOut(enabled: Boolean) {
+        context.settingsDataStore.edit { it[Keys.SLEEP_FADE_OUT] = enabled }
     }
 
     override suspend fun setSongSortOption(sort: SongSortOption) {

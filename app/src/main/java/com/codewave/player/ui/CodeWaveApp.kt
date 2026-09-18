@@ -57,6 +57,9 @@ import com.codewave.player.core.model.Artist
 import com.codewave.player.ui.collection.CollectionDetailSheet
 import com.codewave.player.ui.collection.CollectionTarget
 import com.codewave.player.ui.collection.TrackActionMenuSheet
+import com.codewave.player.core.model.EQPreset
+import com.codewave.player.ui.command.CommandPaletteDialog
+import com.codewave.player.ui.command.PaletteCommand
 import com.codewave.player.ui.playlists.AddToPlaylistSheet
 import kotlinx.coroutines.launch
 
@@ -108,6 +111,7 @@ fun CodeWaveApp(
     var activeCollectionTarget by remember { mutableStateOf<CollectionTarget?>(null) }
     var libraryInitialTab by remember { mutableIntStateOf(0) }
     var isThemeSheetOpen by remember { mutableStateOf(false) }
+    var isCommandPaletteOpen by remember { mutableStateOf(false) }
 
     val currentThemeId by container.settingsRepository.themeId.collectAsState(initial = "obsidian")
     val playbackState by container.playbackRepository.playbackState.collectAsState()
@@ -115,8 +119,10 @@ fun CodeWaveApp(
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Back handling (PRD Section 96)
-    BackHandler(enabled = isNowPlayingExpanded || activeCollectionTarget != null || currentScreen != Screen.Home) {
-        if (isNowPlayingExpanded) {
+    BackHandler(enabled = isCommandPaletteOpen || isNowPlayingExpanded || activeCollectionTarget != null || currentScreen != Screen.Home) {
+        if (isCommandPaletteOpen) {
+            isCommandPaletteOpen = false
+        } else if (isNowPlayingExpanded) {
             isNowPlayingExpanded = false
         } else if (activeCollectionTarget != null) {
             activeCollectionTarget = null
@@ -202,6 +208,7 @@ fun CodeWaveApp(
                     onNavigateToSettings = { currentScreen = Screen.Settings },
                     onTrackInspect = { inspectedTrack = it },
                     onOpenThemes = { isThemeSheetOpen = true },
+                    onOpenCommandPalette = { isCommandPaletteOpen = true },
                     onTrackOptions = { selectedTrackForOptions = it }
                 )
                 Screen.Library -> LibraryScreen(
@@ -255,6 +262,7 @@ fun CodeWaveApp(
             ) {
                 NowPlayingScreen(
                     playbackRepository = container.playbackRepository,
+                    settingsRepository = container.settingsRepository,
                     onCollapse = { isNowPlayingExpanded = false },
                     onToggleFavorite = { track -> homeViewModel.toggleFavorite(track) },
                     onOpenTrackOptions = { selectedTrackForOptions = it },
@@ -356,6 +364,270 @@ fun CodeWaveApp(
                         isThemeSheetOpen = false
                     },
                     onDismiss = { isThemeSheetOpen = false }
+                )
+            }
+
+            // VS Code Command Palette Modal Dialog (Feature 1.2)
+            if (isCommandPaletteOpen) {
+                val paletteCommands = remember(currentThemeId, playbackState) {
+                    listOf(
+                        PaletteCommand(
+                            id = "theme_obsidian",
+                            category = "THEME",
+                            title = "Switch Theme: VS Code Dark+ (Obsidian)",
+                            commandText = "> theme obsidian",
+                            description = "Default dark slate developer theme",
+                            action = { settingsViewModel.setThemeId("obsidian") }
+                        ),
+                        PaletteCommand(
+                            id = "theme_synthwave",
+                            category = "THEME",
+                            title = "Switch Theme: Synthwave '84",
+                            commandText = "> theme synthwave",
+                            description = "Neon violet and hot pink 80s aesthetic",
+                            action = { settingsViewModel.setThemeId("synthwave") }
+                        ),
+                        PaletteCommand(
+                            id = "theme_tokyo_night",
+                            category = "THEME",
+                            title = "Switch Theme: Tokyo Night Storm",
+                            commandText = "> theme tokyo_night",
+                            description = "Deep indigo and vibrant neon cyan",
+                            action = { settingsViewModel.setThemeId("tokyo_night") }
+                        ),
+                        PaletteCommand(
+                            id = "theme_dracula",
+                            category = "THEME",
+                            title = "Switch Theme: Dracula Pro",
+                            commandText = "> theme dracula_pro",
+                            description = "Gothic purple and vampire pastel accents",
+                            action = { settingsViewModel.setThemeId("dracula_pro") }
+                        ),
+                        PaletteCommand(
+                            id = "theme_monokai",
+                            category = "THEME",
+                            title = "Switch Theme: Monokai Pro",
+                            commandText = "> theme monokai_pro",
+                            description = "Warm espresso and vivid spectrum accents",
+                            action = { settingsViewModel.setThemeId("monokai_pro") }
+                        ),
+                        PaletteCommand(
+                            id = "eq_flat",
+                            category = "EQ",
+                            title = "Equalizer Preset: Flat (Studio Reference)",
+                            commandText = "> eq flat",
+                            description = "0.0 dB across all 10 frequency bands",
+                            action = {
+                                EQPreset.PRESETS_10_BAND.find { it.name.equals("Flat", ignoreCase = true) }?.let {
+                                    equalizerViewModel.applyPreset(it)
+                                }
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "eq_bass",
+                            category = "EQ",
+                            title = "Equalizer Preset: Bass Boost",
+                            commandText = "> eq bass",
+                            description = "+6.0 dB low-end shelf boost",
+                            action = {
+                                EQPreset.PRESETS_10_BAND.find { it.name.equals("Bass Boost", ignoreCase = true) }?.let {
+                                    equalizerViewModel.applyPreset(it)
+                                }
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "eq_rock",
+                            category = "EQ",
+                            title = "Equalizer Preset: Rock & Metal",
+                            commandText = "> eq rock",
+                            description = "V-shaped curve punchy bass and treble",
+                            action = {
+                                EQPreset.PRESETS_10_BAND.find { it.name.equals("Rock", ignoreCase = true) }?.let {
+                                    equalizerViewModel.applyPreset(it)
+                                }
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "eq_electronic",
+                            category = "EQ",
+                            title = "Equalizer Preset: Electronic / EDM",
+                            commandText = "> eq electronic",
+                            description = "Elevated sub-bass and crisp air",
+                            action = {
+                                EQPreset.PRESETS_10_BAND.find { it.name.equals("Electronic", ignoreCase = true) }?.let {
+                                    equalizerViewModel.applyPreset(it)
+                                }
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "eq_vocal",
+                            category = "EQ",
+                            title = "Equalizer Preset: Vocal Focus",
+                            commandText = "> eq vocal",
+                            description = "+3.5 dB mid-range presence for vocals",
+                            action = {
+                                EQPreset.PRESETS_10_BAND.find { it.name.equals("Vocal", ignoreCase = true) }?.let {
+                                    equalizerViewModel.applyPreset(it)
+                                }
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "eq_clear",
+                            category = "EQ",
+                            title = "Equalizer Preset: Clear Voice",
+                            commandText = "> eq clear",
+                            description = "High clarity treble and vocal intelligibility",
+                            action = {
+                                EQPreset.PRESETS_10_BAND.find { it.name.equals("Clear Voice", ignoreCase = true) }?.let {
+                                    equalizerViewModel.applyPreset(it)
+                                }
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "sleep_15",
+                            category = "SLEEP",
+                            title = "Sleep Timer: 15 Minutes",
+                            commandText = "> sleep 15",
+                            description = "Start countdown for 15 minutes with fade-out",
+                            action = { container.playbackRepository.startSleepTimer(15) }
+                        ),
+                        PaletteCommand(
+                            id = "sleep_30",
+                            category = "SLEEP",
+                            title = "Sleep Timer: 30 Minutes",
+                            commandText = "> sleep 30",
+                            description = "Start countdown for 30 minutes with fade-out",
+                            action = { container.playbackRepository.startSleepTimer(30) }
+                        ),
+                        PaletteCommand(
+                            id = "sleep_60",
+                            category = "SLEEP",
+                            title = "Sleep Timer: 60 Minutes",
+                            commandText = "> sleep 60",
+                            description = "Start countdown for 1 hour with fade-out",
+                            action = { container.playbackRepository.startSleepTimer(60) }
+                        ),
+                        PaletteCommand(
+                            id = "sleep_end",
+                            category = "SLEEP",
+                            title = "Sleep Timer: End of Current Song",
+                            commandText = "> sleep end",
+                            description = "Pause audio cleanly when current track completes",
+                            action = { container.playbackRepository.startSleepTimer(0, finishCurrentTrack = true) }
+                        ),
+                        PaletteCommand(
+                            id = "sleep_off",
+                            category = "SLEEP",
+                            title = "Sleep Timer: Turn Off",
+                            commandText = "> sleep off",
+                            description = "Cancel active sleep timer",
+                            action = { container.playbackRepository.stopSleepTimer() }
+                        ),
+                        PaletteCommand(
+                            id = "nav_now_playing",
+                            category = "NAV",
+                            title = "Open Now Playing Screen",
+                            commandText = "> now playing",
+                            description = "Expand turntable vinyl and studio lyrics console",
+                            action = { if (playbackState.currentTrack != null) isNowPlayingExpanded = true }
+                        ),
+                        PaletteCommand(
+                            id = "nav_equalizer",
+                            category = "NAV",
+                            title = "Go to 10-Band Parametric Equalizer",
+                            commandText = "> equalizer",
+                            description = "Open ViPERFX acoustic suite and Bézier curve visualizer",
+                            action = {
+                                currentScreen = Screen.Equalizer
+                                isNowPlayingExpanded = false
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "nav_library",
+                            category = "NAV",
+                            title = "Go to Audio Library",
+                            commandText = "> library",
+                            description = "Browse Songs, Albums, Artists, Folders",
+                            action = {
+                                currentScreen = Screen.Library
+                                isNowPlayingExpanded = false
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "nav_search",
+                            category = "NAV",
+                            title = "Go to Terminal Search Prompt",
+                            commandText = "> search",
+                            description = "Search all tracks, artists, and albums",
+                            action = {
+                                currentScreen = Screen.Search
+                                isNowPlayingExpanded = false
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "nav_playlists",
+                            category = "NAV",
+                            title = "Go to Playlists & Favorites",
+                            commandText = "> playlists",
+                            description = "Manage playlists and dynamic collections",
+                            action = {
+                                currentScreen = Screen.Playlists
+                                isNowPlayingExpanded = false
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "nav_settings",
+                            category = "NAV",
+                            title = "Go to App Settings",
+                            commandText = "> settings",
+                            description = "Configure gapless audio, themes, and library exclusions",
+                            action = {
+                                currentScreen = Screen.Settings
+                                isNowPlayingExpanded = false
+                            }
+                        ),
+                        PaletteCommand(
+                            id = "pb_toggle",
+                            category = "AUDIO",
+                            title = if (playbackState.isPlaying) "Pause Playback" else "Resume Playback",
+                            commandText = "> play/pause",
+                            description = "Toggle active playback state",
+                            action = { container.playbackRepository.togglePlayPause() }
+                        ),
+                        PaletteCommand(
+                            id = "pb_next",
+                            category = "AUDIO",
+                            title = "Skip to Next Track",
+                            commandText = "> next",
+                            description = "Play next track in active queue",
+                            action = { container.playbackRepository.skipNext() }
+                        ),
+                        PaletteCommand(
+                            id = "pb_prev",
+                            category = "AUDIO",
+                            title = "Skip to Previous Track",
+                            commandText = "> previous",
+                            description = "Play previous track or restart current",
+                            action = { container.playbackRepository.skipPrevious() }
+                        ),
+                        PaletteCommand(
+                            id = "lib_scan",
+                            category = "LIBRARY",
+                            title = "Rescan Device Audio Storage",
+                            commandText = "> scan",
+                            description = "Index new audio files and update metadata",
+                            action = {
+                                coroutineScope.launch {
+                                    val count = container.libraryRepository.scanLibrary()
+                                    Toast.makeText(context, "Scan complete: $count audio files", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    )
+                }
+                CommandPaletteDialog(
+                    commands = paletteCommands,
+                    onDismiss = { isCommandPaletteOpen = false }
                 )
             }
 

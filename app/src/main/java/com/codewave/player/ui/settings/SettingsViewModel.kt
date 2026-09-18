@@ -29,6 +29,9 @@ class SettingsViewModel(
     val themeId: StateFlow<String> = settingsRepository.themeId
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "obsidian")
 
+    val minDurationSeconds: StateFlow<Int> = settingsRepository.minDurationSeconds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 30)
+
     val otaUpdateStatus: StateFlow<UpdateStatus> = otaUpdateManager.updateStatus
 
     fun setThemeId(themeId: String) {
@@ -41,6 +44,13 @@ class SettingsViewModel(
 
     fun setCrossfadeSeconds(seconds: Int) {
         viewModelScope.launch { settingsRepository.setCrossfadeSeconds(seconds) }
+    }
+
+    fun setMinDurationSeconds(seconds: Int) {
+        viewModelScope.launch {
+            settingsRepository.setMinDurationSeconds(seconds)
+            libraryRepository.scanLibrary()
+        }
     }
 
     fun rescanLibrary() {

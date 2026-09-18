@@ -80,6 +80,9 @@ fun CWFullscreenLyricsSheet(
     onSkipPrevious: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onDismiss: () -> Unit,
+    userOffsetMs: Long = 0L,
+    onAdjustOffset: ((Long) -> Unit)? = null,
+    onResetOffset: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
@@ -172,6 +175,72 @@ fun CWFullscreenLyricsSheet(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Micro-Tuner Offset Adjuster
+                        if (lyricsResult is LyricsResult.Synchronized && onAdjustOffset != null && onResetOffset != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF161B22))
+                                    .border(0.5.dp, Color(0xFF30363D), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clickable {
+                                            onAdjustOffset(-100L)
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "-100",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF8B949E)
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clickable {
+                                            onResetOffset()
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (userOffsetMs == 0L) "SYNC" else "${if (userOffsetMs > 0) "+" else ""}${userOffsetMs}ms",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (userOffsetMs == 0L) CWColors.AccentCyan else Color(0xFFFFBD2E)
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clickable {
+                                            onAdjustOffset(100L)
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        .padding(horizontal = 5.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "+100",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF8B949E)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+
                         // Toggle Timestamps Button
                         IconButton(
                             onClick = {
@@ -225,17 +294,21 @@ fun CWFullscreenLyricsSheet(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
                                     CircularProgressIndicator(
                                         color = CWColors.AccentCyan,
-                                        modifier = Modifier.size(32.dp),
+                                        modifier = Modifier.size(36.dp),
                                         strokeWidth = 2.5.dp
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        text = "Loading synchronized lyrics...",
-                                        fontFamily = FontFamily.Default,
-                                        fontSize = 13.sp,
+                                        text = "STREAMING LRC SYNC BUFFER...",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        letterSpacing = 1.sp,
                                         color = Color(0xFF8B949E)
                                     )
                                 }
@@ -243,9 +316,10 @@ fun CWFullscreenLyricsSheet(
                         }
 
                         is LyricsResult.Synchronized -> {
+                            val effectivePositionMs = (currentPositionMs - userOffsetMs).coerceAtLeast(0L)
                             FullscreenSyncLyricsList(
                                 lyrics = lyricsResult.lines,
-                                currentPositionMs = currentPositionMs,
+                                currentPositionMs = effectivePositionMs,
                                 showTimestamps = showTimestamps,
                                 onSeekTo = onSeekTo
                             )

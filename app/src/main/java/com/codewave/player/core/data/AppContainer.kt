@@ -30,7 +30,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     override val audioScanner: AudioScanner by lazy {
         AudioScanner(
             context = context,
-            trackDao = database.trackDao()
+            trackDao = database.trackDao(),
+            settingsRepository = settingsRepository
         ).also { scanner ->
             scanner.startObservingMediaStore(applicationScope)
         }

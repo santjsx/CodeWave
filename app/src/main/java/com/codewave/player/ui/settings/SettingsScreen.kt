@@ -74,6 +74,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import com.codewave.player.core.ota.UpdateStatus
 import java.util.Locale
 
@@ -86,6 +87,7 @@ fun SettingsScreen(
     val gapless by viewModel.gaplessEnabled.collectAsState()
     val crossfade by viewModel.crossfadeSeconds.collectAsState()
     val themeId by viewModel.themeId.collectAsState()
+    val minDuration by viewModel.minDurationSeconds.collectAsState()
     val otaStatus by viewModel.otaUpdateStatus.collectAsState()
     var isThemeSheetOpen by remember { mutableStateOf(false) }
 
@@ -313,6 +315,77 @@ fun SettingsScreen(
                         variant = CWButtonVariant.OUTLINED,
                         leadingIcon = Icons.Default.Refresh
                     )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(CWColors.BorderSubtle)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Minimum Duration Filter & Voice Note Exclusion (Feature 1.4)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Filter Short Audio & Junk",
+                                style = CWTypography.AppTypography.titleMedium,
+                                color = CWColors.TextPrimary
+                            )
+                            Text(
+                                text = "Excludes WhatsApp voice notes, ringtones, and audio shorter than threshold",
+                                style = CWTypography.AppTypography.bodyMedium,
+                                color = CWColors.TextSecondary
+                            )
+                        }
+                        CWTechnicalBadge(text = "${minDuration}s MIN", textColor = CWColors.AccentCyan)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            0 to "All (0s)",
+                            15 to "15s",
+                            30 to "30s (Default)",
+                            60 to "60s"
+                        ).forEach { (seconds, label) ->
+                            val isSelected = minDuration == seconds
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(if (isSelected) CWColors.AccentCyan.copy(alpha = 0.15f) else CWColors.SurfaceElevated)
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                        shape = RoundedCornerShape(CWShapes.RadiusSmall)
+                                    )
+                                    .clickable { viewModel.setMinDurationSeconds(seconds) }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) CWColors.AccentCyan else CWColors.TextSecondary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

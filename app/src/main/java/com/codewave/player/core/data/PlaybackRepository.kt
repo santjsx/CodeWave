@@ -59,7 +59,7 @@ interface PlaybackRepository {
     fun setPlaybackSpeed(speed: Float)
     fun toggleFavorite(track: Track)
     val sleepTimerRemainingMs: StateFlow<Long>
-    fun startSleepTimer(minutes: Int)
+    fun startSleepTimer(minutes: Int, finishCurrentTrack: Boolean = false, enableFadeOut: Boolean = true)
     fun stopSleepTimer()
     fun setVolumePercent(percent: Int)
     val audioWaveformBands: StateFlow<FloatArray>
@@ -600,8 +600,9 @@ class DefaultPlaybackRepository(
     override val sleepTimerRemainingMs: StateFlow<Long> = _sleepTimerRemainingMs.asStateFlow()
     private var sleepTimerJob: Job? = null
 
-    override fun startSleepTimer(minutes: Int) {
+    override fun startSleepTimer(minutes: Int, finishCurrentTrack: Boolean, enableFadeOut: Boolean) {
         sleepTimerJob?.cancel()
+        controller?.volume = 1.0f
         if (minutes <= 0) {
             _sleepTimerRemainingMs.value = 0L
             return
@@ -616,13 +617,41 @@ class DefaultPlaybackRepository(
                 val now = android.os.SystemClock.elapsedRealtime()
                 val remaining = (targetEndTimeMs - now).coerceAtLeast(0L)
                 _sleepTimerRemainingMs.value = remaining
+
+                // Exponential volume fade-out during final 10 seconds if not waiting for track finish
+                if (!finishCurrentTrack && enableFadeOut && remaining in 1L..10000L) {
+                    val progress = remaining.toFloat() / 10000f
+                    val volumeFactor = (progress * progress).coerceIn(0.01f, 1.0f)
+                    controller?.volume = volumeFactor
+                } else if (!finishCurrentTrack) {
+                    controller?.volume = 1.0f
+                }
+
                 if (remaining <= 0L) {
                     break
                 }
                 delay(250L) // 250ms polling ensures accurate second transitions without drift
             }
+
             if (isActive) {
+                // If finishCurrentTrack is enabled, continue until track finishes
+                if (finishCurrentTrack && controller?.isPlaying == true) {
+                    controller?.volume = 1.0f
+                    val initialMediaId = controller?.currentMediaItem?.mediaId
+                    while (isActive && controller?.isPlaying == true && controller?.currentMediaItem?.mediaId == initialMediaId) {
+                        val pos = controller?.currentPosition ?: 0L
+                        val dur = controller?.duration ?: 0L
+                        if (dur > 0 && enableFadeOut && (dur - pos) in 1L..10000L) {
+                            val fadeRemaining = (dur - pos).coerceAtLeast(0L)
+                            val progress = fadeRemaining.toFloat() / 10000f
+                            controller?.volume = (progress * progress).coerceIn(0.01f, 1.0f)
+                        }
+                        delay(250L)
+                    }
+                }
+
                 controller?.pause()
+                controller?.volume = 1.0f
                 _sleepTimerRemainingMs.value = 0L
             }
         }
@@ -631,6 +660,7 @@ class DefaultPlaybackRepository(
     override fun stopSleepTimer() {
         sleepTimerJob?.cancel()
         sleepTimerJob = null
+        controller?.volume = 1.0f
         _sleepTimerRemainingMs.value = 0L
     }
 }

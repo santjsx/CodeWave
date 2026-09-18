@@ -71,6 +71,9 @@ fun LyricsView(
     trackTitle: String,
     trackArtist: String,
     onSeekTo: (Long) -> Unit,
+    userOffsetMs: Long = 0L,
+    onAdjustOffset: ((Long) -> Unit)? = null,
+    onResetOffset: (() -> Unit)? = null,
     onToggleFullscreen: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -98,6 +101,19 @@ fun LyricsView(
             lyricsResult = lyricsResult,
             lineCount = lineCount,
             showTimestamps = showTimestamps,
+            userOffsetMs = userOffsetMs,
+            onAdjustOffset = onAdjustOffset?.let { callback ->
+                { delta ->
+                    callback(delta)
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+            },
+            onResetOffset = onResetOffset?.let { callback ->
+                {
+                    callback()
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+            },
             onToggleTimestamps = {
                 showTimestamps = !showTimestamps
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -157,9 +173,10 @@ fun LyricsView(
                 }
 
                 is LyricsResult.Synchronized -> {
+                    val effectivePositionMs = (currentPositionMs - userOffsetMs).coerceAtLeast(0L)
                     StudioSynchronizedLyricsView(
                         lyrics = lyricsResult.lines,
-                        currentPositionMs = currentPositionMs,
+                        currentPositionMs = effectivePositionMs,
                         showTimestamps = showTimestamps,
                         onSeekTo = onSeekTo
                     )
@@ -200,6 +217,9 @@ private fun StudioLyricsHeader(
     lyricsResult: LyricsResult,
     lineCount: Int,
     showTimestamps: Boolean,
+    userOffsetMs: Long,
+    onAdjustOffset: ((Long) -> Unit)?,
+    onResetOffset: (() -> Unit)?,
     onToggleTimestamps: () -> Unit,
     onToggleFullscreen: (() -> Unit)?
 ) {
@@ -256,11 +276,68 @@ private fun StudioLyricsHeader(
             }
         }
 
-        // Right: Mode Badge & Quick Action Buttons
+        // Right: Micro-Tuner & Mode Badge & Quick Action Buttons
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Micro-Tuner Offset Adjuster (PRD Feature 1.1)
+            if (lyricsResult is LyricsResult.Synchronized && onAdjustOffset != null && onResetOffset != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF0D1117))
+                        .border(0.5.dp, Color(0xFF30363D), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 2.dp, vertical = 1.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clickable { onAdjustOffset(-100L) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "-100",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF8B949E)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clickable { onResetOffset() }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (userOffsetMs == 0L) "SYNC" else "${if (userOffsetMs > 0) "+" else ""}${userOffsetMs}ms",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (userOffsetMs == 0L) CWColors.AccentCyan else Color(0xFFFFBD2E)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clickable { onAdjustOffset(100L) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "+100",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF8B949E)
+                        )
+                    }
+                }
+            }
+
             val badgeText = when (lyricsResult) {
                 is LyricsResult.Synchronized -> "SYNCED"
                 is LyricsResult.Plain -> "PLAIN"

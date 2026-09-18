@@ -9,6 +9,7 @@ import android.os.Looper
 import android.provider.MediaStore
 import com.codewave.player.core.database.dao.TrackDao
 import com.codewave.player.core.database.entity.TrackEntity
+import com.codewave.player.core.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -28,8 +30,26 @@ data class ScanProgress(
 
 class AudioScanner(
     private val context: Context,
-    private val trackDao: TrackDao
+    private val trackDao: TrackDao,
+    private val settingsRepository: SettingsRepository? = null
 ) {
+    companion object {
+        private val BLACKLISTED_PATH_PATTERNS = listOf(
+            "/whatsapp/media/whatsapp audio",
+            "/whatsapp/media/whatsapp voice notes",
+            "/telegram/telegram audio",
+            "/recordings/call",
+            "/notifications",
+            "/ringtones",
+            "/alarms"
+        )
+    }
+
+    private fun isPathBlacklisted(path: String): Boolean {
+        val lowerPath = path.lowercase().replace('\\', '/')
+        return BLACKLISTED_PATH_PATTERNS.any { lowerPath.contains(it) }
+    }
+
     private val _scanProgress = MutableStateFlow(ScanProgress())
     val scanProgress: StateFlow<ScanProgress> = _scanProgress.asStateFlow()
 
@@ -40,6 +60,9 @@ class AudioScanner(
         if (_scanProgress.value.isScanning) return@withContext 0
 
         _scanProgress.value = ScanProgress(isScanning = true, processedCount = 0, totalCount = 0)
+
+        val minDurationSecs = settingsRepository?.minDurationSeconds?.firstOrNull() ?: 30
+        val minDurationMs = (minDurationSecs * 1000L).coerceAtLeast(1000L)
 
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -55,8 +78,8 @@ class AudioScanner(
             MediaStore.Audio.Media.MIME_TYPE
         )
 
-        // Filter out tiny ringtones / notification sounds < 5 seconds
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 5000"
+        // Filter out tiny ringtones / notification sounds & voice notes
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= $minDurationMs"
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
         val candidates = mutableListOf<CandidateMedia>()
@@ -96,6 +119,9 @@ class AudioScanner(
                     val dateAdded = c.getLong(dateAddedCol)
                     val dateModified = c.getLong(dateModifiedCol)
                     val mimeType = c.getString(mimeTypeCol)
+                    if (isPathBlacklisted(path)) {
+                        continue
+                    }
 
                     mediaStoreIds.add(mediaStoreId)
 

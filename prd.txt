@@ -1,17 +1,18 @@
 # CODEWAVE
 
-## Industry-Grade Offline Hi-Res Music Player for Android
+## Industry-Grade Offline Hi-Res Music Player for Android (v1.6.5)
 
 **Product type:** Native Android local music player
-**Primary platform:** Android phones
-**Secondary targets:** Android Auto, Wear OS, tablets/large screens
-**Connectivity:** Offline-first; internet optional and only required for updates
-**Account:** None
-**Cloud library:** None
-**Streaming:** None
-**Ads:** None
-**Analytics:** None by default
-**Primary differentiator:** VS-Code-inspired developer aesthetic combined with audiophile-grade local playback and an extremely fast local library.
+**Current release:** v1.6.5 (Production Release)
+**Primary platform:** Android phones (Android 8.0+ / API 26+)
+**Secondary targets:** Android Auto, tablets/foldables, Wear OS
+**Connectivity:** 100% Offline-first; internet optional and only queried for GitHub Release OTA updates
+**Account:** None (Zero authentication requirement)
+**Cloud library:** None (Local device storage ownership)
+**Streaming:** None (Bit-perfect local PCM playback)
+**Ads:** None (Completely ad-free)
+**Analytics:** None (Strict privacy-first, zero telemetry tracking)
+**Primary differentiator:** VS-Code-inspired developer aesthetic combined with audiophile-grade 32-bit floating-point DSP (ViPER/Dolby C++ engine), real-time 1024-point dual-stereo FFT visualizer, zero-layout-shift Studio Lyrics workstation with sing-along mode, and an ultra-fast Room SQLite indexed local library.
 
 ---
 
@@ -304,449 +305,463 @@ No text inside the icon.
 
 # 8. INFORMATION ARCHITECTURE
 
-Primary navigation:
+Primary navigation (5-item persistent bottom bar):
 
 ```text
-HOME
-LIBRARY
-PLAYLISTS
-FAVORITES
-SEARCH
+HOME       — Sticky telemetry, indexing banner, quick links, continue listening, recent feeds
+LIBRARY    — Songs, Albums, Artists, Folders with grid/list mode and multi-select batching
+SEARCH     — Instant local search across tracks, artists, albums with category filtering
+PLAYLISTS  — Custom playlists, smart queries (Favorites, Most Played), dynamic collage covers
+EQUALIZER  — Studio DSP console (10-band parametric, ViPERFX suite, limiter, IRS convolver)
 ```
 
-Persistent Mini Player:
+Persistent Mini Player (`CWMiniPlayer`):
 
 ```text
-Album Art | Track
-           Artist
-           ───────────────
-           ◀   ▶   ▶
+┌────────────────────────────────────────────────────────────────────────┐
+│ [══════════════════════ PROGRESS (NEON ACCENT) ══════════════════════] │
+│ [ART SLEEVE]  Track Title                         ⏮     ⏯     ⏭       │
+│               Artist Name · Lossless Badge                             │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Settings and technical tools are accessible through the profile/settings area.
+* Positioned directly above bottom navigation bar.
+* Displays high-resolution album sleeve thumbnail with fallback disk icon.
+* Text label with track title, artist, and audio quality badge.
+* Essential transport controls: Previous, Play/Pause, Next with tactile haptic response.
+* Tap gesture triggers a seamless vertical slide-up transition into `NowPlayingScreen`.
+
+Global Overlays, Sheets & Modals:
+
+* `NowPlayingScreen`: Flagship fullscreen player with vinyl record peek-out, Studio Lyrics workstation, zero-layout-shift matched slot, real-time visualizer, volume bar, and expandable terminal queue drawer.
+* `CollectionDetailSheet`: Universal detail sheet for viewing and playing full Album and Artist collections from anywhere in the app.
+* `TrackActionMenuSheet`: Comprehensive bottom sheet for individual tracks (Play Next, Add to Queue, Add to Playlist, Go to Album, Go to Artist, Inspect Audio Specs).
+* `AddToPlaylistSheet`: Quick bottom sheet to add tracks to existing playlists or create new playlists on the fly.
+* `ThemeSelectorSheet`: Visual theme picker with color swatches for Obsidian, Synthwave '84, Tokyo Night Storm, Dracula Pro, and Monokai Pro.
+* `TrackInspectorSheet`: Deep audiophile technical inspector showing decoder, bit depth, sample rate, bitrate, file size, storage path, output format, and live DSP pipeline status.
+* `AudioQualityExplainerDialog`: Educational dialog explaining lossless audio, bit-perfect direct output, bit depth, sample rate, and Android audio subsystem behavior.
+* `CWQueueSheet`: Full modal queue bottom sheet with drag-and-drop reordering, swipe removal, and track selection.
+* `CWFullscreenLyricsSheet`: Immersive sing-along modal bottom sheet with 50dp blurred ambient artwork backdrop and large typography.
+* `OtaUpdateDialog`: Modal dialog triggered on app launch or manual check, displaying release notes, download progress bar, and APK installation trigger.
 
 ---
 
 # 9. HOME SCREEN
 
-Home must not become a meaningless dashboard.
+Home is a high-density, performance-optimized listening workstation. It combines a permanently pinned sticky telemetry console with independent, inertia-scrolled library feeds.
 
-Sections:
-
-### Continue listening
-
-Last active track.
-
-### Recently added
-
-Tracks discovered recently.
-
-### Recently played
-
-Playback history.
-
-### Favorites
-
-Favorite tracks.
-
-### Albums
-
-Recently added albums.
-
-### Quick actions
+Layout architecture:
 
 ```text
-All Songs
-Albums
-Artists
-Folders
-Playlists
-Favorites
+┌────────────────────────────────────────────────────────────────────────┐
+│ [PINNED STICKY TOP SECTION — NEVER SCROLLS AWAY]                       │
+│  > CODEWAVE                         [🎨 THEMES] [⚙️ SETTINGS]          │
+│  ────────────────────────────────────────────────────────────────────  │
+│  [INDEXING BANNER CARD] (Animated expansion during active library scan)│
+│  Scanning: /storage/emulated/0/Music • 1,248 Tracks Indexed [1.2s HOLD]│
+│  ────────────────────────────────────────────────────────────────────  │
+│  [TELEMETRY STRIP]                                                     │
+│   2,481 TRACKS  │  1,820 LOSSLESS  │  640 HI-RES  │  184 ALBUMS        │
+│  ────────────────────────────────────────────────────────────────────  │
+│  [QUICK ACTION GRID]                                                   │
+│   [🎵 Songs]          [💿 Albums]          [👤 Artists]                │
+└────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ [SCROLLABLE CONTENT FEEDS — LazyColumn weight(1f)]                     │
+│                                                                        │
+│  CONTINUE LISTENING                                [RESUME AT 02:41]   │
+│  [Art] Song Title                                                      │
+│        Artist • Album · FLAC 24/96                 [♡] [▶] [⋮]         │
+│                                                                        │
+│  RECENTLY ADDED                                    SEE ALL >           │
+│  [Card 1] [Card 2] [Card 3] [Card 4] ...                               │
+│                                                                        │
+│  RECENTLY PLAYED                                                       │
+│  1. [Art] Track Name · Artist                      FLAC 24/48          │
+│  2. [Art] Track Name · Artist                      ALAC 16/44.1        │
+│  3. [Art] Track Name · Artist                      DSD 2.8MHz          │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Library status
+### 1. Sticky Header Components (Pinned Top)
 
-Example:
+* **Top App Bar**:
+  * Monospace prompt `>` in cyan accent next to bold `CODEWAVE` title.
+  * Theme selector palette trigger (`Icons.Default.Palette`) opening `ThemeSelectorSheet`.
+  * Settings navigation button (`Icons.Default.Settings`) navigating to `SettingsScreen`.
+* **Indexing Banner Card (`IndexingBannerCard`)**:
+  * Dynamically expands with spring damping (`Spring.StiffnessMediumLow`) whenever `ScanProgress.isScanning` activates.
+  * Real-time path readout showing active scanning directory.
+  * Live track counter with animated progress bar.
+  * Graceful completion hold: Retains final indexed track count with green checkmark for 1.2 seconds after scanning finishes before smoothly collapsing.
+* **High-Density Telemetry Strip**:
+  * 4-column hardware status card with hairline vertical dividers.
+  * Readouts for `TRACKS`, `LOSSLESS` (with glowing cyan text highlight when > 0), `HI-RES` (with glowing amber text highlight when > 0), and `ALBUMS`.
+* **Quick Navigation Grid**:
+  * 3-column button grid (`Songs`, `Albums`, `Artists`) routing directly to the corresponding tab index in `LibraryScreen`.
 
-```text
-2,481 TRACKS
-184 ALBUMS
-327 ARTISTS
+### 2. Scrollable Content Feeds (`weight(1f)` `LazyColumn`)
 
-LIBRARY
-READY
-```
+* **Continue Listening**:
+  * Prominently displays the last active track from the playback repository.
+  * Displays a technical monospace badge `RESUME AT MM:SS` when playback was paused mid-track.
+  * Tapping the row instantly restores playback at the exact millisecond position with the active queue context.
+* **Recently Added**:
+  * Displays newly scanned audio files sorted chronologically by file discovery timestamp.
+  * Displays format badges (`LOSSLESS`, `HI-RES`).
+* **Recently Played**:
+  * History list of previously played tracks with individual track rows, play actions, favorite toggles, and context action sheets.
 
 ---
 
 # 10. LIBRARY
 
-Library tabs:
+The Library screen (`LibraryScreen.kt`) organizes the local audio collection into three dedicated tabbed views:
 
 ```text
-Songs
-Albums
-Artists
-Folders
-Genres
+[ Songs ]   [ Albums ]   [ Artists ]
 ```
 
-Every major collection supports:
+### 1. View Modes & Ergonomics
+* **Grid / List Switching**: Toggle between 2-column adaptive card grid (`CWAlbumCard`) and dense single-column list view.
+* **Persistent Scroll State**: Each tab retains its own independent `LazyListState` / `LazyGridState` across navigation transitions.
+* **Sticky Transport Actions**: Quick "Play All" and "Shuffle" buttons anchored at the top of list feeds.
 
-* list view
-* grid view
-* sorting
-* filtering
-* searching
-* multi-select
+### 2. Multi-Select Batch Actions (Section 56)
+* Triggered by long-press on any track row or the selection icon.
+* Top action bar displays selection count (`${selectedTrackIds.size} SELECTED`).
+* Batch capabilities:
+  * **Select All / Deselect All**
+  * **Play Selected**: Queues and immediately begins playing the selected batch.
+  * **Add to Playlist**: Opens `AddToPlaylistSheet` targeting all selected tracks.
+  * **Clear Selection**
 
 ---
 
 # 11. SONGS SCREEN
 
-Each row:
+The Songs tab displays the complete flat audio catalog sorted according to user preference.
+
+Track Row Architecture (`CWTrackRow.kt`):
 
 ```text
-[ART]  Song Title
-       Artist • Album
-
-       FLAC · 24/96
-                         04:37
+┌────────────────────────────────────────────────────────────────────────┐
+│ [44dp ART]  Song Title (Bold, TextPrimary)                 [♡]   [⋮]   │
+│             Artist Name • Album Title                                  │
+│             [LOSSLESS] [HI-RES] [FLAC · 24/96]             04:37       │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Optional technical badge:
-
-```text
-LOSSLESS
-HI-RES
-```
-
-Never use “Hi-Res” merely because the file extension is FLAC.
-
-Define a configurable technical policy for what qualifies as Hi-Res.
+* **Album Artwork Thumbnail**: 44dp rounded thumbnail loaded asynchronously via Coil with memory caching.
+* **Typographic Hierarchy**: Title in bold primary text; artist and album in secondary slate.
+* **Format & Quality Badges**:
+  * `LOSSLESS` (Cyan background badge for FLAC/ALAC/WAV 16-bit 44.1kHz+).
+  * `HI-RES` (Amber background badge for 24-bit or sample rates $\ge 48\text{ kHz}$).
+  * Technical codec string (e.g. `FLAC · 24/96`, `DSD · 2.8MHz`, `MP3 · 320k`).
+* **Tactile Interactions**:
+  * Tap row: Starts playback with active queue context.
+  * Heart button: Instant local favorite toggle with haptic feedback.
+  * More options button (`⋮`): Launches `TrackActionMenuSheet`.
 
 ---
 
 # 12. SORTING
 
-Songs:
+Sorting preferences are persisted independently per tab via `SettingsRepository`:
 
-* Recently added
-* Recently played
-* Title A-Z
-* Title Z-A
-* Artist A-Z
-* Album A-Z
-* Duration shortest
-* Duration longest
-* File size
-* Track number
-* Year
+### Songs:
+* Title A–Z / Z–A
+* Artist A–Z / Z–A
+* Album A–Z / Z–A
+* Recently Added (Discovery date)
+* Duration (Shortest / Longest)
+* Year (Release date)
 
-Albums:
+### Albums:
+* Title A–Z
+* Artist A–Z
+* Release Year
+* Track Count
+* Recently Added
 
-* Recently added
-* Album A-Z
-* Artist A-Z
-* Release year
-* Track count
-
-Artists:
-
-* Name A-Z
-* Name Z-A
-* Recently played
-* Most played
-
-Playlists:
-
-* Recently modified
-* Name A-Z
-* Track count
-
-Sorting preferences must persist independently per screen.
+### Artists:
+* Name A–Z / Z–A
+* Track Count
+* Album Count
 
 ---
 
-# 13. ALBUM SCREEN
+# 13. ALBUM SCREEN & COLLECTION DETAIL OVERLAY
 
-Header:
-
-```text
-[Large Album Art]
-
-ALBUM NAME
-Artist
-
-2024
-12 tracks
-FLAC / 24-bit
-```
-
-Actions:
+Albums are viewed either as cards in `LibraryScreen` or through the universal `CollectionDetailSheet`:
 
 ```text
-PLAY
-SHUFFLE
-ADD TO PLAYLIST
-FAVORITE
-MORE
+┌────────────────────────────────────────────────────────────────────────┐
+│ [←] Back                     [ALBUM DETAILS]                   [⋮]     │
+├────────────────────────────────────────────────────────────────────────┤
+│ [Ambient Blurred Artwork Glow]                                         │
+│                      ┌──────────────────┐                              │
+│                      │ 160dp ALBUM ART  │                              │
+│                      └──────────────────┘                              │
+│                         ALBUM TITLE                                    │
+│                         Artist Name                                    │
+│             2024 • 12 Tracks • 48 mins • [LOSSLESS]                    │
+│                                                                        │
+│             [ ▶ PLAY ALL ]           [ 🔀 SHUFFLE ]                    │
+├────────────────────────────────────────────────────────────────────────┤
+│ 01  Track Name                                       03:42   [♡] [⋮]   │
+│ 02  Track Name                                       04:15   [♡] [⋮]   │
+│ 03  Track Name                                       05:01   [♡] [⋮]   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Track list:
-
-```text
-01  Track One
-02  Track Two
-03  Track Three
-...
-```
-
-Album actions:
-
-* Play album
-* Shuffle album
-* Add album to playlist
-* Add all to queue
-* Favorite album
-* Share
-* Open folder
-* Album information
+* **Universal Overlay**: Accessible from Home, Library, Search, Playlists, and Now Playing screens.
+* **Header Telemetry**: Ambient background glow, release year, total track count, cumulative runtime, and highest audio format badge.
+* **Actions**: Instant "Play All" and "Shuffle" buttons setting the active queue to the album sequence.
 
 ---
 
 # 14. ARTIST SCREEN
 
-Show:
+Organizes artist discographies with aggregated statistics:
 
-* artist name
-* artist artwork where available locally
-* album count
-* track count
-* albums
-* songs
-
-Actions:
-
-* Play all
-* Shuffle
-* Add artist songs to playlist
-
-No internet-dependent artist biography should exist in the core experience.
+* Artist header with local artwork collage or artist portrait.
+* Discography telemetry: Total album count and total track count.
+* Chronological or alphabetical list of artist albums leading into `CollectionDetailSheet`.
+* Complete list of artist songs with direct playback and options.
 
 ---
 
 # 15. FOLDER BROWSER
 
-Folder browsing must represent actual device storage.
+Direct physical storage hierarchy inspection:
 
-Example:
-
-```text
-Music/
-├── Albums/
-│   ├── Album A/
-│   └── Album B/
-└── Singles/
-```
-
-The application must handle:
-
-* moved folders
-* renamed folders
-* deleted folders
-* inaccessible folders
-* removable storage
-* SAF-selected folders
-
-without crashing.
+* Navigates local device storage trees (`/storage/emulated/0/Music`, SD card mounts).
+* Visual breadcrumb trail for parent directory traversal.
+* Displays audio file counts per directory and filters out non-audio files and hidden directories.
+* Respects Android Scoped Storage and MediaStore URI resolution.
 
 ---
 
-# 16. SEARCH
+# 16. SEARCH SCREEN
 
-Global search.
+The Search screen (`SearchScreen.kt`) delivers instant, sub-millisecond local querying across all audio metadata.
 
-Search simultaneously across:
+Architecture:
 
-* tracks
-* artists
-* albums
-* playlists
-* genres
-* folders
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ > [ Search tracks, artists, albums...                            ] [✕] │
+├────────────────────────────────────────────────────────────────────────┤
+│ [ ALL ]       [ SONGS ]       [ ALBUMS ]       [ ARTISTS ]             │
+├────────────────────────────────────────────────────────────────────────┤
+│ SONGS (14)                                                             │
+│ [Art] Track Title • Artist Name                      FLAC 24/96  [⋮]   │
+│                                                                        │
+│ ALBUMS (2)                                                             │
+│ [Card 1] Album Title · Artist              [Card 2] Album Title · Artist│
+│                                                                        │
+│ ARTISTS (1)                                                            │
+│ (Avatar) Artist Name • 2 Albums, 24 Tracks                             │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-Search requirements:
-
-* incremental
-* debounce input
-* indexed search
-* Unicode-aware
-* case-insensitive
-* accent-aware where practical
-* tokenized
-* partial matching
-* fast on 100,000+ tracks
-
-Example:
-
-Searching:
-
-`weeknd blin`
-
-may match:
-
-`The Weeknd — Blinding Lights`
-
-Search should never require a network connection.
+* **Terminal Input Field**: VS Code prompt aesthetic (`>`) with instant focus and auto-keyboard presentation.
+* **Category Filter Pills**: Quick toggle between `All`, `Songs`, `Albums`, and `Artists`.
+* **Zero Network Dependency**: Executes entirely against local Room SQLite FTS indexes without requiring internet access.
+* **Context Actions**: Every result item supports direct playback, collection navigation, and `TrackActionMenuSheet` options.
 
 ---
 
 # 17. PLAYLIST SYSTEM
 
-Support:
+The Playlists screen (`PlaylistsScreen.kt`) supports both custom user-curated playlists and dynamic system smart queries.
 
-### Manual playlists
+Capabilities:
 
-Unlimited user-created playlists subject to storage/database limits.
+### 1. Categories & Tabs
+* `All`: Displays all user playlists and smart queries.
+* `Favorites`: Direct shortcut to user's starred library.
+* `Custom`: User-created and named playlists.
+* `Smart Query`: Query-driven smart collections (e.g. Recently Added, Most Played).
 
-Operations:
+### 2. Dynamic 3-Cover Collage Art
+* Playlist cards automatically generate a dynamic overlapping 3-cover collage derived from the first three unique album artworks in the playlist.
 
-* create
-* rename
-* delete
-* reorder
-* add
-* remove
-* duplicate
-* export
-* share
-* shuffle
-* play
-
-### Smart playlists
-
-Potential built-ins:
-
-```text
-Recently Added
-Recently Played
-Most Played
-Favorites
-Never Played
-Lossless
-Hi-Res
-Long Tracks
-Short Tracks
-```
-
-Smart playlists must be query-driven rather than duplicated song lists.
+### 3. Playlist Management Actions
+* **Create Playlist**: Modal dialog with custom playlist name input.
+* **Rename Playlist**: Inline rename dialog with automatic database sync.
+* **Delete Playlist**: Confirmation dialog preventing accidental removal.
+* **Add to Playlist Sheet (`AddToPlaylistSheet`)**: Quick bottom sheet accessible from any track row or options menu to add tracks to existing playlists or create a new playlist on the fly.
 
 ---
 
 # 18. FAVORITES
 
-Favorite state is stored locally.
+Favorites represent the user's primary starred music collection:
 
-Favorite actions available from:
-
-* song row
-* player
-* album
-* context menu
-* notification action where practical
-
-Favorites must survive:
-
-* process death
-* reboot
-* app update
-* database migration
-
-If the underlying file disappears, favorite metadata should not silently corrupt the database.
+* Marked via glowing electric blue heart button (`#388BFD`) on track rows, mini player, and `NowPlayingScreen`.
+* Persisted in dedicated Room SQLite table with indexed track foreign keys.
+* Instant toggle synchronization across all screens and active playback notifications.
+* Survives app updates, process termination, and device reboots.
 
 ---
 
 # 19. NOW PLAYING SCREEN
 
-This is the flagship screen.
+This is CODEWAVE's flagship screen — an audiophile listening workstation styled with the precision of a professional developer environment.
 
-Structure:
-
-```text
-<                       ⋮
-
-            [ALBUM ART]
-
-          SONG TITLE
-            ARTIST
-            ALBUM
-
-        02:14 ───────── 04:37
-
-        ♡       ◀     ▶     ▶       ⋮
-
-        ─────────────────────────
-
-       🔀        🔁        ⏱
-```
-
-Technical drawer:
+Architecture & Layout:
 
 ```text
-SOURCE
-FLAC
-24-bit
-96 kHz
-Lossless
-1.4 Mbps
-
-FILE
-4.8 MB
-
-OUTPUT
-48 kHz
-24-bit
-
-DSP
-CODEWAVE EQ
-+2.0 dB
+┌────────────────────────────────────────────────────────────────────────┐
+│  [∨] Collapse        [ Now Playing ]  [ Lyrics ]             [⋮] Menu  │
+├────────────────────────────────────────────────────────────────────────┤
+│  [CENTER SLOT — 230dp FIXED HEIGHT — ZERO PAGE LAYOUT SHIFT]          │
+│                                                                        │
+│  [TAB: NOW PLAYING]                │  [TAB: LYRICS]                    │
+│  ┌──────────────┬──────┐           │  ┌──────────────────────────────┐ │
+│  │              │ (◎)  │           │  │ 🔴 🟡 🟢  lyrics.lrc • 42 ln │ │
+│  │  ALBUM ART   │VINYL │           │  │ [SYNCED]               [⏱][⛶]│ │
+│  │   JACKET     │RECORD│           │  ├──────────────────────────────┤ │
+│  │              │ PEEK │           │  │ I can see the lights ahead   │ │
+│  └──────────────┴──────┘           │  │ ▌ Radiant Active Line [20sp] │ │
+│  (Smooth continuous rotation)      │  │ Waiting for the sun to rise  │ │
+│                                    │  └──────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────────────┤
+│  Song Title Name                                    [♡] Electric Blue  │
+│  Artist Name • Album Title                                             │
+│                                                                        │
+│  01:24 ━━━━━━━━━━━━━━━━━━━●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 04:38         │
+│                                                                        │
+│      🔀 Shuffle    ⏮ Prev     ( ▶ ) Circular Play/Pause    ⏭ Next    🔁│
+├────────────────────────────────────────────────────────────────────────┤
+│  [MODULAR ACTION TILES]                                                │
+│  ┌──────────────────────┬──────────────────────┬─────────────────────┐ │
+│  │ 📊 Lossless Audio    │ 🎛️ Equalizer         │ ⏱️ Sleep Timer       │ │
+│  │    FLAC · 24-bit 96k │    ViPER DSP Engine  │    30m remaining    │ │
+│  └──────────────────────┴──────────────────────┴─────────────────────┘ │
+├────────────────────────────────────────────────────────────────────────┤
+│  [AUDIO SPECTRUM VISUALIZER & SYSTEM VOLUME BOX]                       │
+│   ● AUDIO OUTPUT • ACTIVE                               VOLUME 82% ━━  │
+│    ▃▅▇█▇▅▃ ▃▅▇█▇▅▃ (48 Dual-Stereo 1024-pt FFT Bands — 120Hz Spring)   │
+├────────────────────────────────────────────────────────────────────────┤
+│  [EMBEDDED TERMINAL QUEUE DRAWER]                                      │
+│  ┌───────────────────────────────────────────────────────────[⛶] [✕]─┐ │
+│  │ Queue (24) │ Related │ About                                      │ │
+│  ├───────────────────────────────────────────────────────────────────┤ │
+│  │ 01 ▶ Midnight City • M83                                04:03     │ │
+│  │ 02   Strobe • deadmau5                                  10:37     │ │
+│  │ 03   Instant Crush • Daft Punk                          05:37     │ │
+│  │ (Expandable: 145dp compact to 380dp expanded with spring physics) │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 1. Zero Layout Shift Architecture
+
+* The center content slot is locked to a fixed height of `230.dp` (`centerSlotHeight = 230.dp`).
+* Toggling between the **Now Playing** editor tab and the **Lyrics** editor tab performs an in-place `Crossfade` within this fixed viewport.
+* Lower controls (Metadata, Seek Bar, Transport Buttons, Action Tiles, Visualizer Box, and Terminal Drawer) maintain strictly constant vertical coordinates with **zero layout jumping** or visual stutter.
+
+### 2. Vinyl Record Peek-Out Art (`CWVinylRecordArt`)
+
+* Displays album sleeve jacket (`200dp`) with realistic vinyl disc sliding out on the right edge.
+* When playback starts (`isPlaying = true`), the disc smoothly slides outward and rotates continuously at realistic record RPM.
+* Clean fallback disk art with grooved concentric rings and center spindle hole if album art is unavailable.
+
+### 3. Studio Lyrics Workstation (`LyricsView`)
+
+* **LRC Parsing Engine (`LrcParser.kt`)**: Automatically discovers and parses time-synchronized (`[mm:ss.xx]`) and unsynchronized plain lyrics from sidecar `.lrc` files or embedded audio ID3/Vorbis tags.
+* **Studio Header**:
+  * macOS-style terminal window dots (Red, Yellow, Green).
+  * Filename indicator `lyrics.lrc` with line counter badge (`• N lines`).
+  * Mode indicator badge: `SYNCED` (Cyan), `PLAIN` (Blue), `BUFFER` (Yellow), `OFFLINE` (Gray).
+  * Millisecond timestamp toggle button (`[⏱]`) with haptic feedback.
+  * Fullscreen sing-along expand button (`[⛶]`).
+* **Center Lyrics Canvas**:
+  * Dual gradient dissolve edge masks (Top & Bottom `#0D1117` to transparent) for cinematic fading.
+  * Active Line Styling: High-contrast radiant white text (`20.sp` bold, `28.sp` line height), vertical cyan accent indicator (`3.dp` width, `20.dp` height), and soft cyan row background tint (`alpha = 0.12`).
+  * Inactive Line Styling: Subdued text (`alpha = 0.40`), natural modern typography (`FontFamily.Default`).
+  * Tap-to-Seek: Tapping any lyric line immediately dispatches `playbackRepository.seekTo(line.timestampMs)` with tactile haptic response.
+  * Synchronized smooth auto-scrolling centering the active lyric in the viewport.
+
+### 4. Fullscreen Sing-Along Lyrics Mode (`CWFullscreenLyricsSheet`)
+
+* Modal full-screen bottom sheet triggered from the lyrics header expand button.
+* 50dp blurred ambient artwork backdrop derived from current track's cover image.
+* 3-stop vertical dark scrim overlay (`#090D14`) guaranteeing high contrast and readability.
+* Large sing-along typography (`28.sp` bold active line).
+* Floating bottom playback bar with Play/Pause, Next, Previous, and scrubber controls.
+
+### 5. Modular Action Tiles
+
+* **Lossless Audio Specs Tile**: Displays codec, bit depth, and sample rate (`FLAC · 24-BIT • 96kHz`). Tapping opens `AudioQualityExplainerDialog`.
+* **Equalizer Tile**: Displays current DSP profile (`Viper DSP`). Tapping opens `EqualizerScreen`.
+* **Sleep Timer Tile**: Displays countdown state (`Xm left` or `Off`). Tapping opens duration selector modal.
+
+### 6. Audio Visualizer & Volume Box (`CWAudioWaveformBox`)
+
+* Technical header: Active audio status indicator dot + technical readout (`AUDIO OUTPUT • ACTIVE`).
+* Interactive system volume readout (`VOLUME 85%` or `MUTED`) with horizontal bar. Supports single-tap and horizontal drag gestures directly syncing with Android device `STREAM_MUSIC` via `ContentObserver`.
+* Real-time 48-bar dual-stereo spectrum analyzer driven by 1024-point FFT with 120Hz display ballistics.
+
+### 7. Embedded VS Code Terminal Queue Drawer (`CWTerminalQueueDrawer`)
+
+* Embedded developer terminal aesthetic at the base of the player.
+* Three tabbed panes:
+  * `Queue (N)`: Active playback sequence with monospace line numbers (`01`, `02`...) and cyan playing indicator (`▶`).
+  * `Related`: Smart recommendations and artist discography shortcuts.
+  * `About`: Technical decoder information, storage URI, and bitrate telemetry.
+* Spring-animated height toggle: Expands from `145.dp` compact preview to `380.dp` expanded console.
+* Dedicated action button to launch the full modal queue sheet (`CWQueueSheet`).
 
 ---
 
 # 20. MINI PLAYER
 
-The mini player must remain visible above bottom navigation where appropriate.
+The persistent Mini Player (`CWMiniPlayer`) provides seamless audio continuity above the bottom navigation bar across all application screens.
 
-Gestures:
+Architecture:
 
-* tap → Now Playing
-* swipe left → next
-* swipe right → previous
-* play/pause
-* drag progress where appropriate
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ [══════════════════════ PROGRESS (NEON ACCENT) ══════════════════════] │
+│ [ART SLEEVE]  Track Title                         ⏮     ⏯     ⏭       │
+│               Artist Name · Lossless Badge                             │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-Do not overload the mini player with ten controls.
+* **Positioning**: Anchored immediately above `NavigationBar`. Automatically hides when `NowPlayingScreen` is expanded.
+* **Progress Bar**: Thin top edge progress line updating continuously with sample-accurate playback progress.
+* **Artwork Thumbnail**: 42dp rounded album sleeve thumbnail with fallback disk icon.
+* **Metadata Readout**: Song title in bold with ellipsis truncation; artist name and audio quality badge (`LOSSLESS`, `HI-RES`).
+* **Transport Controls**: Dedicated Previous, Play/Pause (circular button with haptic feedback), and Next buttons.
+* **Interaction**: Tapping anywhere on the mini player triggers a fluid vertical slide-up transition into `NowPlayingScreen`.
 
 ---
 
 # 21. QUEUE
 
-Dedicated queue sheet.
+CODEWAVE implements a dual-tier queue architecture:
 
-Capabilities:
+### 1. Embedded Terminal Queue Drawer (`CWTerminalQueueDrawer`)
 
-* current track
-* upcoming tracks
-* reorder
-* remove
-* clear
-* save queue as playlist
-* play next
-* add to queue
+* Embedded directly within `NowPlayingScreen`.
+* Styled as an IDE terminal output drawer with monospace code line numbers (`01`, `02`, `03`...).
+* Expandable from `145.dp` to `380.dp` using spring physics (`Spring.DampingRatioLowBouncy`).
+* Shows active track status, more options menu, and quick jump playback.
 
-Queue must survive process death when playback state is restored.
+### 2. Full Modal Queue Sheet (`CWQueueSheet`)
+
+* Modal bottom sheet for deep queue management.
+* Capabilities:
+  * Drag-and-drop track reordering.
+  * Individual track removal and swipe gestures.
+  * Clear queue action with confirmation.
+  * Play next and add to queue actions.
+  * Save active queue as a new custom playlist.
+* Queue state is persisted in SQLite Room and survives process death and system reboots.
 
 ---
 
@@ -861,21 +876,45 @@ Timer must survive:
 
 # 27. AUDIO ENGINE
 
-## Primary engine
+## Primary Engine: Jetpack Media3 ExoPlayer with In-Process PCM Interception
 
-**Jetpack Media3 ExoPlayer**
+CODEWAVE uses Jetpack Media3 ExoPlayer coupled with a custom `ViperAudioProcessor` that intercepts the raw decoded PCM audio stream directly before hardware `AudioTrack` rendering.
 
-Android currently recommends Media3/ExoPlayer for comprehensive playback use cases.
+Audio Processing Pipeline:
 
-Use:
+```text
+Local Audio File (FLAC / WAV / ALAC / MP3 / OGG / AAC / OPUS)
+  │
+  ▼
+ExoPlayer Audio Decoder (MediaCodec / Extractor)
+  │
+  ▼ Raw 16-bit / 32-bit Float PCM Stream
+[ViperAudioProcessor] (Media3 BaseAudioProcessor)
+  │
+  ├── 1. PCM to Float32 Normalization ([-1.0, 1.0] zero-allocation working buffer)
+  │
+  ├── 2. Live Audio Spectrum Tap
+  │      └── AudioVisualizerProcessor (1024-pt Dual Stereo Radix-2 FFT, 24 Bark Bands, AGC)
+  │
+  ├── 3. Studio Master DSP Engine
+  │      ├── Native C++ ViPER/Dolby JNI Library (libviper.so)
+  │      │   ├── 10-Band Parametric Equalizer (Biquad Filter Cascades)
+  │      │   ├── Master Preamp Gain (-12 dB to +12 dB)
+  │      │   ├── Soft-Knee Limiter Anti-Clipping Guard
+  │      │   └── ViPERFX Acoustic Suite:
+  │      │       ├── Dynamic Bass (80Hz Butterworth sub-harmonic synthesis)
+  │      │       ├── Vocal Clarity (3.2kHz presence shelf)
+  │      │       └── IRS Convolver (Time-domain FIR filter from impulse response)
+  │      └── Pure Kotlin Audiophile Fallback (DolbyLevelEqualizer)
+  │
+  ▼ Clamped / Limited PCM Stream
+Hardware AudioTrack Sink (Direct bit-perfect or high-res Android audio path)
+```
 
-* Media3 ExoPlayer
-* MediaSession
-* MediaSessionService
-* MediaController
-* custom playback architecture
-
-Media3 supports playlists, playback control, seeking, shuffle, repeat and playback configuration.
+Key Architectural Advantages:
+* **Zero Microphone Permissions**: Visualizer receives true digital audio stream directly from the decoder pipeline in-process, bypassing Android's restrictive `RECORD_AUDIO` permission.
+* **Bit-Perfect Direct Passthrough**: When DSP is disabled (`isEnabled = false`), audio samples pass unmodified through the pipeline.
+* **Low Latency & Glitch-Free**: Audio processing happens on the dedicated high-priority ExoPlayer audio thread with zero memory re-allocations per frame.
 
 ---
 
@@ -1101,153 +1140,129 @@ unless there is a defined technical meaning.
 
 # 36. EQUALIZER / DSP
 
-This is where most amateur music-player implementations become garbage.
+CODEWAVE features a studio-grade 32-bit floating-point DSP engine with dual-backend architecture: high-performance native C++ ViPER/Dolby processing (`libviper.so`) with pure Kotlin audiophile software fallback (`DolbyLevelEqualizer`).
 
-Do not implement a fake EQ consisting of sliders that don't actually affect the audio path.
-
-Use a dedicated DSP abstraction.
-
-Architecture:
+DSP Pipeline Architecture:
 
 ```text
-Source
-  ↓
-Decoder
-  ↓
-PCM
-  ↓
-DSP Pipeline
-  ├── Preamp
-  ├── Parametric/Graphic EQ
-  ├── Bass control
-  ├── Loudness
-  ├── Compressor
-  ├── Limiter
-  └── Optional spatialization
-  ↓
-Audio Output
+Decoded PCM Stream (Float32 [-1.0, 1.0])
+  │
+  ▼
+[Master Power Switch] ─── OFF (Bit-Perfect Direct Passthrough) ───┐
+  │                                                                │
+  ▼ ON                                                             │
+[Master Preamp Gain] (-12.0 dB to +12.0 dB with Quick dB Chips)    │
+  │                                                                │
+  ▼                                                                │
+[10-Band Parametric Console] (31Hz to 16kHz Biquad Filters)        │
+  │                                                                │
+  ▼                                                                │
+[ViPERFX Acoustic Suite]                                           │
+  ├── Dynamic Bass (80Hz Butterworth sub-harmonic synthesis)       │
+  ├── Vocal Clarity (3.2kHz presence shelf)                        │
+  └── IRS Convolver (Time-domain FIR impulse response engine)      │
+  │                                                                │
+  ▼                                                                │
+[Limiter Anti-Clipping Guard] (Soft-knee limiter with auto-decay)  │
+  │                                                                │
+  ▼                                                                │
+Clamped Float32 to 16-bit / 32-bit PCM Out <───────────────────────┘
+  │
+  ▼
+Hardware AudioTrack
 ```
-
-Android provides `DynamicsProcessing`, which includes EQ, multiband compression and limiting, with realtime-controllable parameters.
-
-Android also provides Equalizer and other AudioEffect APIs, but effects must be attached to the relevant audio session; global session-0 insertion effects are deprecated.
 
 ---
 
-# 37. EQ MODES
+# 37. EQ MODES & CONSOLE CONTROLS
 
-### Simple mode
+The Equalizer screen (`EqualizerScreen.kt`) is styled as a unified hardware audio rack console.
 
-10-band graphic EQ:
+### 1. Studio Master Console & Status Readout
+* **Master Power Switch**: Enables/disables entire DSP pipeline. When disabled, the audio path operates in **Bit-Perfect Direct** mode with zero coloring.
+* **DSP Status Readout**:
+  * `FLOAT32 MASTER DSP · ACTIVE` (Green indicator): Native C++ JNI engine processing.
+  * `LEGACY EQUALIZER FALLBACK` (Yellow indicator): Pure Kotlin Biquad filter engine.
+  * `BYPASSED (BIT-PERFECT DIRECT)` (Gray indicator): Raw unmolested PCM audio stream.
+* **Quick Reset ("FLAT")**: Instant button to reset all 10 bands to 0.0 dB without disabling the engine.
 
-```text
-31
-62
-125
-250
-500
-1k
-2k
-4k
-8k
-16k
-```
+### 2. Parametric Frequency Visualizer (`RealTimeEQCurveCanvas`)
+* Real-time dynamic frequency curve canvas rendered above the sliders.
+* Uses cubic Bézier spline interpolation across all 10 frequency nodes.
+* Renders continuous curve in cyan accent with glowing subtle gradient fill representing the $\pm 12\text{ dB}$ dynamic response.
 
-### Advanced mode
+### 3. 10-Band Parametric Console Chassis
+* Frequencies: `31 Hz`, `62 Hz`, `125 Hz`, `250 Hz`, `500 Hz`, `1 kHz`, `2 kHz`, `4 kHz`, `8 kHz`, `16 kHz`.
+* High-precision vertical faders (`CWVerticalFader`) with $\pm 12\text{ dB}$ range, center 0 dB detent, and frequency labels.
+* Gain values persist automatically across tracks and app restarts via `EqualizerRepository`.
 
-Parametric EQ:
+### 4. Master Preamp Gain Console
+* Bipolar center-zero hardware slider (-12.0 dB to +12.0 dB).
+* Quick dB Jump Chips: Direct tap buttons for `-6 dB`, `-3 dB`, `0 dB`, `+3 dB`, `+6 dB` to quickly manage headroom.
 
-* frequency
-* gain
-* Q
-* filter type
+### 5. Limiter Anti-Clipping Guard
+* Soft-knee dynamic limiter with lookahead protection.
+* Prevents digital harshness, inter-sample peaks, and digital clipping when boosting multiple equalizer bands or applying preamp gain.
+* Status badge: `PROTECTED` (Green) when active.
 
-Filter types:
-
-* low shelf
-* high shelf
-* bell
-* low pass
-* high pass
-
-Advanced mode should be hidden behind an explicit “Advanced” control.
-
----
-
-# 38. EQ PRESETS
-
-Built-in:
-
-* Flat
-* Acoustic
-* Bass
-* Bass Reducer
-* Classical
-* Dance
-* Deep
-* Electronic
-* Hip-Hop
-* Jazz
-* Piano
-* Pop
-* Rock
-* Vocal
-* Custom
-
-Presets must have conservative gain levels.
-
-A limiter should protect against clipping when boosting multiple bands.
+### 6. ViPERFX Acoustic Suite
+* **ViPER Dynamic Bass**:
+  * 80 Hz Butterworth sub-harmonic synthesis & 5 Hz DC filter.
+  * Adjustable gain: `0.0 dB` to `+12.0 dB` (Default: `+4.0 dB`).
+* **ViPER Vocal Clarity**:
+  * 3.2 kHz presence shelf for crystal clear dialog, podcast speech, and acoustic vocals.
+  * Adjustable gain: `0.0 dB` to `+12.0 dB`.
+* **IRS Convolver (Impulse Response Engine)**:
+  * High-performance time-domain FIR convolution filter.
+  * Supports loading custom `.irs` and `.wav` impulse responses directly from local device storage (e.g. Sony DSEE, tube amplifier emulations, studio room reverbs).
 
 ---
 
-# 39. DSP SAFETY
+# 38. EQ PRESETS & CUSTOM PROFILES
 
-Avoid:
+### Built-in Audiophile Presets:
+* `Flat` (Reference clean curve)
+* `Bass Boost` (+6dB low-end shelf)
+* `Treble Boost` (+5dB high-end presence)
+* `Vocal / Podcast` (Mid-range speech focus)
+* `Rock` (Classic V-shape curve)
+* `Electronic / Dance` (Deep sub-bass + crisp treble)
+* `Jazz` (Warm low-mids and natural highs)
+* `Classical` (Balanced dynamic orchestra range)
+* `Heavy Metal` (Aggressive bite and tight low-end)
+* `Hip-Hop` (Sub-bass emphasis)
+* `Acoustic` (Natural acoustic guitar resonance)
+* `ViPER Clarity` (Bright modern soundstage)
 
-```text
-+12 dB everywhere
-```
-
-without protection.
-
-The DSP pipeline must account for:
-
-* clipping
-* inter-sample peaks
-* gain staging
-* limiter behavior
-* headroom
-
-Display:
-
-```text
-PREAMP
--4.0 dB
-```
-
-when necessary.
+### Custom Presets:
+* Users can save current slider, preamp, and ViPER configurations under a custom name via a dialog.
+* Custom presets persist in Room SQLite database and appear in the preset selector sheet with delete options.
 
 ---
 
-# 40. AUDIO EFFECT COMPATIBILITY
+# 39. DSP SAFETY & HEADROOM
 
-Audio effects differ across Android devices.
+To guarantee studio audio fidelity without digital distortion:
 
-Therefore:
+* Preamp attenuation automatically recommended when aggregate band boost exceeds $+6\text{ dB}$.
+* Floating-point calculations maintain 32-bit precision until the final PCM quantization stage.
+* Soft-knee limiting prevents abrupt hard-clipping squashing when input signals approach $0\text{ dBFS}$.
+
+---
+
+# 40. AUDIO EFFECT COMPATIBILITY & TELEMETRY
+
+The DSP pipeline monitors Android audio subsystem compatibility:
 
 ```text
-DSP status:
-ACTIVE
-LIMITED
-UNAVAILABLE
+DSP Status:
+  ACTIVE       — Native C++ ViPER/Dolby library operational
+  LIMITED      — Kotlin DolbyLevelEqualizer software fallback active
+  BYPASSED     — User disabled or bit-perfect direct output mode
+  UNAVAILABLE  — Android hardware audio track rejection
 ```
 
-If the device does not support a requested effect:
-
-* don't crash
-* don't pretend it worked
-* explain the limitation
-* keep playback functional
+If native libraries fail to load on exotic CPU architectures, CODEWAVE transparently switches to the pure Kotlin software equalizer fallback with zero audio dropouts or app crashes.
 
 ---
 
@@ -1960,90 +1975,62 @@ Do not hardcode unrealistic universal milliseconds because Android hardware vari
 
 # 71. SETTINGS
 
-Sections:
+The Settings screen (`SettingsScreen.kt`) provides clean, developer-centric access to playback configurations, theme selection, library maintenance, and in-app OTA updates.
 
-## Playback
+Categories:
 
-* gapless
-* crossfade
-* replay behavior
-* autoplay
-* resume playback
-* playback speed
+### 1. Appearance & Themes
+* Shows current active theme card with name, description, play bar badge (`NEON SLIM`, `DUAL NEON`, `CLEAN PILL`, `SEGMENTED`, `WARM AMBER`), and preview color swatches.
+* "CHANGE" button launches `ThemeSelectorSheet` for real-time live preview switching.
 
-## Audio
+### 2. Playback & Audio
+* **Gapless Playback Toggle**: Enables sample-accurate gapless audio track transitions, eliminating silences between tracks for continuous live albums, classical music, and DJ mixes.
+* **Crossfade Duration Slider**: Discrete slider from `0s` to `12s` with real-time numeric readout (displays `OFF` when set to 0 seconds).
 
-* equalizer
-* normalization
-* bass
-* limiter
-* DSP
+### 3. Library Maintenance
+* **Rescan Media Storage**: Manually triggers `AudioScanner` to query Android MediaStore, reconcile file additions, removals, and tag updates in SQLite Room, accompanied by real-time scanning feedback in the Home screen banner.
 
-## Library
+### 4. Updates & Distribution (In-App GitHub OTA)
+* **GitHub Releases OTA Integration**:
+  * Direct API integration with `https://api.github.com/repos/santjsx/CodeWave/releases/latest`.
+  * Manual "Check for Updates" trigger and automatic checks on startup.
+  * Displays states: `Idle`, `Checking`, `UpdateAvailable` (with release notes & changelog), `Downloading` (live percent progress bar), `ReadyToInstall` (one-tap APK install), `UpToDate`, and `Error`.
 
-* scan
-* folders
-* ignored folders
-* sorting
-* artwork
-* metadata behavior
-
-## Appearance
-
-* theme
-* accent
-* list/grid defaults
-* animations
-* compact mode
-
-## Notifications
-
-* controls
-* artwork
-* persistent notification behavior
-
-## Updates
-
-* GitHub releases
-* automatic check
-* Wi-Fi-only checks
-* prerelease channel
-
-## About
-
-* version
-* licenses
-* diagnostics
-* privacy
-* GitHub
+### 5. Diagnostics & About
+* Application version (e.g. `v1.6.5`), target SDK, Room SQLite schema version, Media3 ExoPlayer build, AudioTrack direct PCM status, and GitHub repository links.
 
 ---
 
 # 72. THEMES
 
-Default:
+CODEWAVE rejects generic themes in favor of 5 meticulously calibrated developer IDE and cyberpunk themes. Themes dynamically update colors, play bar geometry, and accent glows throughout the entire app without requiring an activity restart.
 
-### Obsidian
+Theme Profiles (`CWColors.AvailableThemes`):
 
-Additional:
+### 1. VS Code Dark+ (`obsidian`) — Default
+* **Aesthetic**: Official VS Code workstation with electric blue accents and deep slate surfaces.
+* **Colors**: Background `#0D1117`, Surface `#161B22`, Accent `#388BFD`, Secondary `#58A6FF`.
+* **Play Bar Style**: `NEON_SLIM` (Clean single neon line).
 
-### Light
+### 2. Synthwave '84 (`synthwave`)
+* **Aesthetic**: Neon cyberpunk outrun with hot pink lasers, sunset gold, and glowing violet grids.
+* **Colors**: Background `#160E2E`, Surface `#241544`, Accent `#FF007F`, Secondary `#00F0FF`.
+* **Play Bar Style**: `DUAL_NEON` (Dual-layer glowing neon rails).
 
-### Midnight
+### 3. Tokyo Night Storm (`tokyo_night`)
+* **Aesthetic**: Midnight Tokyo rainy reflections with storm blue and purple syntax highlights.
+* **Colors**: Background `#1A1B26`, Surface `#24283B`, Accent `#7AA2F7`, Secondary `#BB9AF7`.
+* **Play Bar Style**: `CLEAN_PILL` (Soft-cornered floating pill).
 
-### Carbon
+### 4. Dracula Pro (`dracula_pro`)
+* **Aesthetic**: Classic hacker vampire dark mode with vibrant electric green and purple syntax.
+* **Colors**: Background `#1E1F29`, Surface `#282A36`, Accent `#50FA7B`, Secondary `#BD93F9`.
+* **Play Bar Style**: `SEGMENTED` (Segmented LED track blocks).
 
-### OLED Black
-
-Accent selection:
-
-* Blue
-* Cyan
-* Violet
-* Green
-* Amber
-
-Avoid dozens of themes.
+### 5. Monokai Pro (`monokai_pro`)
+* **Aesthetic**: Warm expressive spectrum designed for long focus sessions and reduced eye strain.
+* **Colors**: Background `#19181A`, Surface `#221F22`, Accent `#FFD866`, Secondary `#FF6188`.
+* **Play Bar Style**: `WARM_AMBER` (Analog amber vacuum tube warmth).
 
 ---
 
@@ -2106,20 +2093,74 @@ Avoid:
 
 ---
 
-# 76. VISUALIZER
+# 76. VISUALIZER & SPECTRUM ANALYZER
 
-Optional premium feature.
+CODEWAVE features a real-time, hardware-synchronized dual-channel audio spectrum visualizer integrated directly into the `NowPlayingScreen` within `CWAudioWaveformBox.kt` and `AudioVisualizerProcessor.kt`.
 
-Modes:
+Architecture & DSP Pipeline:
 
-* waveform
-* spectrum
-* oscilloscope
-* minimal bars
+```text
+ExoPlayer Decoded PCM Stream (Float32 [-1.0, 1.0])
+  │
+  ▼
+[ViperAudioProcessor.feedAudio()] (Zero microphone / RECORD_AUDIO permissions)
+  │
+  ├── Stereo Ring Buffers (Left & Right channels, 1024 samples each)
+  │
+  ▼
+Dual 1024-Point Cooley-Tukey Radix-2 FFT (Hann Windowed, Zero Garbage Collection)
+  │
+  ├── 512 Positive Frequency Bins (~43.06 Hz resolution per bin)
+  │
+  ├── 24 Perceptual Bark Scale Bands (30 Hz Sub-Bass to 16 kHz Treble Air)
+  │
+  ├── True Logarithmic Decibel (dB) Compression (-48.0 dB Dynamic Floor)
+  │
+  ├── Dynamic Auto-Gain Control (AGC with Leaky Peak Follower)
+  │
+  ▼
+48 Symmetrical Stereo Soundstage Bars:
+  ├── Left Channel: Bars 0–23 (Treble at 0 ─── Bass / Kicks at 23)
+  └── Right Channel: Bars 24–47 (Bass / Kicks at 24 ─── Treble at 47)
+  │
+  ▼
+Display-Timed Choreographer Ballistics (withFrameNanos at 60Hz / 90Hz / 120Hz):
+  ├── Instant Attack (Speed 36.0/s) on Percussive Transients
+  ├── Smooth Gravitational Decay (Speed 14.0/s) on Analog Meter Falloff
+  └── 0% CPU Idle Suspension when Playback is Paused
+```
 
-Visualizer must never consume excessive CPU.
+### 1. In-Process Audio Interception (Zero Permissions)
+* Intercepts raw Float32 decoded PCM samples between ExoPlayer's decoder and Android's `AudioTrack`.
+* Operates entirely in-process without requiring Android's sensitive `RECORD_AUDIO` microphone permission.
+* Works identically across headphones, phone speakers, USB DACs, and Bluetooth A2DP audio devices.
 
-It should automatically reduce quality or disable itself under thermal/battery pressure.
+### 2. High-Precision FFT Spectrum Analysis
+* **Transform Size**: 1024-point complex FFT with pre-calculated Hann window table and bit-reversal lookup arrays.
+* **Frequency Mapping**: 512 positive frequency bins grouped into 24 perceptual Bark scale bands:
+  * Single/dual bin grouping for sub-bass (30–120 Hz) and kick drum transients.
+  * Psychoacoustic grouping for vocal formants (300 Hz – 3 kHz).
+  * High-frequency averaging for upper treble and cymbal sparkle (3 kHz – 16 kHz).
+* **Decibel Dynamics**: Converts raw magnitude to true decibels: $\text{dB} = 20 \log_{10}(\text{magnitude})$ with a $-48.0\text{ dB}$ floor.
+* **Auto-Gain Control (AGC)**: Fast-attack peak tracker with 2.5-second leaky decay adapts continuously across quiet acoustic recordings and compressed electronic music.
+
+### 3. Symmetrical Stereo Soundstage Projection
+* 48 discrete bars rendered in vertical dual-tone gradients (`#58A6FF` to `#1F6FEB`).
+* **Center-Anchored Lows**: Sub-bass and kicks meet symmetrically at the energetic center (Bars 23 & 24), creating an intuitive physical soundstage visualization.
+* **Stereo Channel Separation**: Left channel maps to left wing (bars 0–23), Right channel maps to right wing (bars 24–47).
+
+### 4. Hardware-Synchronized 120Hz Display Ballistics
+* Rendered via Compose `Canvas` driven by `withFrameNanos`, locking frame execution to the device's native display refresh rate (60Hz, 90Hz, 120Hz).
+* **Asymmetric Ballistics**:
+  * Snappy attack (speed 36.0/s) triggers instantaneous visual kick on transient drum hits.
+  * Exponential decay (speed 14.0/s) provides organic analog meter needle falloff.
+* **Complete Idle Suspension**: When playback is paused and bar heights settle below baseline (`0.045f`), the `LaunchedEffect` coroutine suspends cleanly via `snapshotFlow`, consuming **0% CPU** and conserving 100% battery.
+
+### 5. Integrated System Volume Touch Bar
+* Embedded directly into the visualizer card header.
+* Shows active status indicator dot and live Android `STREAM_MUSIC` volume percentage (`VOLUME 85%` or `MUTED`).
+* Supports single-tap and continuous horizontal drag gestures with haptic feedback ticks.
+* Listens to Android system volume changes via `ContentObserver`, updating in real-time when hardware volume rocker buttons are pressed.
 
 ---
 
@@ -2184,37 +2225,49 @@ Support:
 
 # 80. UPDATE SYSTEM
 
-CODEWAVE supports two update channels.
+CODEWAVE supports two update channels with complete in-app management:
 
 ## Channel A — Google Play
+* When distributed through the Play Store, uses official Google Play In-App Updates API (Immediate or Flexible flow).
 
-Use official Play update mechanisms when distributed through Google Play. Android's current Play In-App Updates system supports flexible and immediate update flows.
-
-## Channel B — GitHub Releases
-
-For GitHub APK distribution:
+## Channel B — In-App GitHub Releases OTA Engine (`OtaUpdateManager`)
+For direct sideload distribution without third-party app stores:
 
 ```text
-CODEWAVE
-   ↓
-GitHub Releases API
-   ↓
-Latest stable release
-   ↓
-Version comparison
-   ↓
-Release metadata
-   ↓
-User chooses update
-   ↓
-APK download
-   ↓
-SHA-256 verification
-   ↓
-Android package installation flow
+CODEWAVE Client
+   │
+   ▼ Queries GET /repos/santjsx/CodeWave/releases/latest
+GitHub Releases API (HTTPS JSON)
+   │
+   ▼
+Release Verification:
+   ├── Parse tag_name (e.g. "v1.6.5") & extract SemVer numbers
+   ├── Compare against local BuildConfig.VERSION_NAME
+   ├── Extract markdown body (Changelog) and browser_download_url (.apk)
+   │
+   ▼ Update Available
+In-App Presentation (`OtaUpdateDialog` / `SettingsScreen`):
+   ├── Displays modal popup on launch (or manual check in Settings)
+   ├── Renders release version badge & changelog
+   ├── Action: "Download & Install"
+   │
+   ▼ Streaming Download (Ktor / HttpURLConnection)
+Direct Cache Download:
+   ├── Streams bytes to context.cacheDir/updates/codewave-vX.X.X.apk
+   ├── Emits live ProgressState (% and MBs transferred)
+   ├── Updates in-dialog linear progress indicator
+   │
+   ▼ Installation Trigger (FileProvider)
+Android Package Installer:
+   ├── Wraps cached APK into content:// URI via FileProvider
+   ├── Dispatches Intent.ACTION_VIEW with FLAG_GRANT_READ_URI_PERMISSION
+   └── Launches native Android system package installer screen
 ```
 
-GitHub exposes a latest-release API and release assets.
+Key Architectural Principles:
+* **Non-Blocking Background Verification**: Update checks run asynchronously on IO dispatchers and never block player startup or audio playback.
+* **Dismissible & Respectful**: Users can dismiss the update dialog at any time; updates never force-abort active audio playback.
+* **Automatic Cache Cleanup**: Previous update APKs are purged upon successful installation or new download starts.
 
 ---
 
@@ -2544,42 +2597,33 @@ Never log:
 
 # 93. DESIGN SYSTEM COMPONENTS
 
-Create reusable components:
+CODEWAVE's UI is built on a proprietary, developer-styled design system located in `com.codewave.player.core.designsystem.component`:
 
 ```text
-CWButton
-CWIconButton
-CWTopBar
-CWBottomBar
-CWMiniPlayer
-CWTrackRow
-CWAlbumCard
-CWArtistRow
-CWPlaylistCard
-CWSectionHeader
-CWQualityBadge
-CWTechnicalBadge
-CWProgressBar
-CWSlider
-CWDialog
-CWSheet
-CWEmptyState
-CWErrorState
-CWSearchField
-CWFilterChip
-CWSortMenu
-CWContextMenu
+Component Directory:
+├── CWActivityBar.kt            — Navigation and tab activity indicators
+├── CWAlbumCard.kt              — High-density album and collection cards with quality badges
+├── CWAudioWaveformBox.kt       — 48-bar dual-stereo FFT visualizer & volume control
+├── CWBadges.kt                 — CWQualityBadge (Lossless/Hi-Res) & CWTechnicalBadge
+├── CWButtons.kt                — CWButton (Solid/Outlined/Ghost), CWPlayAllButton
+├── CWEmptyState.kt             — Terminal-styled empty state cards with action triggers
+├── CWFullscreenLyricsSheet.kt  — Immersive sing-along lyrics modal with 50dp blurred backdrop
+├── CWInteractions.kt           — tactileClickable & tactilePress haptic spring scale wrappers
+├── CWMiniPlayer.kt             — Persistent mini player with progress line & transport controls
+├── CWPlayTimeBar.kt            — Precision seek bar with monospace duration readouts
+├── CWQueueSheet.kt             — Full modal queue manager with drag-reorder & swipe actions
+├── CWTerminalQueueDrawer.kt    — VS Code embedded terminal drawer (Queue/Related/About)
+├── CWTrackRow.kt               — Primary audio track list row with status indicators
+├── CWVerticalFader.kt          — Audiophile studio equalizer fader with center detent
+├── CWVinylRecordArt.kt         — Animated grooved vinyl record peek-out & rotation
+└── TrackInspectorDrawer.kt     — Deep technical track inspector modal sheet
 ```
 
-Every component should have:
-
-* states
-* accessibility semantics
-* dark/light behavior
-* disabled behavior
-* loading behavior
-* error behavior
-* pressed state
+Every component strictly enforces:
+* Tactile spring press feedback (`tactilePress`, `tactileClickable`).
+* Zero unexpected layout shift with pre-allocated container bounds.
+* Theme-aware color binding connected to `CWColors`.
+* High-contrast accessibility compliance.
 
 ---
 
@@ -3090,85 +3134,41 @@ Examples:
 
 ---
 
-# 111. RECOMMENDED TECH STACK
+# 111. RECOMMENDED & PRODUCTION TECH STACK
 
 ## Language
+**Kotlin 2.0+** with Coroutines & StateFlow.
 
-**Kotlin**
+## Native Core (DSP Engine)
+**C++17 / Android NDK / CMake** (`libviper.so`) for low-latency floating-point biquad filtering, convolution, and dynamic bass synthesis.
 
-## UI
+## UI & Design
+* **Jetpack Compose** (BOM 2024+) with Material 3 foundations.
+* **Proprietary CODEWAVE Design System** (`com.codewave.player.core.designsystem`).
 
-**Jetpack Compose**
+## Audio Engine & Playback
+* **AndroidX Media3 ExoPlayer** (v1.5+).
+* **Media3 MediaSession / MediaSessionService** (`CodeWaveMediaSessionService`).
+* Custom in-process `ViperAudioProcessor` intercepting raw PCM frames before hardware AudioTrack output.
 
-Android's current Media3 documentation explicitly encourages a Compose-first approach for media UIs.
+## Spectrum Visualizer
+**Custom 1024-Point Radix-2 Cooley-Tukey FFT** (`AudioVisualizerProcessor.kt`) with 24 Bark scale bands and display-timed 120Hz `withFrameNanos` ballistics.
 
-## Design
+## Database & Indexing
+**AndroidX Room (SQLite FTS)** with transactional DAOs for Tracks, Albums, Artists, and Playlists.
 
-**Material 3 foundation + custom CODEWAVE design system**
+## State Management & Architecture
+**Clean Architecture with Manual DI AppContainer** (`AppContainer.kt`) for predictable initialization, zero reflection overhead, and instant app cold start.
 
-Do not ship stock Material 3 screens with different colors.
+## Image Loading
+**Coil Compose** with in-memory caching and blurred backdrop processing.
 
-## Playback
+## Build & CI/CD
+* **Gradle Kotlin DSL** (`build.gradle.kts`).
+* **GitHub Actions CI/CD** with automated release packaging and tag dispatch.
 
-**AndroidX Media3 ExoPlayer**
-
-## Media session
-
-**Media3 MediaSession / MediaSessionService**
-
-## Database
-
-**Room / SQLite**
-
-## Preferences
-
-**DataStore**
-
-## Background work
-
-**WorkManager**, only where appropriate.
-
-## Image loading
-
-**Coil**
-
-## Dependency injection
-
-**Hilt**
-
-## Navigation
-
-**Navigation Compose**
-
-## Build
-
-**Gradle Kotlin DSL**
-
-## Static analysis
-
-**Detekt**
-
-## Formatting
-
-**Ktlint**
-
-## Testing
-
-* JUnit
-* AndroidX Test
-* Compose UI testing
-* Media3 testing utilities
-* Macrobenchmark
-* Baseline Profiles
-
-## CI/CD
-
-**GitHub Actions**
-
-## Distribution
-
-* Google Play
-* GitHub Releases APK channel
+## Sideload & OTA Engine
+**In-App GitHub Releases OTA Engine** (`OtaUpdateManager.kt`) querying GitHub Releases API with automated APK downloads and Android `FileProvider` package installer handoff.
 
 ---
 
