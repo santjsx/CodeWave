@@ -16,6 +16,7 @@ import java.nio.ByteOrder
 @UnstableApi
 class ViperAudioProcessor : BaseAudioProcessor() {
 
+    val visualizer: AudioVisualizerProcessor = AudioVisualizerProcessor()
     private val kotlinFallbackEq = DolbyLevelEqualizer()
     private var floatBuffer = FloatArray(4096)
     private var lastConfig: EqualizerConfig = EqualizerConfig()
@@ -72,6 +73,9 @@ class ViperAudioProcessor : BaseAudioProcessor() {
                 floatBuffer[i] = inputBuffer.float.coerceIn(-1.0f, 1.0f)
             }
         }
+
+        // Feed real-time audio samples to Visualizer for live frequency analysis
+        visualizer.feedAudio(floatBuffer, samplesCount)
 
         // STEP 2: Execute High-Precision DSP Engine (Native C++ with Kotlin fallback)
         if (ViperJniWrapper.isNativeAvailable) {

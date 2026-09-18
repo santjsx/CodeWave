@@ -49,6 +49,7 @@ import kotlin.math.sin
 fun CWAudioWaveformBox(
     isPlaying: Boolean,
     volumePercent: Int,
+    waveformBands: FloatArray? = null,
     onVolumeChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -170,21 +171,28 @@ fun CWAudioWaveformBox(
                 val spacing = (size.width - totalBarsWidth) / (barCount - 1).coerceAtLeast(1)
                 val midY = size.height / 2f
 
+                val hasLiveBands = isPlaying && waveformBands != null && waveformBands.isNotEmpty()
+                val minBarHeightPx = 3.dp.toPx()
+
                 for (i in 0 until barCount) {
                     val normalizedIndex = i.toFloat() / barCount
                     // Bell envelope shape (higher in middle, tapering at sides)
                     val envelope = sin(normalizedIndex * Math.PI).toFloat()
 
-                    // Dynamic wave animation when playing
-                    val waveModifier = if (isPlaying) {
+                    val barHeight = if (hasLiveBands) {
+                        val bandMagnitude = waveformBands.getOrNull(i) ?: 0.05f
+                        ((size.height * 0.95f) * bandMagnitude).coerceIn(minBarHeightPx, size.height)
+                    } else if (isPlaying) {
+                        // Fallback procedural wave animation if audio buffer not yet populated
                         val w1 = sin(normalizedIndex * 12.0 + phase).toFloat()
                         val w2 = sin(normalizedIndex * 6.0 - phase * 1.5).toFloat()
-                        0.4f + 0.35f * (w1 * 0.6f + w2 * 0.4f + 1f)
+                        val waveModifier = 0.4f + 0.35f * (w1 * 0.6f + w2 * 0.4f + 1f)
+                        ((size.height * 0.9f) * envelope * waveModifier).coerceAtLeast(minBarHeightPx)
                     } else {
-                        0.25f
+                        // Calm resting dots when paused
+                        (minBarHeightPx + (size.height * 0.08f) * envelope)
                     }
 
-                    val barHeight = ((size.height * 0.9f) * envelope * waveModifier).coerceAtLeast(3.dp.toPx())
                     val x = i * (barWidth + spacing)
                     val y = midY - barHeight / 2f
 

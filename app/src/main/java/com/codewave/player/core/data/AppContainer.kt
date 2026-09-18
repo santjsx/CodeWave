@@ -60,7 +60,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             context = context,
             libraryRepository = libraryRepository,
             settingsRepository = settingsRepository,
-            equalizerRepository = equalizerRepository
+            equalizerRepository = equalizerRepository,
+            viperAudioProcessor = viperAudioProcessor
         )
     }
 

@@ -62,17 +62,23 @@ interface PlaybackRepository {
     fun startSleepTimer(minutes: Int)
     fun stopSleepTimer()
     fun setVolumePercent(percent: Int)
+    val audioWaveformBands: StateFlow<FloatArray>
 }
 
 class DefaultPlaybackRepository(
     private val context: Context,
     private val libraryRepository: LibraryRepository,
     private val settingsRepository: SettingsRepository? = null,
-    private val equalizerRepository: EqualizerRepository? = null
+    private val equalizerRepository: EqualizerRepository? = null,
+    private val viperAudioProcessor: com.codewave.player.core.audio.ViperAudioProcessor? = null
 ) : PlaybackRepository {
 
     private val _playbackState = MutableStateFlow(PlaybackState())
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
+
+    private val emptyBands = MutableStateFlow(FloatArray(48))
+    override val audioWaveformBands: StateFlow<FloatArray> =
+        viperAudioProcessor?.visualizer?.waveformBands ?: emptyBands
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -245,6 +251,9 @@ class DefaultPlaybackRepository(
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _playbackState.update { it.copy(isPlaying = isPlaying) }
+            if (!isPlaying) {
+                viperAudioProcessor?.visualizer?.onPause()
+            }
             val current = _playbackState.value.currentTrack
             if (isPlaying && current != null) {
                 scope.launch { libraryRepository.recordTrackPlayed(current.id) }

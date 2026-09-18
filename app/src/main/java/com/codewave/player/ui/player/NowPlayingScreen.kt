@@ -109,6 +109,7 @@ fun NowPlayingScreen(
 
     val state by playbackRepository.playbackState.collectAsState()
     val sleepTimerRemainingMs by playbackRepository.sleepTimerRemainingMs.collectAsState()
+    val waveformBands by playbackRepository.audioWaveformBands.collectAsState()
     val track = state.currentTrack ?: return
 
     var centerView by remember { mutableStateOf(NowPlayingCenterView.ARTWORK) }
@@ -452,10 +453,11 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 7. Waveform Visualizer Box with Developer Comment Header (Real System Volume)
+            // 7. Waveform Visualizer Box with Developer Comment Header (Real Audio FFT + System Volume)
             CWAudioWaveformBox(
                 isPlaying = state.isPlaying,
                 volumePercent = state.volumePercent,
+                waveformBands = waveformBands,
                 onVolumeChange = { newPercent -> playbackRepository.setVolumePercent(newPercent) }
             )
 
