@@ -20,21 +20,29 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +58,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.theme.CWColors
+import com.codewave.player.core.designsystem.theme.CWTypography
+import com.codewave.player.core.model.QueueWorkspace
 import com.codewave.player.core.model.Track
 
 enum class TerminalTab {
@@ -69,10 +79,23 @@ fun CWTerminalQueueDrawer(
     isExpanded: Boolean = false,
     onToggleExpand: (() -> Unit)? = null,
     onOpenFullQueue: (() -> Unit)? = null,
+    workspaces: List<QueueWorkspace> = emptyList(),
+    viewingWorkspaceId: String = "main",
+    onSelectWorkspace: (String) -> Unit = {},
+    onCreateWorkspace: (String) -> Unit = {},
+    onDeleteWorkspace: (String) -> Unit = {},
+    onClearWorkspace: (String) -> Unit = {},
+    onPlayWorkspace: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(TerminalTab.QUEUE) }
     var internalExpanded by remember { mutableStateOf(false) }
+    var showCreateWorkspaceDialog by remember { mutableStateOf(false) }
+    var newWorkspaceName by remember { mutableStateOf("") }
+
+    val activeViewingWorkspace = workspaces.find { it.id == viewingWorkspaceId } ?: workspaces.firstOrNull()
+    val effectiveQueue = if (workspaces.isNotEmpty()) (activeViewingWorkspace?.tracks ?: queue) else queue
+
     val effectiveExpanded = if (onToggleExpand != null) isExpanded else internalExpanded
     val toggleExpand: () -> Unit = {
         if (onToggleExpand != null) {
@@ -184,40 +207,194 @@ fun CWTerminalQueueDrawer(
             // Tab Content
             when (selectedTab) {
                 TerminalTab.QUEUE -> {
-                    // Queue list with code line numbers
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(contentHeight)
                     ) {
-                        if (queue.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(120.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "// Queue is empty",
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF6E7681)
-                                )
-                            }
-                        } else {
-                            LazyColumn(
+                        // Workspaces Editor Tabs Row (VS Code Tabs)
+                        if (workspaces.isNotEmpty()) {
+                            LazyRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
+                                    .background(Color(0xFF0D1117))
+                                    .border(0.5.dp, Color(0xFF21262D))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                itemsIndexed(queue, key = { index, item -> "${item.id}_$index" }) { index, track ->
-                                    val isCurrent = track.id == currentTrack?.id
-                                    TerminalQueueRow(
-                                        index = index + 1,
-                                        track = track,
-                                        isCurrent = isCurrent,
-                                        isPlaying = isPlaying && isCurrent,
-                                        onClick = { onTrackClick(track) },
-                                        onOptionsClick = { onTrackOptions?.invoke(track) }
+                                items(workspaces, key = { it.id }) { ws ->
+                                    val isSelected = ws.id == (activeViewingWorkspace?.id ?: "main")
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(if (isSelected) Color(0xFF1F242C) else Color(0xFF161B22))
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) CWColors.AccentCyan else Color(0xFF30363D),
+                                                shape = RoundedCornerShape(4.dp)
+                                            )
+                                            .clickable { onSelectWorkspace(ws.id) }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        if (ws.isPlaybackActive) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(CWColors.AccentCyan)
+                                            )
+                                        }
+                                        Text(
+                                            text = "${ws.name} (${ws.tracks.size})",
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) CWColors.AccentCyan else Color(0xFF8B949E)
+                                        )
+                                        if (ws.id != "main") {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Close Tab",
+                                                tint = Color(0xFF6E7681),
+                                                modifier = Modifier
+                                                    .size(11.dp)
+                                                    .clickable { onDeleteWorkspace(ws.id) }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // [+] Add New Workspace Tab
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF161B22))
+                                            .border(0.5.dp, Color(0xFF30363D), RoundedCornerShape(4.dp))
+                                            .clickable {
+                                                newWorkspaceName = "QUEUE ${workspaces.size + 1}"
+                                                showCreateWorkspaceDialog = true
+                                            }
+                                            .padding(horizontal = 7.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "New Workspace",
+                                            tint = CWColors.AccentCyan,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Secondary Workspace Action Prompt (if viewing non-playback workspace)
+                        if (activeViewingWorkspace != null && !activeViewingWorkspace.isPlaybackActive && effectiveQueue.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0x1F388BFD))
+                                    .border(0.5.dp, Color(0xFF388BFD).copy(alpha = 0.3f))
+                                    .padding(horizontal = 10.dp, vertical = 3.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Viewing: ${activeViewingWorkspace.name}",
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 9.5.sp,
+                                    color = Color(0xFF58A6FF)
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(CWColors.AccentCyan)
+                                            .clickable { onPlayWorkspace(activeViewingWorkspace.id) }
+                                            .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.PlayArrow,
+                                                contentDescription = null,
+                                                tint = Color(0xFF0D1117),
+                                                modifier = Modifier.size(10.dp)
+                                            )
+                                            Text(
+                                                text = "PLAY",
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF0D1117)
+                                            )
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF21262D))
+                                            .clickable { onClearWorkspace(activeViewingWorkspace.id) }
+                                            .padding(horizontal = 6.dp, vertical = 2.5.dp)
+                                    ) {
+                                        Text(
+                                            text = "CLEAR",
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 9.sp,
+                                            color = Color(0xFFFF8A65)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Queue list with code line numbers
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            if (effectiveQueue.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "// Workspace '${activeViewingWorkspace?.name ?: "Queue"}' is empty",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF6E7681)
                                     )
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    itemsIndexed(effectiveQueue, key = { index, item -> "${item.id}_${index}_${activeViewingWorkspace?.id ?: "main"}" }) { index, track ->
+                                        val isCurrent = track.id == currentTrack?.id
+                                        TerminalQueueRow(
+                                            index = index + 1,
+                                            track = track,
+                                            isCurrent = isCurrent && (activeViewingWorkspace?.isPlaybackActive != false),
+                                            isPlaying = isPlaying && isCurrent && (activeViewingWorkspace?.isPlaybackActive != false),
+                                            onClick = {
+                                                if (activeViewingWorkspace?.isPlaybackActive != false) {
+                                                    onTrackClick(track)
+                                                } else {
+                                                    onPlayWorkspace(activeViewingWorkspace.id)
+                                                }
+                                            },
+                                            onOptionsClick = { onTrackOptions?.invoke(track) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -325,6 +502,50 @@ fun CWTerminalQueueDrawer(
                 )
             }
         }
+    }
+
+    if (showCreateWorkspaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateWorkspaceDialog = false },
+            title = {
+                Text(
+                    text = "NEW QUEUE WORKSPACE",
+                    style = CWTypography.TechBadge,
+                    color = CWColors.AccentCyan,
+                    letterSpacing = 1.sp
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Create an independent queue workspace tab (e.g. RADIO, SCRATCHPAD, FOCUS).",
+                        style = CWTypography.AppTypography.bodySmall,
+                        color = Color(0xFF8B949E)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = newWorkspaceName,
+                        onValueChange = { newWorkspaceName = it },
+                        placeholder = { Text("Workspace name...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onCreateWorkspace(newWorkspaceName)
+                    showCreateWorkspaceDialog = false
+                }) {
+                    Text("CREATE", color = CWColors.AccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateWorkspaceDialog = false }) {
+                    Text("CANCEL", color = Color(0xFF8B949E))
+                }
+            }
+        )
     }
 }
 

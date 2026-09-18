@@ -1,0 +1,461 @@
+[
+  {
+    "id": "sony_wh1000xm5",
+    "brand": "Sony",
+    "model": "WH-1000XM5",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -4.8,
+    "gains": [-3.5, -2.8, -1.5, 0.2, 1.4, 1.8, -1.2, 3.2, 4.0, -1.5]
+  },
+  {
+    "id": "sony_wh1000xm4",
+    "brand": "Sony",
+    "model": "WH-1000XM4",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -4.2,
+    "gains": [-3.8, -3.2, -2.0, 0.5, 1.5, 1.2, -0.8, 3.5, 4.2, -2.0]
+  },
+  {
+    "id": "sony_wh1000xm3",
+    "brand": "Sony",
+    "model": "WH-1000XM3",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -5.1,
+    "gains": [-4.5, -3.8, -2.5, 0.0, 1.2, 1.5, -0.5, 3.8, 4.5, -1.0]
+  },
+  {
+    "id": "sony_wf1000xm4",
+    "brand": "Sony",
+    "model": "WF-1000XM4",
+    "type": "Wireless ANC In-Ear",
+    "source": "crinacle",
+    "preampDb": -3.5,
+    "gains": [-1.5, -2.0, -1.2, 0.8, 1.0, 0.5, 1.2, 2.8, 3.0, 0.5]
+  },
+  {
+    "id": "sony_wf1000xm5",
+    "brand": "Sony",
+    "model": "WF-1000XM5",
+    "type": "Wireless ANC In-Ear",
+    "source": "oratory1990",
+    "preampDb": -3.8,
+    "gains": [-1.2, -1.8, -0.8, 0.5, 1.2, 0.8, 1.5, 2.5, 3.2, 0.0]
+  },
+  {
+    "id": "sony_mdr7506",
+    "brand": "Sony",
+    "model": "MDR-7506",
+    "type": "Studio Monitor Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -4.0,
+    "gains": [2.5, 1.8, 0.5, -0.5, -1.2, 0.0, 1.0, -3.5, -2.8, 1.5]
+  },
+  {
+    "id": "sennheiser_hd650",
+    "brand": "Sennheiser",
+    "model": "HD 650",
+    "type": "Open-Back Dynamic",
+    "source": "oratory1990",
+    "preampDb": -5.8,
+    "gains": [5.5, 4.2, 1.5, -0.5, -0.8, 0.2, 1.0, 2.2, 2.8, 3.5]
+  },
+  {
+    "id": "sennheiser_hd600",
+    "brand": "Sennheiser",
+    "model": "HD 600",
+    "type": "Open-Back Dynamic",
+    "source": "oratory1990",
+    "preampDb": -5.5,
+    "gains": [5.8, 4.5, 1.8, -0.2, -0.5, 0.0, 0.8, 1.5, 2.2, 2.5]
+  },
+  {
+    "id": "sennheiser_hd560s",
+    "brand": "Sennheiser",
+    "model": "HD 560S",
+    "type": "Open-Back Dynamic",
+    "source": "oratory1990",
+    "preampDb": -3.2,
+    "gains": [3.0, 2.2, 0.8, -0.2, -0.5, 0.5, 0.2, -1.8, 1.0, 2.0]
+  },
+  {
+    "id": "sennheiser_hd800s",
+    "brand": "Sennheiser",
+    "model": "HD 800S",
+    "type": "Open-Back Flagship Reference",
+    "source": "oratory1990",
+    "preampDb": -6.2,
+    "gains": [6.0, 4.8, 2.0, 0.0, -0.5, 0.2, 0.5, -4.2, -1.5, 2.5]
+  },
+  {
+    "id": "sennheiser_momentum4",
+    "brand": "Sennheiser",
+    "model": "Momentum 4 Wireless",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -4.5,
+    "gains": [-4.0, -3.2, -1.5, 0.5, 1.2, 0.8, -0.5, 2.5, 3.5, 1.0]
+  },
+  {
+    "id": "sennheiser_ie200",
+    "brand": "Sennheiser",
+    "model": "IE 200",
+    "type": "In-Ear Monitor (IEM)",
+    "source": "crinacle",
+    "preampDb": -3.8,
+    "gains": [1.5, 1.0, 0.2, -0.5, 0.0, 0.8, 1.5, -2.5, 2.0, 3.2]
+  },
+  {
+    "id": "apple_airpodspro2",
+    "brand": "Apple",
+    "model": "AirPods Pro 2",
+    "type": "True Wireless ANC",
+    "source": "crinacle",
+    "preampDb": -2.5,
+    "gains": [1.2, 0.8, 0.0, -0.5, 0.2, 0.5, 0.8, -1.2, 1.8, 2.0]
+  },
+  {
+    "id": "apple_airpodspro",
+    "brand": "Apple",
+    "model": "AirPods Pro (1st Gen)",
+    "type": "True Wireless ANC",
+    "source": "crinacle",
+    "preampDb": -3.0,
+    "gains": [2.5, 1.8, 0.5, -0.2, 0.0, 0.5, 1.0, -1.8, 1.5, 2.5]
+  },
+  {
+    "id": "apple_airpodsmax",
+    "brand": "Apple",
+    "model": "AirPods Max",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -3.8,
+    "gains": [-1.2, -0.8, -0.5, 0.0, 0.8, 1.2, 1.5, -1.0, 2.8, 3.0]
+  },
+  {
+    "id": "apple_airpods3",
+    "brand": "Apple",
+    "model": "AirPods 3",
+    "type": "Open True Wireless",
+    "source": "rtings",
+    "preampDb": -4.2,
+    "gains": [4.0, 2.8, 0.5, -0.8, -0.5, 0.2, 1.2, 0.5, 2.0, 1.8]
+  },
+  {
+    "id": "audiotechnica_athm50x",
+    "brand": "Audio-Technica",
+    "model": "ATH-M50x",
+    "type": "Closed-Back Studio Monitor",
+    "source": "oratory1990",
+    "preampDb": -4.5,
+    "gains": [-1.5, -2.2, -1.8, 0.2, 1.0, 0.5, -1.5, 2.0, -2.8, 1.2]
+  },
+  {
+    "id": "audiotechnica_athm40x",
+    "brand": "Audio-Technica",
+    "model": "ATH-M40x",
+    "type": "Closed-Back Studio Monitor",
+    "source": "oratory1990",
+    "preampDb": -3.5,
+    "gains": [1.0, 0.5, -0.8, -0.2, 0.5, 0.8, -0.5, 1.8, -1.5, 2.0]
+  },
+  {
+    "id": "audiotechnica_athr70x",
+    "brand": "Audio-Technica",
+    "model": "ATH-R70x",
+    "type": "Open-Back Reference",
+    "source": "oratory1990",
+    "preampDb": -4.2,
+    "gains": [4.2, 3.0, 1.0, -0.5, -0.2, 0.0, 0.8, 1.5, 2.0, 2.2]
+  },
+  {
+    "id": "beyerdynamic_dt770pro_80",
+    "brand": "Beyerdynamic",
+    "model": "DT 770 Pro (80 Ohm)",
+    "type": "Closed-Back Studio",
+    "source": "oratory1990",
+    "preampDb": -4.8,
+    "gains": [-1.0, -1.5, -1.8, 0.8, 1.5, 0.8, -0.5, -4.2, -3.5, 2.0]
+  },
+  {
+    "id": "beyerdynamic_dt990pro",
+    "brand": "Beyerdynamic",
+    "model": "DT 990 Pro (250 Ohm)",
+    "type": "Open-Back Studio",
+    "source": "oratory1990",
+    "preampDb": -5.5,
+    "gains": [4.5, 3.0, 0.5, -0.8, 0.2, 0.5, 0.0, -5.5, -4.8, 1.5]
+  },
+  {
+    "id": "beyerdynamic_dt1990pro",
+    "brand": "Beyerdynamic",
+    "model": "DT 1990 Pro (Balanced Pads)",
+    "type": "Open-Back Reference",
+    "source": "oratory1990",
+    "preampDb": -5.0,
+    "gains": [3.5, 2.2, 0.2, -0.5, 0.0, 0.5, 0.8, -4.5, -3.2, 2.2]
+  },
+  {
+    "id": "moondrop_aria",
+    "brand": "Moondrop",
+    "model": "Aria",
+    "type": "In-Ear Monitor (IEM)",
+    "source": "crinacle",
+    "preampDb": -3.2,
+    "gains": [1.5, 0.8, -0.2, -0.5, 0.0, 0.5, 1.0, -1.5, 2.5, 3.0]
+  },
+  {
+    "id": "moondrop_blessing2",
+    "brand": "Moondrop",
+    "model": "Blessing 2",
+    "type": "Hybrid 1DD + 4BA IEM",
+    "source": "crinacle",
+    "preampDb": -3.0,
+    "gains": [3.0, 2.2, 0.5, -0.2, 0.0, 0.2, 0.5, -0.8, 1.8, 2.5]
+  },
+  {
+    "id": "moondrop_blessing2dusk",
+    "brand": "Moondrop",
+    "model": "Blessing 2: Dusk",
+    "type": "Hybrid 1DD + 4BA IEM",
+    "source": "crinacle",
+    "preampDb": -2.5,
+    "gains": [1.0, 0.5, 0.0, -0.2, 0.0, 0.2, 0.5, -0.5, 1.5, 2.2]
+  },
+  {
+    "id": "moondrop_chu2",
+    "brand": "Moondrop",
+    "model": "Chu II",
+    "type": "Budget Dynamic IEM",
+    "source": "crinacle",
+    "preampDb": -3.0,
+    "gains": [-0.5, -0.8, -0.5, 0.2, 0.5, 0.8, 1.2, -1.8, 2.0, 2.8]
+  },
+  {
+    "id": "moondrop_kato",
+    "brand": "Moondrop",
+    "model": "Kato",
+    "type": "DLC Dynamic IEM",
+    "source": "crinacle",
+    "preampDb": -2.8,
+    "gains": [1.2, 0.5, -0.2, -0.5, 0.2, 0.5, 0.8, -1.2, 2.2, 2.5]
+  },
+  {
+    "id": "moondrop_variations",
+    "brand": "Moondrop",
+    "model": "Variations",
+    "type": "Tribrid 1DD + 2BA + 2EST",
+    "source": "crinacle",
+    "preampDb": -2.2,
+    "gains": [-0.2, -0.5, 0.0, 0.5, 0.8, 0.5, 0.2, -0.8, 1.2, 1.8]
+  },
+  {
+    "id": "tangzu_waner",
+    "brand": "Tangzu",
+    "model": "Wan'er S.G",
+    "type": "Budget Dynamic IEM",
+    "source": "crinacle",
+    "preampDb": -2.8,
+    "gains": [0.5, 0.0, -0.5, -0.2, 0.5, 0.8, 1.0, -1.5, 2.0, 2.5]
+  },
+  {
+    "id": "7hz_salnotes_zero",
+    "brand": "7Hz",
+    "model": "Salnotes Zero",
+    "type": "Budget Reference IEM",
+    "source": "crinacle",
+    "preampDb": -3.2,
+    "gains": [2.5, 1.8, 0.5, -0.2, 0.0, 0.2, 0.5, -1.0, 1.8, 2.5]
+  },
+  {
+    "id": "7hz_timeless",
+    "brand": "7Hz",
+    "model": "Timeless",
+    "type": "Planar Magnetic IEM",
+    "source": "crinacle",
+    "preampDb": -3.5,
+    "gains": [0.5, 0.0, -0.5, 0.2, 0.5, 0.8, -1.2, -2.5, 2.2, 3.0]
+  },
+  {
+    "id": "bose_qc45",
+    "brand": "Bose",
+    "model": "QuietComfort 45",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -4.5,
+    "gains": [-2.0, -1.5, -0.8, 0.5, 1.2, 0.8, -1.5, -3.8, 2.5, 3.2]
+  },
+  {
+    "id": "bose_qc35ii",
+    "brand": "Bose",
+    "model": "QuietComfort 35 II",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -3.8,
+    "gains": [-1.2, -0.8, -0.2, 0.2, 0.8, 1.0, -0.8, 2.0, 2.8, 1.5]
+  },
+  {
+    "id": "bose_qc_ultra",
+    "brand": "Bose",
+    "model": "QuietComfort Ultra",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -4.2,
+    "gains": [-2.5, -1.8, -0.5, 0.2, 1.0, 1.2, -0.5, 2.2, 3.0, 1.8]
+  },
+  {
+    "id": "samsung_galaxybuds2pro",
+    "brand": "Samsung",
+    "model": "Galaxy Buds 2 Pro",
+    "type": "True Wireless ANC",
+    "source": "crinacle",
+    "preampDb": -2.0,
+    "gains": [0.5, 0.0, -0.2, 0.0, 0.2, 0.5, 0.2, -1.0, 1.5, 1.8]
+  },
+  {
+    "id": "samsung_galaxybudspro",
+    "brand": "Samsung",
+    "model": "Galaxy Buds Pro",
+    "type": "True Wireless ANC",
+    "source": "crinacle",
+    "preampDb": -2.2,
+    "gains": [-0.5, -0.8, -0.2, 0.0, 0.5, 0.8, 0.5, -0.8, 1.2, 2.0]
+  },
+  {
+    "id": "akg_k371",
+    "brand": "AKG",
+    "model": "K371",
+    "type": "Harman-Tuned Studio Closed-Back",
+    "source": "oratory1990",
+    "preampDb": -2.2,
+    "gains": [-0.5, -0.8, -0.2, 0.2, 0.5, 0.2, 0.0, 0.8, 1.5, 2.0]
+  },
+  {
+    "id": "akg_k240",
+    "brand": "AKG",
+    "model": "K240 Studio",
+    "type": "Semi-Open Studio Monitor",
+    "source": "oratory1990",
+    "preampDb": -5.2,
+    "gains": [6.2, 4.8, 1.8, -0.8, -1.2, 0.2, 1.5, 0.8, 2.0, 2.8]
+  },
+  {
+    "id": "akg_k702",
+    "brand": "AKG",
+    "model": "K702",
+    "type": "Open-Back Reference",
+    "source": "oratory1990",
+    "preampDb": -6.0,
+    "gains": [6.5, 5.0, 2.0, 0.0, -0.5, 0.0, 0.5, -2.2, 1.8, 3.2]
+  },
+  {
+    "id": "hifiman_sundara",
+    "brand": "Hifiman",
+    "model": "Sundara (2020)",
+    "type": "Planar Magnetic Open-Back",
+    "source": "oratory1990",
+    "preampDb": -4.8,
+    "gains": [4.8, 3.5, 1.2, -0.2, -0.5, 0.5, 0.8, 1.8, -1.5, 2.5]
+  },
+  {
+    "id": "hifiman_edition_xs",
+    "brand": "Hifiman",
+    "model": "Edition XS",
+    "type": "Planar Magnetic Stealth Magnets",
+    "source": "oratory1990",
+    "preampDb": -4.2,
+    "gains": [3.8, 2.5, 0.8, -0.5, -0.2, 0.2, 0.8, 1.2, -1.8, 2.0]
+  },
+  {
+    "id": "hifiman_ananda",
+    "brand": "Hifiman",
+    "model": "Ananda",
+    "type": "Planar Magnetic Open-Back",
+    "source": "oratory1990",
+    "preampDb": -4.5,
+    "gains": [4.2, 3.0, 1.0, -0.5, -0.2, 0.5, 0.8, 1.5, -2.0, 2.2]
+  },
+  {
+    "id": "truthear_zero_red",
+    "brand": "Truthear",
+    "model": "Zero:RED",
+    "type": "Dual Dynamic IEM (Crinacle Collab)",
+    "source": "crinacle",
+    "preampDb": -2.0,
+    "gains": [0.8, 0.2, -0.2, 0.0, 0.2, 0.5, 0.2, -0.5, 1.2, 1.5]
+  },
+  {
+    "id": "truthear_hexa",
+    "brand": "Truthear",
+    "model": "Hexa",
+    "type": "Hybrid 1DD + 3BA IEM",
+    "source": "crinacle",
+    "preampDb": -2.8,
+    "gains": [2.2, 1.5, 0.2, -0.2, 0.0, 0.2, 0.5, -0.8, 1.8, 2.5]
+  },
+  {
+    "id": "anker_soundcore_q30",
+    "brand": "Anker",
+    "model": "Soundcore Life Q30",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -6.0,
+    "gains": [-5.5, -4.5, -3.0, 0.8, 1.8, 1.5, -1.0, 2.5, 4.0, -0.5]
+  },
+  {
+    "id": "anker_space_q45",
+    "brand": "Anker",
+    "model": "Soundcore Space Q45",
+    "type": "Wireless ANC Over-Ear",
+    "source": "oratory1990",
+    "preampDb": -5.2,
+    "gains": [-4.5, -3.8, -2.2, 0.5, 1.5, 1.2, -0.8, 3.0, 3.8, 0.5]
+  },
+  {
+    "id": "focal_clear",
+    "brand": "Focal",
+    "model": "Clear",
+    "type": "High-End Open-Back Dynamic",
+    "source": "oratory1990",
+    "preampDb": -3.5,
+    "gains": [3.0, 2.0, 0.5, -0.5, -0.8, 0.0, 0.5, -1.8, 1.5, 2.8]
+  },
+  {
+    "id": "focal_bathys",
+    "brand": "Focal",
+    "model": "Bathys",
+    "type": "Hi-Fi Wireless ANC",
+    "source": "oratory1990",
+    "preampDb": -3.0,
+    "gains": [-1.2, -0.8, -0.2, 0.2, 0.5, 0.8, 0.2, 1.5, 2.0, 1.8]
+  },
+  {
+    "id": "shure_se215",
+    "brand": "Shure",
+    "model": "SE215",
+    "type": "Stage In-Ear Monitor",
+    "source": "crinacle",
+    "preampDb": -4.2,
+    "gains": [-2.5, -3.0, -2.0, 0.5, 1.2, 0.8, 1.5, 3.5, 4.5, 3.0]
+  },
+  {
+    "id": "kz_zsn_pro",
+    "brand": "KZ",
+    "model": "ZSN Pro",
+    "type": "Hybrid 1DD + 1BA IEM",
+    "source": "crinacle",
+    "preampDb": -5.5,
+    "gains": [-2.0, -2.5, -1.5, 0.2, 0.5, 0.2, -1.5, -4.8, -5.5, 2.0]
+  },
+  {
+    "id": "kiwi_ears_cadenza",
+    "brand": "Kiwi Ears",
+    "model": "Cadenza",
+    "type": "Beryllium Dynamic IEM",
+    "source": "crinacle",
+    "preampDb": -2.5,
+    "gains": [0.5, 0.0, -0.5, -0.2, 0.2, 0.5, 0.8, -1.2, 1.8, 2.2]
+  }
+]

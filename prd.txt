@@ -3465,3 +3465,72 @@ correctness × responsiveness × clarity × reliability
 A music player with 100 badly implemented features is inferior to a player with 30 features that behave flawlessly.
 
 CODEWAVE should earn its premium feel through engineering quality, not decoration.
+
+---
+
+# 122. AUTOEQ INTEGRATED PROFILE DATABASE
+
+CodeWave embeds an offline AutoEq parametric database covering standard consumer and audiophile headphones and in-ear monitors (IEMs).
+
+Targets supported:
+* Harman Over-Ear Target (2018)
+* Harman In-Ear Target (2019)
+* oratory1990 Studio Reference Target
+
+Rules:
+1. Pure local JSON asset storage (`assets/autoeq/models.json`).
+2. Translates frequency curves into calibrated 10-band graphic EQ levels:
+   * 31 Hz, 62 Hz, 125 Hz, 250 Hz, 500 Hz, 1 kHz, 2 kHz, 4 kHz, 8 kHz, 16 kHz.
+3. Automatically computes safe negative pre-amplification (`preampDb`) to prevent digital clipping / inter-sample peaks when boosting specific frequency bands.
+4. Prefix and model fuzzy searching integrated directly into the Equalizer Studio console.
+
+---
+
+# 123. PER-DEVICE AUDIO HARDWARE OUTPUT PROFILES
+
+Audio hardware routing changes frequently throughout a developer's day (Bluetooth ANC headphones at work, USB DAC at desk, 3.5mm aux in car, phone loudspeaker).
+
+Capabilities:
+1. Detects active output hardware via Android `AudioDeviceCallback`:
+   * `BLUETOOTH_A2DP`
+   * `WIRED_HEADPHONES` / `WIRED_HEADSET`
+   * `USB_HEADSET` / `USB_DEVICE`
+   * `BUILTIN_SPEAKER`
+2. Remembers last applied sound profile per unique audio device.
+3. Automatically switches EQ curve and DSP parameters upon device connection/disconnection without user intervention.
+4. Non-intrusive HUD telemetry banner alerts user to the active profile routing change.
+
+---
+
+# 124. MULTI-QUEUE WORKSPACES (VS CODE TABS)
+
+A workstation-grade queue management system inspired by code editor tabs.
+
+Architecture:
+1. Multiple concurrent playback queues maintained in memory:
+   * `MAIN` (Root playback queue, protected against deletion)
+   * Secondary custom workspaces (e.g. `SCRATCHPAD`, `FOCUS MIX`, `STUDIO REVIEW`)
+2. Tab bar embedded within the Terminal Queue Drawer:
+   * Visual indicator `*` demarcates the actively playing workspace.
+   * Tap any tab to view and edit its contents without disturbing current playback.
+3. Actions:
+   * `[PLAY]`: Swaps active playback to the currently viewed workspace.
+   * `[CLEAR]`: Empties queue of the inspected workspace.
+   * `[+]`: Opens modal to create a named workspace.
+
+---
+
+# 125. ATOMIC CONFIGURATION & LIBRARY BACKUP/RESTORE
+
+Zero-cloud, 100% offline data sovereignty.
+
+Engine:
+1. Export Engine:
+   * Serializes all Room database playlists, track mappings, favorite track IDs, custom parametric EQ curves, and workstation settings into single human-readable `.json` payload.
+   * Uses Android Storage Access Framework (`ActivityResultContracts.CreateDocument("application/json")`).
+2. Restore Engine:
+   * Reads `.json` stream via SAF (`ActivityResultContracts.OpenDocument`).
+   * Atomically verifies schema version (`version: 1`).
+   * Restores playlists, restores favorites, saves custom EQ presets, updates workstation preferences, and triggers an immediate local MediaStore reconciliation.
+3. Zero telemetry, zero external network requests. Data stays strictly in user-selected local storage.
+

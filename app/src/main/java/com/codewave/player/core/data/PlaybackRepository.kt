@@ -27,6 +27,7 @@ import com.codewave.player.core.model.AudioFormat
 import com.codewave.player.core.model.AudioOutputInfo
 import com.codewave.player.core.model.DSPStatus
 import com.codewave.player.core.model.PlaybackState
+import com.codewave.player.core.model.QueueWorkspace
 import com.codewave.player.core.model.RepeatMode
 import com.codewave.player.core.model.Track
 import com.google.common.util.concurrent.ListenableFuture
@@ -63,6 +64,17 @@ interface PlaybackRepository {
     fun stopSleepTimer()
     fun setVolumePercent(percent: Int)
     val audioWaveformBands: StateFlow<FloatArray>
+
+    // Multi-Queue Workspaces
+    val queueWorkspaces: StateFlow<List<QueueWorkspace>>
+    val viewingWorkspaceId: StateFlow<String>
+    fun setViewingWorkspace(workspaceId: String)
+    fun createWorkspace(name: String)
+    fun deleteWorkspace(workspaceId: String)
+    fun clearWorkspace(workspaceId: String)
+    fun addTrackToWorkspace(workspaceId: String, track: Track)
+    fun removeTrackFromWorkspace(workspaceId: String, trackIndex: Int)
+    fun playWorkspace(workspaceId: String, startIndex: Int = 0)
 }
 
 class DefaultPlaybackRepository(
@@ -89,6 +101,17 @@ class DefaultPlaybackRepository(
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     private var volumeObserver: ContentObserver? = null
     private var volumeReceiver: BroadcastReceiver? = null
+
+    private val _workspaces = MutableStateFlow<List<QueueWorkspace>>(
+        listOf(
+            QueueWorkspace(id = "main", name = "MAIN", tracks = emptyList(), isPlaybackActive = true),
+            QueueWorkspace(id = "scratchpad", name = "SCRATCHPAD", tracks = emptyList(), isPlaybackActive = false)
+        )
+    )
+    override val queueWorkspaces: StateFlow<List<QueueWorkspace>> = _workspaces.asStateFlow()
+
+    private val _viewingWorkspaceId = MutableStateFlow("main")
+    override val viewingWorkspaceId: StateFlow<String> = _viewingWorkspaceId.asStateFlow()
 
     init {
         initializeController()
@@ -398,6 +421,11 @@ class DefaultPlaybackRepository(
     @OptIn(UnstableApi::class)
     override fun playQueue(queue: List<Track>, startIndex: Int, startPositionMs: Long) {
         currentQueue = queue
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.isPlaybackActive) ws.copy(tracks = queue) else ws
+            }
+        }
         val mediaItems = queue.map { track ->
             val metadata = MediaMetadata.Builder()
                 .setTitle(track.title)
@@ -475,6 +503,11 @@ class DefaultPlaybackRepository(
         newQueue.add(insertIndex, track)
         currentQueue = newQueue
         _playbackState.update { it.copy(queue = newQueue) }
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.isPlaybackActive) ws.copy(tracks = newQueue) else ws
+            }
+        }
 
         val mediaItem = createMediaItem(track)
         player?.addMediaItem(insertIndex, mediaItem)
@@ -489,6 +522,11 @@ class DefaultPlaybackRepository(
         newQueue.add(track)
         currentQueue = newQueue
         _playbackState.update { it.copy(queue = newQueue) }
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.isPlaybackActive) ws.copy(tracks = newQueue) else ws
+            }
+        }
 
         val mediaItem = createMediaItem(track)
         controller?.addMediaItem(mediaItem)
@@ -662,5 +700,75 @@ class DefaultPlaybackRepository(
         sleepTimerJob = null
         controller?.volume = 1.0f
         _sleepTimerRemainingMs.value = 0L
+    }
+
+    override fun setViewingWorkspace(workspaceId: String) {
+        _viewingWorkspaceId.value = workspaceId
+    }
+
+    override fun createWorkspace(name: String) {
+        val trimmed = name.trim().ifBlank { "QUEUE ${_workspaces.value.size + 1}" }
+        val id = "ws_${System.currentTimeMillis()}"
+        _workspaces.update { it + QueueWorkspace(id = id, name = trimmed.uppercase(), tracks = emptyList(), isPlaybackActive = false) }
+        _viewingWorkspaceId.value = id
+    }
+
+    override fun deleteWorkspace(workspaceId: String) {
+        if (workspaceId == "main") return
+        _workspaces.update { list -> list.filterNot { it.id == workspaceId } }
+        if (_viewingWorkspaceId.value == workspaceId) {
+            _viewingWorkspaceId.value = "main"
+        }
+    }
+
+    override fun clearWorkspace(workspaceId: String) {
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.id == workspaceId) ws.copy(tracks = emptyList()) else ws
+            }
+        }
+        val isPlayback = _workspaces.value.find { it.id == workspaceId }?.isPlaybackActive == true
+        if (isPlayback) {
+            currentQueue = emptyList()
+            _playbackState.update { it.copy(queue = emptyList(), currentTrack = null, isPlaying = false) }
+            controller?.clearMediaItems()
+        }
+    }
+
+    override fun addTrackToWorkspace(workspaceId: String, track: Track) {
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.id == workspaceId) ws.copy(tracks = ws.tracks + track) else ws
+            }
+        }
+        val targetWs = _workspaces.value.find { it.id == workspaceId }
+        if (targetWs?.isPlaybackActive == true) {
+            addToQueue(track)
+        }
+    }
+
+    override fun removeTrackFromWorkspace(workspaceId: String, trackIndex: Int) {
+        _workspaces.update { list ->
+            list.map { ws ->
+                if (ws.id == workspaceId) {
+                    val updated = ws.tracks.toMutableList()
+                    if (trackIndex in updated.indices) {
+                        updated.removeAt(trackIndex)
+                    }
+                    ws.copy(tracks = updated)
+                } else ws
+            }
+        }
+    }
+
+    override fun playWorkspace(workspaceId: String, startIndex: Int) {
+        val ws = _workspaces.value.find { it.id == workspaceId } ?: return
+        if (ws.tracks.isEmpty()) return
+
+        _workspaces.update { list ->
+            list.map { it.copy(isPlaybackActive = it.id == workspaceId) }
+        }
+        _viewingWorkspaceId.value = workspaceId
+        playQueue(ws.tracks, startIndex)
     }
 }

@@ -12,13 +12,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.codewave.player.core.designsystem.component.CWButton
 import com.codewave.player.core.designsystem.component.CWButtonVariant
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
@@ -84,12 +90,26 @@ fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val gapless by viewModel.gaplessEnabled.collectAsState()
     val crossfade by viewModel.crossfadeSeconds.collectAsState()
     val themeId by viewModel.themeId.collectAsState()
     val minDuration by viewModel.minDurationSeconds.collectAsState()
     val otaStatus by viewModel.otaUpdateStatus.collectAsState()
+    val backupStatus by viewModel.backupOperationStatus.collectAsState()
     var isThemeSheetOpen by remember { mutableStateOf(false) }
+
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { viewModel.exportBackup(context, it) }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.importBackup(context, it) }
+    }
 
     Column(
         modifier = modifier
@@ -107,7 +127,7 @@ fun SettingsScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = CWColors.TextPrimary
                 )
@@ -386,6 +406,107 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Section: Data & Backup Portability (Feature 2.4)
+        SettingsHeader(title = "DATA & BACKUP PORTABILITY")
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(CWShapes.RadiusMedium),
+            colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "JSON Configuration & Library Backup",
+                            style = CWTypography.AppTypography.titleMedium,
+                            color = CWColors.TextPrimary
+                        )
+                        Text(
+                            text = "Export and restore playlists, favorites, custom parametric EQ presets, and workstation preferences. 100% offline, zero cloud lock-in.",
+                            style = CWTypography.AppTypography.bodyMedium,
+                            color = CWColors.TextSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CWButton(
+                        text = "Export JSON",
+                        onClick = {
+                            createBackupLauncher.launch("codewave_backup_${System.currentTimeMillis()}.json")
+                        },
+                        variant = CWButtonVariant.OUTLINED,
+                        leadingIcon = Icons.Default.SaveAlt,
+                        modifier = Modifier.weight(1f)
+                    )
+                    CWButton(
+                        text = "Restore JSON",
+                        onClick = {
+                            restoreBackupLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                        },
+                        variant = CWButtonVariant.OUTLINED,
+                        leadingIcon = Icons.Default.FolderOpen,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (backupStatus != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                            .background(CWColors.SurfaceElevated)
+                            .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.4f), RoundedCornerShape(CWShapes.RadiusSmall))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = backupStatus ?: "",
+                            style = CWTypography.TechTelemetry,
+                            color = CWColors.AccentCyan,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { viewModel.clearBackupStatus() },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = CWColors.TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CWTechnicalBadge(text = "ATOMIC JSON ENGINE", textColor = CWColors.Success)
+                    CWTechnicalBadge(text = "ZERO CLOUD / 100% OFFLINE", textColor = CWColors.AccentCyan)
                 }
             }
         }
@@ -801,7 +922,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Version", style = CWTypography.AppTypography.bodyMedium, color = CWColors.TextSecondary)
-                    CWTechnicalBadge(text = "1.3.4 (Release)")
+                    CWTechnicalBadge(text = "1.8.0 (Release)")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(

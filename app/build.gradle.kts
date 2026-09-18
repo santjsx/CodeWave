@@ -16,8 +16,8 @@ android {
         applicationId = "com.codewave.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "1.7.0"
+        versionCode = 33
+        versionName = "1.8.0"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86"))
@@ -147,9 +147,10 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-  // Local tests: jUnit, coroutines
+  // Local tests: jUnit, coroutines, JSON
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation("org.json:json:20240303")
 
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)

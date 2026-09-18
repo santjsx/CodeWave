@@ -44,6 +44,12 @@ interface TrackDao {
     @Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE ASC")
     fun getAllTracksFlow(): Flow<List<TrackEntity>>
 
+    @Query("SELECT * FROM tracks ORDER BY title COLLATE NOCASE ASC")
+    suspend fun getAllTracks(): List<TrackEntity>
+
+    @Query("SELECT * FROM tracks WHERE isFavorite = 1 ORDER BY dateModified DESC")
+    suspend fun getFavoriteTracks(): List<TrackEntity>
+
     @Query("SELECT * FROM tracks WHERE id = :id LIMIT 1")
     suspend fun getTrackById(id: Long): TrackEntity?
 
@@ -138,6 +144,9 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists ORDER BY modifiedAt DESC")
     fun getAllPlaylistsFlow(): Flow<List<PlaylistEntity>>
 
+    @Query("SELECT * FROM playlists ORDER BY modifiedAt DESC")
+    suspend fun getAllPlaylists(): List<PlaylistEntity>
+
     @Query("SELECT * FROM playlists WHERE id = :id LIMIT 1")
     suspend fun getPlaylistById(id: Long): PlaylistEntity?
 
@@ -166,6 +175,14 @@ interface PlaylistDao {
         ORDER BY pt.position ASC
     """)
     fun getTracksForPlaylistFlow(playlistId: Long): Flow<List<TrackEntity>>
+
+    @Query("""
+        SELECT t.* FROM tracks t
+        INNER JOIN playlist_tracks pt ON t.id = pt.trackId
+        WHERE pt.playlistId = :playlistId
+        ORDER BY pt.position ASC
+    """)
+    suspend fun getTracksForPlaylist(playlistId: Long): List<TrackEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addTrackToPlaylist(crossRef: PlaylistTrackCrossRef)

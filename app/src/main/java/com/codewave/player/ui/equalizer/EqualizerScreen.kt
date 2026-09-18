@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,15 +33,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.codewave.player.core.model.AutoEqModel
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -95,7 +101,19 @@ fun EqualizerScreen(
     val presets by viewModel.presets.collectAsState()
     val dspStatus by viewModel.dspStatus.collectAsState()
 
+    val autoEqBrands by viewModel.autoEqBrands.collectAsState()
+    val autoEqModels by viewModel.autoEqModels.collectAsState()
+    val selectedBrandFilter by viewModel.selectedBrandFilter.collectAsState()
+    val autoEqSearchQuery by viewModel.autoEqSearchQuery.collectAsState()
+    val activeAutoEqModelId by viewModel.activeAutoEqModelId.collectAsState()
+
+    val currentConnectedDevice by viewModel.currentConnectedDevice.collectAsState()
+    val boundProfileForCurrentDevice by viewModel.boundProfileForCurrentDevice.collectAsState()
+    val autoSwitchProfiles by viewModel.autoSwitchProfiles.collectAsState()
+    val routingNotice by viewModel.routingNotice.collectAsState()
+
     var isPresetSheetOpen by remember { mutableStateOf(false) }
+    var isAutoEqSheetOpen by remember { mutableStateOf(false) }
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var savePresetName by remember { mutableStateOf("") }
 
@@ -130,6 +148,38 @@ fun EqualizerScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 120.dp)
     ) {
+        // Telemetry Notice Banner
+        routingNotice?.let { notice ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                    .background(CWColors.AccentCyan.copy(alpha = 0.12f))
+                    .border(1.dp, CWColors.AccentCyan.copy(alpha = 0.35f), RoundedCornerShape(CWShapes.RadiusSmall))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = ">_ $notice",
+                    style = CWTypography.TechTelemetry,
+                    color = CWColors.AccentCyan,
+                    fontSize = 9.5.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Dismiss",
+                    tint = CWColors.AccentCyan,
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clickable { viewModel.dismissRoutingNotice() }
+                )
+            }
+        }
+
         // 1. Studio Master Header Console
         Row(
             modifier = Modifier
@@ -1304,6 +1354,309 @@ fun EqualizerScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 7. AutoEq Headphone Calibration Console (Harman / Oratory1990 Targets)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                .background(CWColors.SurfacePrimary)
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
+                .padding(14.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Headphones,
+                            contentDescription = null,
+                            tint = CWColors.AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "AUTOEQ HEADPHONE TARGETS",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.TextSecondary,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "HARMAN · ORATORY1990 · CRINACLE",
+                                style = CWTypography.TechTelemetry,
+                                color = CWColors.AccentCyan.copy(alpha = 0.7f),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CWShapes.RadiusFull))
+                            .background(CWColors.AccentCyan.copy(alpha = 0.12f))
+                            .border(0.5.dp, CWColors.AccentCyan.copy(alpha = 0.4f), RoundedCornerShape(CWShapes.RadiusFull))
+                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "5,000+ MODELS",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.AccentCyan,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Active Model Indicator or Placeholder
+                val activeModel = autoEqModels.find { it.id == activeAutoEqModelId }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                        .background(if (activeModel != null) CWColors.AccentCyan.copy(alpha = 0.08f) else CWColors.SurfaceElevated)
+                        .border(
+                            width = 1.dp,
+                            color = if (activeModel != null) CWColors.AccentCyan.copy(alpha = 0.4f) else CWColors.BorderSubtle,
+                            shape = RoundedCornerShape(CWShapes.RadiusMedium)
+                        )
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (activeModel != null) activeModel.displayName.uppercase() else "NO CALIBRATION PROFILE ACTIVE",
+                                style = CWTypography.TechBadge,
+                                color = if (activeModel != null) CWColors.AccentCyan else CWColors.TextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = if (activeModel != null)
+                                    "${activeModel.type.uppercase()} · ${activeModel.source.uppercase()} · PREAMP ${activeModel.preampDb} dB"
+                                else
+                                    "Calibrate frequency response to neutral Harman Target",
+                                style = CWTypography.TechTelemetry,
+                                color = CWColors.TextTertiary,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        if (activeModel != null) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.SurfacePrimary)
+                                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable { viewModel.clearAutoEq() }
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "CLEAR",
+                                    style = CWTypography.TechBadge,
+                                    color = Color(0xFFFF8A65),
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Selector Action Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                        .background(CWColors.AccentCyan)
+                        .clickable { isAutoEqSheetOpen = true }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = Color(0xFF0D1117),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "SEARCH HEADPHONE DATABASE",
+                            style = CWTypography.TechBadge,
+                            color = Color(0xFF0D1117),
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 8. Per-Device Hardware Output Profiles Console
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(CWShapes.RadiusLarge))
+                .background(CWColors.SurfacePrimary)
+                .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusLarge))
+                .padding(14.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (currentConnectedDevice.isWireless) Icons.Default.Bluetooth else Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = CWColors.AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "HARDWARE DEVICE PROFILES",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.TextSecondary,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "AUTO-SWITCH EQ PER HEADPHONE / SPEAKER",
+                                style = CWTypography.TechTelemetry,
+                                color = CWColors.AccentCyan.copy(alpha = 0.7f),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = autoSwitchProfiles,
+                        onCheckedChange = { viewModel.setAutoSwitchProfiles(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CWColors.Background,
+                            checkedTrackColor = CWColors.AccentCyan,
+                            uncheckedThumbColor = CWColors.TextTertiary,
+                            uncheckedTrackColor = CWColors.SurfaceOverlay
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Current Device Banner
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                        .background(CWColors.SurfaceElevated)
+                        .border(1.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusMedium))
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(CWColors.Success)
+                                )
+                                Text(
+                                    text = currentConnectedDevice.name.uppercase(),
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.TextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "${currentConnectedDevice.typeName.uppercase()} · ${if (boundProfileForCurrentDevice != null) "BOUND: $boundProfileForCurrentDevice" else "NO PROFILE BOUND"}",
+                                style = CWTypography.TechTelemetry,
+                                color = if (boundProfileForCurrentDevice != null) CWColors.AccentCyan else CWColors.TextTertiary,
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        if (boundProfileForCurrentDevice != null) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.SurfacePrimary)
+                                    .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable { viewModel.clearDeviceProfile(currentConnectedDevice.id) }
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "UNLINK",
+                                    style = CWTypography.TechBadge,
+                                    color = Color(0xFFFF8A65),
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .background(CWColors.AccentCyan.copy(alpha = 0.15f))
+                                    .border(0.5.dp, CWColors.AccentCyan.copy(alpha = 0.5f), RoundedCornerShape(CWShapes.RadiusSmall))
+                                    .clickable { viewModel.bindCurrentProfileToDevice(currentConnectedDevice.id) }
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "LINK CURRENT EQ",
+                                    style = CWTypography.TechBadge,
+                                    color = CWColors.AccentCyan,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Modal Sheet: Full Presets List with Mini Curve Previews
@@ -1476,6 +1829,254 @@ fun EqualizerScreen(
                                             contentDescription = "Delete preset",
                                             tint = CWColors.Danger.copy(alpha = 0.8f),
                                             modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
+    // Modal Sheet: AutoEq Headphone Calibration Database
+    if (isAutoEqSheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isAutoEqSheetOpen = false },
+            containerColor = CWColors.SurfaceElevated,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "AUTOEQ HEADPHONE TARGETS",
+                            style = CWTypography.TechBadge,
+                            color = CWColors.AccentCyan,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "${autoEqModels.size} MODELS AVAILABLE",
+                            style = CWTypography.TechTelemetry,
+                            color = CWColors.TextTertiary,
+                            fontSize = 8.5.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    if (activeAutoEqModelId != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(CWColors.SurfacePrimary)
+                                .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusSmall))
+                                .clickable {
+                                    viewModel.clearAutoEq()
+                                    isAutoEqSheetOpen = false
+                                }
+                                .padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "RESET TO FLAT",
+                                style = CWTypography.TechBadge,
+                                color = Color(0xFFFF8A65),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Search Bar
+                OutlinedTextField(
+                    value = autoEqSearchQuery,
+                    onValueChange = { viewModel.setAutoEqSearchQuery(it) },
+                    placeholder = {
+                        Text(
+                            text = "Search model (e.g. WH-1000XM4, HD 650, Aria)...",
+                            fontSize = 12.sp,
+                            color = CWColors.TextTertiary
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = CWColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (autoEqSearchQuery.isNotBlank()) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear search",
+                                tint = CWColors.TextSecondary,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable { viewModel.setAutoEqSearchQuery("") }
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Brand Filter Chips Row
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(autoEqBrands) { brand ->
+                        val isSelected = selectedBrandFilter.equals(brand, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(CWShapes.RadiusSmall))
+                                .background(
+                                    if (isSelected) CWColors.AccentCyan.copy(alpha = 0.2f) else CWColors.SurfacePrimary
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                    shape = RoundedCornerShape(CWShapes.RadiusSmall)
+                                )
+                                .clickable { viewModel.setAutoEqBrandFilter(brand) }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = brand.uppercase(),
+                                style = CWTypography.TechBadge,
+                                color = if (isSelected) CWColors.AccentCyan else CWColors.TextSecondary,
+                                fontSize = 9.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Models List
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(380.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (autoEqModels.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(150.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "// No matching headphone models found",
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    color = CWColors.TextTertiary
+                                )
+                            }
+                        }
+                    } else {
+                        items(autoEqModels, key = { it.id }) { model ->
+                            val isSelected = activeAutoEqModelId == model.id
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(CWShapes.RadiusMedium))
+                                    .background(
+                                        if (isSelected) CWColors.AccentCyan.copy(alpha = 0.12f)
+                                        else CWColors.SurfacePrimary
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSelected) CWColors.AccentCyan else CWColors.BorderSubtle,
+                                        shape = RoundedCornerShape(CWShapes.RadiusMedium)
+                                    )
+                                    .clickable {
+                                        viewModel.applyAutoEqModel(model)
+                                        isAutoEqSheetOpen = false
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = model.displayName,
+                                            style = CWTypography.AppTypography.bodyMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                            color = if (isSelected) CWColors.AccentCyan else CWColors.TextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(CWShapes.RadiusFull))
+                                                .background(CWColors.SurfaceElevated)
+                                                .border(0.5.dp, CWColors.BorderSubtle, RoundedCornerShape(CWShapes.RadiusFull))
+                                                .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        ) {
+                                            Text(
+                                                text = model.source.uppercase(),
+                                                style = CWTypography.TechBadge,
+                                                color = CWColors.AccentCyan,
+                                                fontSize = 7.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${model.type} · Preamp: ${model.preampDb} dB",
+                                        style = CWTypography.TechTelemetry,
+                                        color = CWColors.TextTertiary,
+                                        fontSize = 9.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    PresetMiniCurve(
+                                        bandGains = model.gains,
+                                        isSelected = isSelected,
+                                        modifier = Modifier
+                                            .width(48.dp)
+                                            .height(24.dp)
+                                    )
+
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Active",
+                                            tint = CWColors.AccentCyan,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                 }

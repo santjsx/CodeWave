@@ -50,6 +50,14 @@ interface SettingsRepository {
     suspend fun setMinDurationSeconds(seconds: Int)
     suspend fun setFinishTrackOnSleep(enabled: Boolean)
     suspend fun setSleepFadeOut(enabled: Boolean)
+
+    fun getDeviceProfile(deviceId: String): Flow<String?>
+    suspend fun setDeviceProfile(deviceId: String, presetName: String)
+    suspend fun clearDeviceProfile(deviceId: String)
+    val autoSwitchDeviceProfiles: Flow<Boolean>
+    suspend fun setAutoSwitchDeviceProfiles(enabled: Boolean)
+    val activeAutoEqModelId: Flow<String?>
+    suspend fun setActiveAutoEqModelId(modelId: String?)
 }
 
 class DefaultSettingsRepository(private val context: Context) : SettingsRepository {
@@ -69,8 +77,11 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
         val MIN_DURATION_SECONDS = intPreferencesKey("min_duration_seconds")
         val FINISH_TRACK_ON_SLEEP = booleanPreferencesKey("finish_track_on_sleep")
         val SLEEP_FADE_OUT = booleanPreferencesKey("sleep_fade_out")
+        val AUTO_SWITCH_DEVICE_PROFILES = booleanPreferencesKey("auto_switch_device_profiles")
+        val ACTIVE_AUTOEQ_MODEL_ID = stringPreferencesKey("active_autoeq_model_id")
 
         fun lyricsOffsetKey(trackPath: String) = longPreferencesKey("lyrics_offset_${trackPath.hashCode()}")
+        fun deviceProfileKey(deviceId: String) = stringPreferencesKey("device_profile_${deviceId.lowercase().replace("[^a-z0-9_]".toRegex(), "_")}")
     }
 
     override val songSortOption: Flow<SongSortOption> = context.settingsDataStore.data.map { prefs ->
@@ -152,6 +163,46 @@ class DefaultSettingsRepository(private val context: Context) : SettingsReposito
     override suspend fun clearLyricsOffset(trackPath: String) {
         context.settingsDataStore.edit {
             it.remove(Keys.lyricsOffsetKey(trackPath))
+        }
+    }
+
+    override fun getDeviceProfile(deviceId: String): Flow<String?> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.deviceProfileKey(deviceId)]
+    }
+
+    override suspend fun setDeviceProfile(deviceId: String, presetName: String) {
+        context.settingsDataStore.edit {
+            it[Keys.deviceProfileKey(deviceId)] = presetName
+        }
+    }
+
+    override suspend fun clearDeviceProfile(deviceId: String) {
+        context.settingsDataStore.edit {
+            it.remove(Keys.deviceProfileKey(deviceId))
+        }
+    }
+
+    override val autoSwitchDeviceProfiles: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.AUTO_SWITCH_DEVICE_PROFILES] ?: true
+    }
+
+    override suspend fun setAutoSwitchDeviceProfiles(enabled: Boolean) {
+        context.settingsDataStore.edit {
+            it[Keys.AUTO_SWITCH_DEVICE_PROFILES] = enabled
+        }
+    }
+
+    override val activeAutoEqModelId: Flow<String?> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.ACTIVE_AUTOEQ_MODEL_ID]
+    }
+
+    override suspend fun setActiveAutoEqModelId(modelId: String?) {
+        context.settingsDataStore.edit {
+            if (modelId != null) {
+                it[Keys.ACTIVE_AUTOEQ_MODEL_ID] = modelId
+            } else {
+                it.remove(Keys.ACTIVE_AUTOEQ_MODEL_ID)
+            }
         }
     }
 

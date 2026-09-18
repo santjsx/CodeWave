@@ -117,6 +117,8 @@ fun NowPlayingScreen(
     val state by playbackRepository.playbackState.collectAsState()
     val sleepTimerRemainingMs by playbackRepository.sleepTimerRemainingMs.collectAsState()
     val waveformBands by playbackRepository.audioWaveformBands.collectAsState()
+    val workspaces by playbackRepository.queueWorkspaces.collectAsState()
+    val viewingWorkspaceId by playbackRepository.viewingWorkspaceId.collectAsState()
     val track = state.currentTrack ?: return
 
     var centerView by remember { mutableStateOf(NowPlayingCenterView.ARTWORK) }
@@ -515,6 +517,13 @@ fun NowPlayingScreen(
                 isExpanded = isQueueExpanded,
                 onToggleExpand = { isQueueExpanded = !isQueueExpanded },
                 onOpenFullQueue = { isQueueSheetOpen = true },
+                workspaces = workspaces,
+                viewingWorkspaceId = viewingWorkspaceId,
+                onSelectWorkspace = { id -> playbackRepository.setViewingWorkspace(id) },
+                onCreateWorkspace = { name -> playbackRepository.createWorkspace(name) },
+                onDeleteWorkspace = { id -> playbackRepository.deleteWorkspace(id) },
+                onClearWorkspace = { id -> playbackRepository.clearWorkspace(id) },
+                onPlayWorkspace = { id -> playbackRepository.playWorkspace(id) },
                 onClose = {
                     if (isQueueExpanded) {
                         isQueueExpanded = false

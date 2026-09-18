@@ -92,13 +92,20 @@ fun CodeWaveApp(
         factory = PlaylistsViewModel.provideFactory(container.libraryRepository, container.playbackRepository)
     )
     val equalizerViewModel: EqualizerViewModel = viewModel(
-        factory = EqualizerViewModel.provideFactory(container.equalizerRepository, container.playbackRepository)
+        factory = EqualizerViewModel.provideFactory(
+            container.equalizerRepository,
+            container.playbackRepository,
+            container.autoEqManager,
+            container.audioDeviceManager,
+            container.settingsRepository
+        )
     )
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.provideFactory(
             container.settingsRepository,
             container.libraryRepository,
-            container.otaUpdateManager
+            container.otaUpdateManager,
+            container.backupRestoreManager
         )
     )
 
