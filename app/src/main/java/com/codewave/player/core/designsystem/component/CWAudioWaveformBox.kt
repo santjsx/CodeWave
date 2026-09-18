@@ -1,6 +1,5 @@
 package com.codewave.player.core.designsystem.component
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -25,7 +24,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.theme.CWColors
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -62,6 +70,65 @@ fun CWAudioWaveformBox(
         ),
         label = "WaveformPhase"
     )
+
+    // Hardware-synchronized frame-time interpolation state (runs at display refresh: 60Hz/90Hz/120Hz)
+    val displayHeights = remember { FloatArray(48) { 0.05f } }
+    val frameTick = remember { mutableLongStateOf(0L) }
+    val currentIsPlaying by rememberUpdatedState(isPlaying)
+    val latestBands by rememberUpdatedState(waveformBands)
+
+    LaunchedEffect(Unit) {
+        var lastNanos = 0L
+
+        while (isActive) {
+            // When paused and bars have settled, suspend cleanly to conserve 100% CPU/battery
+            if (!currentIsPlaying) {
+                var allSettled = true
+                for (h in displayHeights) {
+                    if (h > 0.045f) {
+                        allSettled = false
+                        break
+                    }
+                }
+                if (allSettled) {
+                    lastNanos = 0L
+                    snapshotFlow { currentIsPlaying }.first { it }
+                }
+            }
+
+            withFrameNanos { nowNanos ->
+                if (lastNanos != 0L) {
+                    val dt = ((nowNanos - lastNanos) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+                    val bands = latestBands
+                    val hasLiveBands = currentIsPlaying && bands != null && bands.size >= 48
+
+                    for (i in 0 until 48) {
+                        val target = if (hasLiveBands) {
+                            bands[i]
+                        } else if (currentIsPlaying) {
+                            val norm = i.toFloat() / 48
+                            val env = sin(norm * Math.PI).toFloat()
+                            val w1 = sin(norm * 12.0 + phase).toFloat()
+                            val w2 = sin(norm * 6.0 - phase * 1.5).toFloat()
+                            (0.35f + 0.35f * (w1 * 0.6f + w2 * 0.4f + 1f)) * env
+                        } else {
+                            0.04f
+                        }
+
+                        val cur = displayHeights[i]
+                        // Physical ballistic response:
+                        // Instant snappy attack on drum transients (speed 36.0/s)
+                        // Smooth gravitational decay for analog meter falloff (speed 14.0/s)
+                        val speed = if (target > cur) 36.0f else 14.0f
+                        val factor = (1.0f - exp(-speed * dt)).coerceIn(0f, 1f)
+                        displayHeights[i] = cur + (target - cur) * factor
+                    }
+                    frameTick.longValue = nowNanos
+                }
+                lastNanos = nowNanos
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -159,39 +226,26 @@ fun CWAudioWaveformBox(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Center Waveform Canvas
+            // Center Waveform Canvas (interpolated on display Choreographer refresh rate)
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(38.dp)
             ) {
+                // Reading frameTick triggers redrawing at the native refresh rate (60/90/120Hz)
+                @Suppress("UNUSED_VARIABLE")
+                val tick = frameTick.longValue
+
                 val barCount = 48
                 val barWidth = 2.dp.toPx()
                 val totalBarsWidth = barCount * barWidth
                 val spacing = (size.width - totalBarsWidth) / (barCount - 1).coerceAtLeast(1)
                 val midY = size.height / 2f
-
-                val hasLiveBands = isPlaying && waveformBands != null && waveformBands.isNotEmpty()
                 val minBarHeightPx = 3.dp.toPx()
 
                 for (i in 0 until barCount) {
-                    val normalizedIndex = i.toFloat() / barCount
-                    // Bell envelope shape (higher in middle, tapering at sides)
-                    val envelope = sin(normalizedIndex * Math.PI).toFloat()
-
-                    val barHeight = if (hasLiveBands) {
-                        val bandMagnitude = waveformBands.getOrNull(i) ?: 0.05f
-                        ((size.height * 0.95f) * bandMagnitude).coerceIn(minBarHeightPx, size.height)
-                    } else if (isPlaying) {
-                        // Fallback procedural wave animation if audio buffer not yet populated
-                        val w1 = sin(normalizedIndex * 12.0 + phase).toFloat()
-                        val w2 = sin(normalizedIndex * 6.0 - phase * 1.5).toFloat()
-                        val waveModifier = 0.4f + 0.35f * (w1 * 0.6f + w2 * 0.4f + 1f)
-                        ((size.height * 0.9f) * envelope * waveModifier).coerceAtLeast(minBarHeightPx)
-                    } else {
-                        // Calm resting dots when paused
-                        (minBarHeightPx + (size.height * 0.08f) * envelope)
-                    }
+                    val magnitude = displayHeights[i]
+                    val barHeight = ((size.height * 0.95f) * magnitude).coerceIn(minBarHeightPx, size.height)
 
                     val x = i * (barWidth + spacing)
                     val y = midY - barHeight / 2f

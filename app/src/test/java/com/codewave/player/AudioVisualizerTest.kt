@@ -27,7 +27,7 @@ class AudioVisualizerTest {
         val visualizer = AudioVisualizerProcessor()
 
         // Generate synthetic stereo audio with 100 Hz bass sine wave at 44.1 kHz
-        val sampleCount = 2048
+        val sampleCount = 4096
         val sampleRate = 44100.0
         val freq = 100.0 // Bass kick frequency
         val testBuffer = FloatArray(sampleCount)
@@ -58,12 +58,44 @@ class AudioVisualizerTest {
     }
 
     @Test
+    fun testStereoSeparation() {
+        val visualizer = AudioVisualizerProcessor()
+
+        // Feed audio with loud tone ONLY in left channel, right channel silent
+        val sampleCount = 4096
+        val sampleRate = 44100.0
+        val freq = 1000.0
+        val testBuffer = FloatArray(sampleCount)
+
+        for (i in 0 until sampleCount step 2) {
+            val t = (i / 2) / sampleRate
+            testBuffer[i] = sin(2.0 * PI * freq * t).toFloat() * 0.9f // Left loud
+            testBuffer[i + 1] = 0f                                    // Right silent
+        }
+
+        visualizer.feedAudio(testBuffer, sampleCount)
+
+        val bands = visualizer.waveformBands.value
+        var leftEnergy = 0f
+        var rightEnergy = 0f
+
+        for (i in 0 until 24) {
+            leftEnergy += bands[i]
+        }
+        for (i in 24 until 48) {
+            rightEnergy += bands[i]
+        }
+
+        assertTrue("Left channel must register significantly higher energy than silent right channel", leftEnergy > rightEnergy)
+    }
+
+    @Test
     fun testVisualizerPauseResetsToBaseline() {
         val visualizer = AudioVisualizerProcessor()
 
         // Feed some loud audio
-        val loud = FloatArray(1024) { 0.9f }
-        visualizer.feedAudio(loud, 1024)
+        val loud = FloatArray(2048) { 0.9f }
+        visualizer.feedAudio(loud, 2048)
 
         // Call onPause
         visualizer.onPause()
