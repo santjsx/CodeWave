@@ -125,17 +125,22 @@ fun HomeScreen(
         }
     }
 
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(CWColors.Background)
     ) {
-        // Top App Bar
-        item {
+        // Sticky Header: Pinned at the top of the HomeScreen (never scrolls away)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CWColors.Background)
+        ) {
+            // Top App Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -173,10 +178,8 @@ fun HomeScreen(
                     }
                 }
             }
-        }
 
-        // Library Scan Banner (smooth expansion, spring damping & graceful completion hold)
-        item(key = "indexing_banner") {
+            // Library Scan Banner (smooth expansion, spring damping & graceful completion hold)
             AnimatedVisibility(
                 visible = showBanner,
                 enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
@@ -188,14 +191,12 @@ fun HomeScreen(
                     finalTotalCount = rememberedTotalCount
                 )
             }
-        }
 
-        // High-Density Telemetry Strip (PRD Section 8)
-        item {
+            // High-Density Telemetry Strip (PRD Section 8)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(CWShapes.RadiusLarge),
                 colors = CardDefaults.cardColors(containerColor = CWColors.SurfacePrimary),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CWColors.BorderSubtle)
@@ -245,14 +246,12 @@ fun HomeScreen(
                     )
                 }
             }
-        }
 
-        // Quick Navigation Grid
-        item {
+            // Quick Navigation Grid
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 QuickActionButton(
@@ -274,86 +273,95 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
-        // Continue Listening Section (PRD Section 9)
-        val continueTrack = continueListeningTrack ?: recentlyPlayed.firstOrNull()
-        if (continueTrack != null) {
-            val resumePosition = if (lastTrackId == continueTrack.id && lastPositionMs > 0L) lastPositionMs else 0L
-            val resumeBadgeText = if (resumePosition > 0L) {
-                val remMins = resumePosition / 60000
-                val remSecs = (resumePosition % 60000) / 1000
-                String.format("RESUME AT %02d:%02d", remMins, remSecs)
-            } else null
+        // Scrollable Content List
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            // Continue Listening Section (PRD Section 9)
+            val continueTrack = continueListeningTrack ?: recentlyPlayed.firstOrNull()
+            if (continueTrack != null) {
+                val resumePosition = if (lastTrackId == continueTrack.id && lastPositionMs > 0L) lastPositionMs else 0L
+                val resumeBadgeText = if (resumePosition > 0L) {
+                    val remMins = resumePosition / 60000
+                    val remSecs = (resumePosition % 60000) / 1000
+                    String.format("RESUME AT %02d:%02d", remMins, remSecs)
+                } else null
 
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "CONTINUE LISTENING",
+                                style = CWTypography.TechBadge,
+                                color = CWColors.TextSecondary
+                            )
+                            if (resumeBadgeText != null) {
+                                CWTechnicalBadge(
+                                    text = resumeBadgeText,
+                                    textColor = CWColors.AccentCyan
+                                )
+                            }
+                        }
+                        CWTrackRow(
+                            track = continueTrack,
+                            onTrackClick = {
+                                val queue = if (recentlyPlayed.any { it.id == continueTrack.id }) recentlyPlayed else listOf(continueTrack)
+                                viewModel.playTrack(continueTrack, queue, resumePosition)
+                            },
+                            onFavoriteClick = { viewModel.toggleFavorite(continueTrack) },
+                            onMoreClick = { onTrackOptions?.invoke(continueTrack) ?: onTrackInspect(continueTrack) }
+                        )
+                    }
+                }
+            }
+
+            // Recently Added Section
+            if (recentlyAdded.isNotEmpty()) {
+                item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "CONTINUE LISTENING",
+                            text = "RECENTLY ADDED",
                             style = CWTypography.TechBadge,
                             color = CWColors.TextSecondary
                         )
-                        if (resumeBadgeText != null) {
-                            CWTechnicalBadge(
-                                text = resumeBadgeText,
-                                textColor = CWColors.AccentCyan
-                            )
-                        }
+                        Text(
+                            text = "${recentlyAdded.size} TRACKS",
+                            style = CWTypography.TechTelemetry
+                        )
                     }
+                }
+
+                items(recentlyAdded.take(15), key = { "added_${it.id}" }) { track ->
                     CWTrackRow(
-                        track = continueTrack,
-                        onTrackClick = {
-                            val queue = if (recentlyPlayed.any { it.id == continueTrack.id }) recentlyPlayed else listOf(continueTrack)
-                            viewModel.playTrack(continueTrack, queue, resumePosition)
-                        },
-                        onFavoriteClick = { viewModel.toggleFavorite(continueTrack) },
-                        onMoreClick = { onTrackOptions?.invoke(continueTrack) ?: onTrackInspect(continueTrack) }
+                        track = track,
+                        onTrackClick = { viewModel.playTrack(track, recentlyAdded) },
+                        onFavoriteClick = { viewModel.toggleFavorite(track) },
+                        onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
                     )
                 }
             }
-        }
 
-        // Recently Added Section
-        if (recentlyAdded.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "RECENTLY ADDED",
-                        style = CWTypography.TechBadge,
-                        color = CWColors.TextSecondary
-                    )
-                    Text(
-                        text = "${recentlyAdded.size} TRACKS",
-                        style = CWTypography.TechTelemetry
-                    )
-                }
+                Spacer(modifier = Modifier.height(100.dp)) // Mini player bottom padding
             }
-
-            items(recentlyAdded.take(15), key = { "added_${it.id}" }) { track ->
-                CWTrackRow(
-                    track = track,
-                    onTrackClick = { viewModel.playTrack(track, recentlyAdded) },
-                    onFavoriteClick = { viewModel.toggleFavorite(track) },
-                    onMoreClick = { onTrackOptions?.invoke(track) ?: onTrackInspect(track) }
-                )
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(100.dp)) // Mini player bottom padding
         }
     }
 }
