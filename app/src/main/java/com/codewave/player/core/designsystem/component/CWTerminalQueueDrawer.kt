@@ -22,9 +22,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloseFullscreen
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,9 +66,30 @@ fun CWTerminalQueueDrawer(
     onTrackClick: (Track) -> Unit,
     onTrackOptions: ((Track) -> Unit)? = null,
     onClose: () -> Unit = {},
+    isExpanded: Boolean = false,
+    onToggleExpand: (() -> Unit)? = null,
+    onOpenFullQueue: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(TerminalTab.QUEUE) }
+    var internalExpanded by remember { mutableStateOf(false) }
+    val effectiveExpanded = if (onToggleExpand != null) isExpanded else internalExpanded
+    val toggleExpand: () -> Unit = {
+        if (onToggleExpand != null) {
+            onToggleExpand()
+        } else {
+            internalExpanded = !internalExpanded
+        }
+    }
+
+    val contentHeight by animateDpAsState(
+        targetValue = if (effectiveExpanded) 380.dp else 145.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "TerminalQueueContentHeight"
+    )
 
     Box(
         modifier = modifier
@@ -88,8 +115,9 @@ fun CWTerminalQueueDrawer(
             ) {
                 // Tabs: Queue | Related | About
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val queueLabel = if (queue.isNotEmpty()) "Queue (${queue.size})" else "Queue"
                     TerminalTabItem(
-                        title = "Queue",
+                        title = queueLabel,
                         icon = Icons.Outlined.Menu,
                         isSelected = selectedTab == TerminalTab.QUEUE,
                         onClick = { selectedTab = TerminalTab.QUEUE }
@@ -106,17 +134,50 @@ fun CWTerminalQueueDrawer(
                     )
                 }
 
-                // Close / Collapse Button
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close Terminal",
-                        tint = Color(0xFF8B949E),
-                        modifier = Modifier.size(16.dp)
-                    )
+                // Header Action Buttons: Expand/Collapse & Close
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Expand / Collapse Drawer Button
+                    IconButton(
+                        onClick = toggleExpand,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (effectiveExpanded) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
+                            contentDescription = if (effectiveExpanded) "Collapse Queue" else "Expand Queue",
+                            tint = if (effectiveExpanded) CWColors.AccentCyan else Color(0xFF8B949E),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    if (onOpenFullQueue != null) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        IconButton(
+                            onClick = onOpenFullQueue,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fullscreen,
+                                contentDescription = "Full Screen Queue",
+                                tint = Color(0xFF8B949E),
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(2.dp))
+
+                    // Close / Collapse Button
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Terminal",
+                            tint = Color(0xFF8B949E),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
@@ -127,7 +188,7 @@ fun CWTerminalQueueDrawer(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(145.dp)
+                            .height(contentHeight)
                     ) {
                         if (queue.isEmpty()) {
                             Box(
@@ -167,7 +228,7 @@ fun CWTerminalQueueDrawer(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(145.dp)
+                            .height(contentHeight)
                             .padding(14.dp)
                     ) {
                         Text(
@@ -203,7 +264,7 @@ fun CWTerminalQueueDrawer(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(145.dp)
+                            .height(contentHeight)
                             .padding(14.dp)
                     ) {
                         Text(
@@ -247,7 +308,7 @@ fun CWTerminalQueueDrawer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = ">_",
+                    text = if (effectiveExpanded) ">_ QUEUE: ${queue.size} TRACKS" else ">_",
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     fontSize = 10.5.sp,

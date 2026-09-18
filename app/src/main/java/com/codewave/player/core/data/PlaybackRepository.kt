@@ -1,10 +1,19 @@
 package com.codewave.player.core.data
 
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.database.ContentObserver
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import kotlin.math.roundToInt
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -52,6 +61,7 @@ interface PlaybackRepository {
     val sleepTimerRemainingMs: StateFlow<Long>
     fun startSleepTimer(minutes: Int)
     fun stopSleepTimer()
+    fun setVolumePercent(percent: Int)
 }
 
 class DefaultPlaybackRepository(
@@ -70,11 +80,74 @@ class DefaultPlaybackRepository(
     private var progressJob: Job? = null
     private var currentQueue: List<Track> = emptyList()
     private var pendingPlayAction: (() -> Unit)? = null
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    private var volumeObserver: ContentObserver? = null
+    private var volumeReceiver: BroadcastReceiver? = null
 
     init {
         initializeController()
         startPositionTracking()
         observeEqualizerStatus()
+        startVolumeObservation()
+    }
+
+    private fun getSystemVolumePercent(): Int {
+        val am = audioManager ?: return 100
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        if (max <= 0) return 100
+        val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+        return ((current.toFloat() / max.toFloat()) * 100).roundToInt().coerceIn(0, 100)
+    }
+
+    override fun setVolumePercent(percent: Int) {
+        val am = audioManager ?: return
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val clampedPercent = percent.coerceIn(0, 100)
+        if (max > 0) {
+            val target = ((clampedPercent / 100f) * max).roundToInt()
+            try {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+            } catch (_: Exception) {}
+            _playbackState.update { it.copy(volumePercent = clampedPercent) }
+        }
+    }
+
+    private fun startVolumeObservation() {
+        val initialVolume = getSystemVolumePercent()
+        _playbackState.update { it.copy(volumePercent = initialVolume) }
+
+        // ContentObserver on Settings.System.CONTENT_URI catches hardware key volume changes
+        try {
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    val vol = getSystemVolumePercent()
+                    _playbackState.update { it.copy(volumePercent = vol) }
+                }
+            }
+            volumeObserver = observer
+            context.contentResolver.registerContentObserver(
+                Settings.System.CONTENT_URI,
+                true,
+                observer
+            )
+        } catch (_: Exception) {}
+
+        // BroadcastReceiver for standard VOLUME_CHANGED_ACTION
+        try {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: Intent?) {
+                    val vol = getSystemVolumePercent()
+                    _playbackState.update { it.copy(volumePercent = vol) }
+                }
+            }
+            volumeReceiver = receiver
+            val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun observeEqualizerStatus() {
@@ -165,6 +238,11 @@ class DefaultPlaybackRepository(
     }
 
     private fun createPlayerListener() = object : Player.Listener {
+        override fun onDeviceVolumeChanged(volume: Int, muted: Boolean) {
+            val vol = getSystemVolumePercent()
+            _playbackState.update { it.copy(volumePercent = vol) }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _playbackState.update { it.copy(isPlaying = isPlaying) }
             val current = _playbackState.value.currentTrack

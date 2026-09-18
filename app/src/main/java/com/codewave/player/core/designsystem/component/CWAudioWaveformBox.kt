@@ -9,6 +9,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,17 +34,22 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codewave.player.core.designsystem.theme.CWColors
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
 fun CWAudioWaveformBox(
     isPlaying: Boolean,
-    volumePercent: Int = 72,
+    volumePercent: Int,
+    onVolumeChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "WaveformAnimation")
@@ -89,30 +96,62 @@ fun CWAudioWaveformBox(
                     )
                 }
 
-                // Right: Volume Readout & Visual Line
-                Column(horizontalAlignment = Alignment.End) {
+                // Right: Volume Readout & Visual Line with optional tap / drag gesture
+                val haptic = LocalHapticFeedback.current
+                val barWidthDp = 64.dp
+
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(top = 1.dp)
+                ) {
                     Text(
-                        text = "VOLUME $volumePercent%",
+                        text = if (volumePercent <= 0) "MUTED" else "VOLUME $volumePercent%",
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium,
                         fontSize = 9.sp,
                         letterSpacing = 0.8.sp,
-                        color = Color(0xFF8B949E)
+                        color = if (volumePercent > 0) Color(0xFF8B949E) else Color(0xFFE5534B)
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Box(
                         modifier = Modifier
-                            .width(60.dp)
-                            .height(2.dp)
-                            .clip(RoundedCornerShape(1.dp))
-                            .background(Color(0xFF21262D))
+                            .width(barWidthDp)
+                            .height(10.dp)
+                            .pointerInput(onVolumeChange) {
+                                if (onVolumeChange != null) {
+                                    detectTapGestures { offset ->
+                                        val percent = ((offset.x / size.width.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onVolumeChange(percent)
+                                    }
+                                }
+                            }
+                            .pointerInput(onVolumeChange) {
+                                if (onVolumeChange != null) {
+                                    detectHorizontalDragGestures { change, _ ->
+                                        val percent = ((change.position.x / size.width.toFloat()) * 100f).roundToInt().coerceIn(0, 100)
+                                        onVolumeChange(percent)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.CenterStart
                     ) {
+                        // Background track
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(fraction = (volumePercent / 100f).coerceIn(0f, 1f))
-                                .height(2.dp)
-                                .background(CWColors.AccentCyan)
-                        )
+                                .fillMaxWidth()
+                                .height(2.5.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                                .background(Color(0xFF21262D))
+                        ) {
+                            // Active volume fill
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = (volumePercent / 100f).coerceIn(0f, 1f))
+                                    .height(2.5.dp)
+                                    .background(CWColors.AccentCyan)
+                            )
+                        }
                     }
                 }
             }

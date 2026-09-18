@@ -16,8 +16,8 @@ android {
         applicationId = "com.codewave.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "1.6.0"
+        versionCode = 27
+        versionName = "1.6.1"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86"))

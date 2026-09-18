@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import com.codewave.player.core.data.PlaybackRepository
 import com.codewave.player.core.designsystem.component.CWAudioWaveformBox
 import com.codewave.player.core.designsystem.component.CWPlayTimeBar
+import com.codewave.player.core.designsystem.component.CWQueueSheet
 import com.codewave.player.core.designsystem.component.CWTechnicalBadge
 import com.codewave.player.core.designsystem.component.CWTerminalQueueDrawer
 import com.codewave.player.core.designsystem.component.CWVinylRecordArt
@@ -114,6 +115,8 @@ fun NowPlayingScreen(
     var isQualityExplainerOpen by remember { mutableStateOf(false) }
     var isSleepTimerOpen by remember { mutableStateOf(false) }
     var isSpeedSelectorOpen by remember { mutableStateOf(false) }
+    var isQueueExpanded by remember { mutableStateOf(false) }
+    var isQueueSheetOpen by remember { mutableStateOf(false) }
 
     val duration = state.durationMs.coerceAtLeast(1L)
     var lyricsResult by remember(track.id) { mutableStateOf<LyricsResult>(LyricsResult.Loading) }
@@ -441,22 +444,32 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 7. Waveform Visualizer Box with Developer Comment Header
+            // 7. Waveform Visualizer Box with Developer Comment Header (Real System Volume)
             CWAudioWaveformBox(
                 isPlaying = state.isPlaying,
-                volumePercent = 72
+                volumePercent = state.volumePercent,
+                onVolumeChange = { newPercent -> playbackRepository.setVolumePercent(newPercent) }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 8. VS Code Embedded Terminal / Output Drawer (Queue with Code Line Numbers)
+            // 8. VS Code Embedded Terminal / Output Drawer (Queue with Code Line Numbers & Expand Support)
             CWTerminalQueueDrawer(
                 queue = state.queue,
                 currentTrack = track,
                 isPlaying = state.isPlaying,
                 onTrackClick = { t -> playbackRepository.playTrack(t, state.queue) },
                 onTrackOptions = { t -> onOpenTrackOptions?.invoke(t) },
-                onClose = { onCollapse() }
+                isExpanded = isQueueExpanded,
+                onToggleExpand = { isQueueExpanded = !isQueueExpanded },
+                onOpenFullQueue = { isQueueSheetOpen = true },
+                onClose = {
+                    if (isQueueExpanded) {
+                        isQueueExpanded = false
+                    } else {
+                        onCollapse()
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -469,6 +482,18 @@ fun NowPlayingScreen(
             outputInfo = state.outputInfo,
             dspStatus = state.dspStatus,
             onDismiss = { isInspectorOpen = false }
+        )
+    }
+
+    // Modal: Full Queue Sheet
+    if (isQueueSheetOpen) {
+        CWQueueSheet(
+            queue = state.queue,
+            currentTrack = track,
+            isPlaying = state.isPlaying,
+            onTrackClick = { t -> playbackRepository.playTrack(t, state.queue) },
+            onTrackOptions = { t -> onOpenTrackOptions?.invoke(t) },
+            onDismiss = { isQueueSheetOpen = false }
         )
     }
 
