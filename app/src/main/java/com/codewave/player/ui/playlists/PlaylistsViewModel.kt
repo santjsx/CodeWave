@@ -30,6 +30,21 @@ class PlaylistsViewModel(
     val favoriteTracks: StateFlow<List<Track>> = libraryRepository.getFavoriteTracks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allTracks: StateFlow<List<Track>> = libraryRepository.getAllTracks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val hiResLosslessTracks: StateFlow<List<Track>> = allTracks.map { list ->
+        list.filter { it.isLossless || it.isHiRes || it.sampleRate >= 48000 || (it.bitDepth ?: 0) >= 24 }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val heavyRotationTracks: StateFlow<List<Track>> = allTracks.map { list ->
+        list.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentlyAddedTracks: StateFlow<List<Track>> = allTracks.map { list ->
+        list.sortedByDescending { it.dateAdded }.take(50)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val playlistCovers: StateFlow<Map<Long, List<String>>> = playlists
         .flatMapLatest { playlistList ->
@@ -75,6 +90,27 @@ class PlaylistsViewModel(
         val favs = favoriteTracks.value
         if (favs.isNotEmpty()) {
             playbackRepository.playQueue(favs, 0)
+        }
+    }
+
+    fun playHiResLossless() {
+        val list = hiResLosslessTracks.value
+        if (list.isNotEmpty()) {
+            playbackRepository.playQueue(list, 0)
+        }
+    }
+
+    fun playHeavyRotation() {
+        val list = heavyRotationTracks.value
+        if (list.isNotEmpty()) {
+            playbackRepository.playQueue(list, 0)
+        }
+    }
+
+    fun playRecentlyAdded() {
+        val list = recentlyAddedTracks.value
+        if (list.isNotEmpty()) {
+            playbackRepository.playQueue(list, 0)
         }
     }
 

@@ -81,8 +81,8 @@ import kotlin.math.abs
 private enum class PlaylistCategory(val title: String) {
     ALL("All"),
     FAVORITES("Favorites"),
-    CUSTOM("Custom"),
-    SMART("Smart Query")
+    SMART("Live Smart"),
+    CUSTOM("Custom")
 }
 
 @Composable
@@ -96,6 +96,9 @@ fun PlaylistsScreen(
     val playlists by viewModel.playlists.collectAsState()
     val favorites by viewModel.favoriteTracks.collectAsState()
     val playlistCovers by viewModel.playlistCovers.collectAsState()
+    val hiResTracks by viewModel.hiResLosslessTracks.collectAsState()
+    val heavyRotationTracks by viewModel.heavyRotationTracks.collectAsState()
+    val recentlyAddedTracks by viewModel.recentlyAddedTracks.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
@@ -106,6 +109,7 @@ fun PlaylistsScreen(
     var selectedCategory by remember { mutableStateOf(PlaylistCategory.ALL) }
 
     val showFavorites = selectedCategory == PlaylistCategory.ALL || selectedCategory == PlaylistCategory.FAVORITES
+    val showLiveSmart = selectedCategory == PlaylistCategory.ALL || selectedCategory == PlaylistCategory.SMART
     val nonFavoritePlaylists = remember(playlists) {
         playlists.filter { it.smartType != "FAVORITES" && !it.name.equals("Favorites", ignoreCase = true) }
     }
@@ -118,6 +122,15 @@ fun PlaylistsScreen(
 
     val favoriteCoverUris = remember(favorites) {
         favorites.mapNotNull { it.albumArtUri }.distinct().take(3)
+    }
+    val hiResCoverUris = remember(hiResTracks) {
+        hiResTracks.mapNotNull { it.albumArtUri }.distinct().take(3)
+    }
+    val heavyRotationCoverUris = remember(heavyRotationTracks) {
+        heavyRotationTracks.mapNotNull { it.albumArtUri }.distinct().take(3)
+    }
+    val recentlyAddedCoverUris = remember(recentlyAddedTracks) {
+        recentlyAddedTracks.mapNotNull { it.albumArtUri }.distinct().take(3)
     }
 
     Column(
@@ -150,7 +163,7 @@ fun PlaylistsScreen(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${playlists.size} Collections Available",
+                    text = "${playlists.size + 3} Collections & Live Sets",
                     style = CWTypography.TechTelemetry,
                     color = CWColors.TextSecondary
                 )
@@ -175,7 +188,7 @@ fun PlaylistsScreen(
             }
         }
 
-        // 2. Filter Category Pills (All, Favorites, Custom, Smart Query)
+        // 2. Filter Category Pills (All, Favorites, Custom, Live Smart)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -241,6 +254,48 @@ fun PlaylistsScreen(
                 }
             }
 
+            // Live Smart Lists
+            if (showLiveSmart) {
+                item(key = "collection_hires") {
+                    CollectionPocketCard(
+                        title = "Hi-Res Masters",
+                        subtitle = "Lossless · ${hiResTracks.size} tracks",
+                        coverUris = hiResCoverUris,
+                        isFavorite = false,
+                        isSmart = true,
+                        paletteSeed = 10101,
+                        onClick = { onNavigateToCollection(CollectionTarget.HiResTarget) },
+                        onOptionsClick = null
+                    )
+                }
+
+                item(key = "collection_heavy_rotation") {
+                    CollectionPocketCard(
+                        title = "Heavy Rotation",
+                        subtitle = "Hot · ${heavyRotationTracks.size} tracks",
+                        coverUris = heavyRotationCoverUris,
+                        isFavorite = false,
+                        isSmart = true,
+                        paletteSeed = 20202,
+                        onClick = { onNavigateToCollection(CollectionTarget.HeavyRotationTarget) },
+                        onOptionsClick = null
+                    )
+                }
+
+                item(key = "collection_recently_added") {
+                    CollectionPocketCard(
+                        title = "Recently Added",
+                        subtitle = "Recent · ${recentlyAddedTracks.size} tracks",
+                        coverUris = recentlyAddedCoverUris,
+                        isFavorite = false,
+                        isSmart = true,
+                        paletteSeed = 30303,
+                        onClick = { onNavigateToCollection(CollectionTarget.RecentlyAddedTarget) },
+                        onOptionsClick = null
+                    )
+                }
+            }
+
             // Playlist Items
             items(filteredPlaylists, key = { it.id }) { playlist ->
                 val covers = playlistCovers[playlist.id] ?: emptyList()
@@ -269,7 +324,7 @@ fun PlaylistsScreen(
             }
 
             // Empty state if filtered results are empty
-            if (!showFavorites && filteredPlaylists.isEmpty()) {
+            if (!showFavorites && !showLiveSmart && filteredPlaylists.isEmpty()) {
                 item(span = { GridItemSpan(2) }) {
                     Box(
                         modifier = Modifier

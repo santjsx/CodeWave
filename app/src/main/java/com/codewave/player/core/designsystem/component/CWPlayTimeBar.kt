@@ -22,6 +22,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.codewave.player.core.designsystem.theme.CWColors
 import com.codewave.player.core.designsystem.theme.PlayBarType
+import com.codewave.player.core.model.ABLoopState
 import kotlin.math.abs
 
 @Composable
@@ -30,7 +31,8 @@ fun CWPlayTimeBar(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    playBarType: PlayBarType = CWColors.CurrentPlayBarType
+    playBarType: PlayBarType = CWColors.CurrentPlayBarType,
+    abLoopState: ABLoopState? = null
 ) {
     val duration = durationMs.coerceAtLeast(1L)
     var isDragging by remember { mutableStateOf(false) }
@@ -243,6 +245,45 @@ fun CWPlayTimeBar(
                         color = CWColors.AccentCyan,
                         radius = 4.5.dp.toPx(),
                         center = Offset(activeWidth, centerY)
+                    )
+                }
+            }
+
+            // Render A-B Looper Visual Markers on the scrub bar (Feature 3.1)
+            if (abLoopState != null && duration > 0L) {
+                val a = abLoopState.pointA
+                val b = abLoopState.pointB
+                val aX = a?.let { (width * (it.toFloat() / duration)).coerceIn(0f, width) }
+                val bX = b?.let { (width * (it.toFloat() / duration)).coerceIn(0f, width) }
+
+                // If both points configured, highlight the loop region
+                if (aX != null && bX != null && bX > aX) {
+                    val regionColor = if (abLoopState.isEnabled) CWColors.AccentCyan.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.15f)
+                    drawRoundRect(
+                        color = regionColor,
+                        topLeft = Offset(aX, centerY - 6.dp.toPx()),
+                        size = Size(bX - aX, 12.dp.toPx()),
+                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    )
+                }
+
+                // Point A tick & pin
+                if (aX != null) {
+                    drawLine(
+                        color = CWColors.AccentCyan,
+                        start = Offset(aX, centerY - 8.dp.toPx()),
+                        end = Offset(aX, centerY + 8.dp.toPx()),
+                        strokeWidth = 2.5.dp.toPx()
+                    )
+                }
+
+                // Point B tick & pin
+                if (bX != null) {
+                    drawLine(
+                        color = if (abLoopState.isEnabled) CWColors.AccentCyan else Color(0xFFFF9100),
+                        start = Offset(bX, centerY - 8.dp.toPx()),
+                        end = Offset(bX, centerY + 8.dp.toPx()),
+                        strokeWidth = 2.5.dp.toPx()
                     )
                 }
             }

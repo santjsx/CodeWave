@@ -67,6 +67,10 @@ import com.codewave.player.core.designsystem.theme.CWTypography
 import com.codewave.player.core.model.Album
 import com.codewave.player.core.model.Artist
 import com.codewave.player.core.model.Playlist
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Speed
+import kotlinx.coroutines.flow.map
 import com.codewave.player.core.model.Track
 
 sealed interface CollectionTarget {
@@ -74,6 +78,9 @@ sealed interface CollectionTarget {
     data class ArtistTarget(val artist: Artist) : CollectionTarget
     data class PlaylistTarget(val playlist: Playlist) : CollectionTarget
     data object FavoritesTarget : CollectionTarget
+    data object HiResTarget : CollectionTarget
+    data object HeavyRotationTarget : CollectionTarget
+    data object RecentlyAddedTarget : CollectionTarget
 }
 
 @Composable
@@ -97,6 +104,9 @@ fun CollectionDetailSheet(
                 is CollectionTarget.ArtistTarget -> target.artist.name
                 is CollectionTarget.PlaylistTarget -> target.playlist.name
                 is CollectionTarget.FavoritesTarget -> "Favorites"
+                is CollectionTarget.HiResTarget -> "Hi-Res Studio Masters"
+                is CollectionTarget.HeavyRotationTarget -> "Heavy Rotation"
+                is CollectionTarget.RecentlyAddedTarget -> "Recently Added"
             }
         )
     }
@@ -106,6 +116,15 @@ fun CollectionDetailSheet(
         is CollectionTarget.ArtistTarget -> libraryRepository.getTracksByArtist(target.artist.name)
         is CollectionTarget.PlaylistTarget -> libraryRepository.getTracksForPlaylist(target.playlist.id)
         is CollectionTarget.FavoritesTarget -> libraryRepository.getFavoriteTracks()
+        is CollectionTarget.HiResTarget -> libraryRepository.getAllTracks().map { list ->
+            list.filter { it.isLossless || it.isHiRes || it.sampleRate >= 48000 || (it.bitDepth ?: 0) >= 24 }
+        }
+        is CollectionTarget.HeavyRotationTarget -> libraryRepository.getAllTracks().map { list ->
+            list.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }
+        }
+        is CollectionTarget.RecentlyAddedTarget -> libraryRepository.getAllTracks().map { list ->
+            list.sortedByDescending { it.dateAdded }.take(50)
+        }
     }
 
     val tracks by tracksFlow.collectAsState(initial = emptyList())
@@ -144,6 +163,30 @@ fun CollectionDetailSheet(
                 null
             )
         }
+        is CollectionTarget.HiResTarget -> {
+            Quadruple(
+                "Hi-Res Studio Masters",
+                "Lossless 24-bit / 48kHz+ · ${tracks.size} tracks",
+                Icons.Default.GraphicEq,
+                null
+            )
+        }
+        is CollectionTarget.HeavyRotationTarget -> {
+            Quadruple(
+                "Heavy Rotation",
+                "Most played audio streams · ${tracks.size} tracks",
+                Icons.Default.Speed,
+                null
+            )
+        }
+        is CollectionTarget.RecentlyAddedTarget -> {
+            Quadruple(
+                "Recently Added",
+                "Latest imported audio · ${tracks.size} tracks",
+                Icons.Default.MusicNote,
+                null
+            )
+        }
     }
 
     Column(
@@ -173,6 +216,9 @@ fun CollectionDetailSheet(
                         is CollectionTarget.ArtistTarget -> "ARTIST"
                         is CollectionTarget.PlaylistTarget -> "PLAYLIST"
                         is CollectionTarget.FavoritesTarget -> "FAVORITES"
+                        is CollectionTarget.HiResTarget -> "LIVE LOSSLESS"
+                        is CollectionTarget.HeavyRotationTarget -> "LIVE ROTATION"
+                        is CollectionTarget.RecentlyAddedTarget -> "LIVE ARRIVALS"
                     },
                     style = CWTypography.TechBadge,
                     color = CWColors.AccentCyan,

@@ -13,16 +13,19 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.codewave.player.core.media.CodeWaveMediaSessionService
+import com.codewave.player.core.model.ABLoopState
 import com.codewave.player.core.model.AudioFormat
 import com.codewave.player.core.model.AudioOutputInfo
 import com.codewave.player.core.model.DSPStatus
@@ -75,6 +78,17 @@ interface PlaybackRepository {
     fun addTrackToWorkspace(workspaceId: String, track: Track)
     fun removeTrackFromWorkspace(workspaceId: String, trackIndex: Int)
     fun playWorkspace(workspaceId: String, startIndex: Int = 0)
+
+    // A-B Looper (Feature 3.1)
+    val abLoopState: StateFlow<ABLoopState>
+    fun setLoopPointA(posMs: Long)
+    fun setLoopPointB(posMs: Long)
+    fun clearABLoop()
+    fun toggleABLoop()
+
+    // Dynamic Pitch Shifter (Feature 3.2)
+    val pitchSemitones: StateFlow<Int>
+    fun setPitchSemitones(semitones: Int)
 }
 
 class DefaultPlaybackRepository(
@@ -112,6 +126,12 @@ class DefaultPlaybackRepository(
 
     private val _viewingWorkspaceId = MutableStateFlow("main")
     override val viewingWorkspaceId: StateFlow<String> = _viewingWorkspaceId.asStateFlow()
+
+    private val _abLoopState = MutableStateFlow(ABLoopState())
+    override val abLoopState: StateFlow<ABLoopState> = _abLoopState.asStateFlow()
+
+    private val _pitchSemitones = MutableStateFlow(0)
+    override val pitchSemitones: StateFlow<Int> = _pitchSemitones.asStateFlow()
 
     init {
         initializeController()
@@ -306,15 +326,17 @@ class DefaultPlaybackRepository(
             }
 
             val speed = _playbackState.value.playbackSpeed
-            if (speed != 1.0f) {
-                player.setPlaybackSpeed(speed)
-            }
+            updatePlaybackParameters(speed, _pitchSemitones.value)
 
             val mediaId = mediaItem.mediaId.toLongOrNull()
             val index = player.currentMediaItemIndex
             val track = (if (mediaId != null) currentQueue.find { it.id == mediaId } else null)
                 ?: currentQueue.getOrNull(index)
                 ?: _playbackState.value.currentTrack
+
+            if (track?.id != _playbackState.value.currentTrack?.id) {
+                clearABLoop()
+            }
 
             val currentPos = player.currentPosition.coerceAtLeast(0L)
             val preservedPos = if (currentPos > 0L) {
@@ -399,6 +421,15 @@ class DefaultPlaybackRepository(
                             durationMs = player.duration.coerceAtLeast(0L)
                         )
                     }
+
+                    // A-B Looper Boundary Check
+                    val loop = _abLoopState.value
+                    if (loop.isEnabled && loop.pointA != null && loop.pointB != null && loop.pointB > loop.pointA) {
+                        if (pos >= loop.pointB) {
+                            seekTo(loop.pointA)
+                        }
+                    }
+
                     val now = System.currentTimeMillis()
                     if (now - lastSaveTimestamp > 1500L) {
                         lastSaveTimestamp = now
@@ -607,9 +638,65 @@ class DefaultPlaybackRepository(
         _playbackState.update { it.copy(repeatMode = mode) }
     }
 
+    private fun updatePlaybackParameters(speed: Float, semitones: Int) {
+        val multiplier = 2.0.pow(semitones / 12.0).toFloat()
+        controller?.playbackParameters = PlaybackParameters(speed, multiplier)
+    }
+
     override fun setPlaybackSpeed(speed: Float) {
-        controller?.setPlaybackSpeed(speed)
+        updatePlaybackParameters(speed, _pitchSemitones.value)
         _playbackState.update { it.copy(playbackSpeed = speed) }
+    }
+
+    override fun setPitchSemitones(semitones: Int) {
+        val clamped = semitones.coerceIn(-12, 12)
+        _pitchSemitones.value = clamped
+        updatePlaybackParameters(_playbackState.value.playbackSpeed, clamped)
+    }
+
+    override fun setLoopPointA(posMs: Long) {
+        val currentDuration = _playbackState.value.durationMs.takeIf { it > 0 } ?: Long.MAX_VALUE
+        val clampedA = posMs.coerceIn(0L, currentDuration)
+        _abLoopState.update { current ->
+            val b = current.pointB
+            val newB = if (b != null && b <= clampedA) null else b
+            current.copy(
+                pointA = clampedA,
+                pointB = newB,
+                isEnabled = newB != null
+            )
+        }
+    }
+
+    override fun setLoopPointB(posMs: Long) {
+        val currentDuration = _playbackState.value.durationMs.takeIf { it > 0 } ?: Long.MAX_VALUE
+        val clampedB = posMs.coerceIn(0L, currentDuration)
+        _abLoopState.update { current ->
+            val a = current.pointA ?: 0L
+            if (clampedB > a) {
+                current.copy(
+                    pointA = a,
+                    pointB = clampedB,
+                    isEnabled = true
+                )
+            } else {
+                current
+            }
+        }
+    }
+
+    override fun clearABLoop() {
+        _abLoopState.value = ABLoopState()
+    }
+
+    override fun toggleABLoop() {
+        _abLoopState.update { current ->
+            if (current.pointA != null && current.pointB != null && current.pointB > current.pointA) {
+                current.copy(isEnabled = !current.isEnabled)
+            } else {
+                current.copy(isEnabled = false)
+            }
+        }
     }
 
     override fun toggleFavorite(track: Track) {

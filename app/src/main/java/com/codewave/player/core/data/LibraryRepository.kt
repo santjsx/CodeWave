@@ -12,6 +12,9 @@ import com.codewave.player.core.model.SearchResult
 import com.codewave.player.core.model.Track
 import com.codewave.player.core.scanner.AudioScanner
 import com.codewave.player.core.scanner.ScanProgress
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -32,16 +35,17 @@ interface LibraryRepository {
     fun getFavoriteTracks(): Flow<List<Track>>
     fun getRecentlyAdded(): Flow<List<Track>>
     fun getRecentlyPlayed(): Flow<List<Track>>
+    fun getHeavyRotationTracks(minPlayCount: Int = 5, limit: Int = 50): Flow<List<Track>>
     suspend fun getTrackById(trackId: Long): Track?
     fun search(query: String): Flow<SearchResult>
     suspend fun setFavorite(trackId: Long, isFavorite: Boolean)
     suspend fun recordTrackPlayed(trackId: Long)
     fun getLibraryStats(): Flow<LibraryStats>
     fun getAllPlaylists(): Flow<List<Playlist>>
+    fun getTracksForPlaylist(playlistId: Long): Flow<List<Track>>
     suspend fun createPlaylist(name: String): Long
     suspend fun renamePlaylist(playlistId: Long, newName: String)
     suspend fun deletePlaylist(playlistId: Long)
-    fun getTracksForPlaylist(playlistId: Long): Flow<List<Track>>
     suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long)
     suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long)
 }
@@ -51,6 +55,18 @@ class DefaultLibraryRepository(
     private val playlistDao: PlaylistDao,
     private val audioScanner: AudioScanner
 ) : LibraryRepository {
+
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            val existing = playlistDao.getAllPlaylists()
+            val smartTypes = existing.filter { it.isSmart }.mapNotNull { it.smartType }.toSet()
+            if ("HEAVY_ROTATION" !in smartTypes && existing.none { it.name.equals("Heavy Rotation", ignoreCase = true) }) {
+                playlistDao.insertPlaylist(
+                    PlaylistEntity(name = "Heavy Rotation", isSmart = true, smartType = "HEAVY_ROTATION")
+                )
+            }
+        }
+    }
 
     override val scanProgress: StateFlow<ScanProgress> = audioScanner.scanProgress
 
@@ -122,6 +138,12 @@ class DefaultLibraryRepository(
 
     override fun getRecentlyPlayed(): Flow<List<Track>> {
         return trackDao.getRecentlyPlayedFlow().map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override fun getHeavyRotationTracks(minPlayCount: Int, limit: Int): Flow<List<Track>> {
+        return trackDao.getHeavyRotationTracksFlow(minPlayCount, limit).map { entities ->
             entities.map { it.toDomain() }
         }
     }
@@ -207,8 +229,9 @@ class DefaultLibraryRepository(
             playlistDao.getAllPlaylistsFlow(),
             trackDao.getLibraryStatsFlow(),
             trackDao.getFavoriteTracksFlow(),
+            trackDao.getHeavyRotationTracksFlow(),
             playlistDao.getPlaylistTrackCountsFlow()
-        ) { entities, stats, favorites, customCounts ->
+        ) { entities, stats, favorites, heavyRotation, customCounts ->
             val customCountsMap = customCounts.associate { it.playlistId to it.trackCount }
             entities.map { entity ->
                 val count = when {
@@ -220,6 +243,9 @@ class DefaultLibraryRepository(
                     }
                     entity.isSmart && (entity.smartType == "HI_RES" || entity.smartType == "LOSSLESS" || entity.name.contains("Lossless", ignoreCase = true)) -> {
                         stats.losslessCount + stats.hiResCount
+                    }
+                    entity.isSmart && (entity.smartType == "HEAVY_ROTATION" || entity.name.contains("Heavy", ignoreCase = true) || entity.name.contains("Rotation", ignoreCase = true)) -> {
+                        heavyRotation.size
                     }
                     entity.isSmart -> {
                         minOf(30, stats.trackCount)
@@ -270,6 +296,9 @@ class DefaultLibraryRepository(
                     }
                     entity.smartType == "HI_RES" || entity.smartType == "LOSSLESS" || entity.name.contains("Lossless", ignoreCase = true) -> {
                         trackDao.getLosslessTracksFlow().map { list -> list.map { it.toDomain() } }
+                    }
+                    entity.smartType == "HEAVY_ROTATION" || entity.name.contains("Heavy", ignoreCase = true) || entity.name.contains("Rotation", ignoreCase = true) -> {
+                        trackDao.getHeavyRotationTracksFlow().map { list -> list.map { it.toDomain() } }
                     }
                     else -> {
                         trackDao.getRecentlyAddedFlow(limit = 30).map { list -> list.map { it.toDomain() } }

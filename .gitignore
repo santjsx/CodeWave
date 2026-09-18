@@ -30,3 +30,4 @@ compile_commands.json
 dump.xml
 emulator_*.png
 *.hprof
+.kotlin/

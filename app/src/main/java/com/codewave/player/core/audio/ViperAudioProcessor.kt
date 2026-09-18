@@ -20,6 +20,10 @@ class ViperAudioProcessor : BaseAudioProcessor() {
     private val kotlinFallbackEq = DolbyLevelEqualizer()
     private var floatBuffer = FloatArray(4096)
     private var lastConfig: EqualizerConfig = EqualizerConfig()
+    private var isVocalRemoverEnabled: Boolean = false
+    private var vocalRemoverLevel: Float = 0.85f
+    private var bassFilterState: Float = 0.0f
+    private var sampleRateHz: Double = 44100.0
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT &&
@@ -29,6 +33,7 @@ class ViperAudioProcessor : BaseAudioProcessor() {
         }
 
         val sampleRate = inputAudioFormat.sampleRate.toDouble()
+        sampleRateHz = sampleRate
         if (ViperJniWrapper.isNativeAvailable) {
             ViperJniWrapper.nativeInit(sampleRate)
         }
@@ -84,6 +89,37 @@ class ViperAudioProcessor : BaseAudioProcessor() {
             kotlinFallbackEq.processAudioInterleaved(floatBuffer, frameCount)
         }
 
+        // STEP 2.5: Real-Time Vocal Suppression / Center-Channel Differential Filter
+        if (isVocalRemoverEnabled && vocalRemoverLevel > 0f) {
+            // Cutoff frequency ~ 160Hz for sub-bass preservation (kick drum & bassline)
+            val dt = 1.0f / sampleRateHz.toFloat().coerceAtLeast(8000f)
+            val rc = 1.0f / (2.0f * Math.PI.toFloat() * 160.0f)
+            val alpha = (dt / (rc + dt)).coerceIn(0.001f, 0.5f)
+            val level = vocalRemoverLevel
+
+            var i = 0
+            while (i < samplesCount) {
+                val left = floatBuffer[i]
+                val right = floatBuffer[i + 1]
+
+                // Center channel (mono components, typical of lead vocals and bass)
+                val center = (left + right) * 0.5f
+
+                // IIR Low-pass filter on center channel to isolate sub-bass
+                bassFilterState += alpha * (center - bassFilterState)
+                val subBass = bassFilterState
+
+                // Subtract center channel from stereo channels (cancelling vocal frequencies)
+                // while re-injecting the sub-bass to maintain rhythmic weight and warmth
+                val outLeft = (left - center * level) + (subBass * level)
+                val outRight = (right - center * level) + (subBass * level)
+
+                floatBuffer[i] = outLeft
+                floatBuffer[i + 1] = outRight
+                i += 2
+            }
+        }
+
         // STEP 3: Convert processed Float32 samples back to output PCM byte buffer
         val outputBuffer = replaceOutputBuffer(frameCount * bytesPerFrame)
         outputBuffer.order(ByteOrder.LITTLE_ENDIAN)
@@ -108,6 +144,7 @@ class ViperAudioProcessor : BaseAudioProcessor() {
             ViperJniWrapper.nativeReset()
         }
         kotlinFallbackEq.reset()
+        bassFilterState = 0.0f
     }
 
     override fun onReset() {
@@ -117,6 +154,8 @@ class ViperAudioProcessor : BaseAudioProcessor() {
     fun applyConfig(config: EqualizerConfig) {
         lastConfig = config
         val isGlobalEnabled = config.isEnabled
+        isVocalRemoverEnabled = config.isVocalRemoverEnabled
+        vocalRemoverLevel = config.vocalRemoverLevel.coerceIn(0.0f, 1.0f)
 
         if (ViperJniWrapper.isNativeAvailable) {
             ViperJniWrapper.nativeSetGlobalEnabled(isGlobalEnabled)

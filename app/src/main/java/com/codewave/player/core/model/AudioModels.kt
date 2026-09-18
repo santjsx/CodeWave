@@ -94,3 +94,18 @@ enum class RepeatMode {
     ALL,
     ONE
 }
+
+data class ABLoopState(
+    val pointA: Long? = null,
+    val pointB: Long? = null,
+    val isEnabled: Boolean = false
+) {
+    val durationMs: Long?
+        get() = if (pointA != null && pointB != null && pointB > pointA) pointB - pointA else null
+
+    val isConfigured: Boolean
+        get() = pointA != null && pointB != null && pointB > pointA
+
+    val isActive: Boolean
+        get() = isEnabled && isConfigured
+}

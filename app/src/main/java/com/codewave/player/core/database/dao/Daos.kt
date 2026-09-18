@@ -121,6 +121,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE isLossless = 1 OR isHiRes = 1 ORDER BY dateAdded DESC")
     fun getLosslessTracksFlow(): Flow<List<TrackEntity>>
 
+    @Query("SELECT * FROM tracks WHERE playCount >= :minPlayCount ORDER BY playCount DESC, lastPlayedTimestamp DESC LIMIT :limit")
+    fun getHeavyRotationTracksFlow(minPlayCount: Int = 5, limit: Int = 50): Flow<List<TrackEntity>>
+
     @Query("""
         SELECT 
             COUNT(*) as trackCount,

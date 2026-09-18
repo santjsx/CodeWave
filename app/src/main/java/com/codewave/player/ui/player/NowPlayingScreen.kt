@@ -58,7 +58,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import com.codewave.player.core.data.SettingsRepository
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,7 +71,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.codewave.player.core.data.EqualizerRepository
 import com.codewave.player.core.data.PlaybackRepository
+import com.codewave.player.core.data.SettingsRepository
 import com.codewave.player.core.designsystem.component.CWAudioWaveformBox
 import com.codewave.player.core.designsystem.component.CWFullscreenLyricsSheet
 import com.codewave.player.core.designsystem.component.CWPlayTimeBar
@@ -88,9 +89,13 @@ import com.codewave.player.core.designsystem.theme.CWShapes
 import com.codewave.player.core.designsystem.theme.CWTypography
 import com.codewave.player.core.media.LrcParser
 import com.codewave.player.core.media.LyricsResult
+import com.codewave.player.core.model.ABLoopState
+import com.codewave.player.core.model.EqualizerConfig
 import com.codewave.player.core.model.RepeatMode
 import com.codewave.player.core.model.Track
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class NowPlayingCenterView {
@@ -105,6 +110,7 @@ fun NowPlayingScreen(
     onCollapse: () -> Unit,
     onToggleFavorite: (Track) -> Unit,
     settingsRepository: SettingsRepository? = null,
+    equalizerRepository: EqualizerRepository? = null,
     onOpenTrackOptions: ((Track) -> Unit)? = null,
     onNavigateToEqualizer: (() -> Unit)? = null,
     onNavigateToSearch: (() -> Unit)? = null,
@@ -119,6 +125,10 @@ fun NowPlayingScreen(
     val waveformBands by playbackRepository.audioWaveformBands.collectAsState()
     val workspaces by playbackRepository.queueWorkspaces.collectAsState()
     val viewingWorkspaceId by playbackRepository.viewingWorkspaceId.collectAsState()
+    val abLoopState by playbackRepository.abLoopState.collectAsState()
+    val pitchSemitones by playbackRepository.pitchSemitones.collectAsState()
+    val eqConfigState = equalizerRepository?.equalizerConfig?.collectAsState()
+    val eqConfig = eqConfigState?.value ?: EqualizerConfig()
     val track = state.currentTrack ?: return
 
     var centerView by remember { mutableStateOf(NowPlayingCenterView.ARTWORK) }
@@ -126,6 +136,7 @@ fun NowPlayingScreen(
     var isQualityExplainerOpen by remember { mutableStateOf(false) }
     var isSleepTimerOpen by remember { mutableStateOf(false) }
     var isSpeedSelectorOpen by remember { mutableStateOf(false) }
+    var isProAudioSheetOpen by remember { mutableStateOf(false) }
     var isQueueExpanded by remember { mutableStateOf(false) }
     var isQueueSheetOpen by remember { mutableStateOf(false) }
     var isFullscreenLyricsOpen by remember { mutableStateOf(false) }
@@ -338,7 +349,8 @@ fun NowPlayingScreen(
             CWPlayTimeBar(
                 currentPositionMs = state.positionMs,
                 durationMs = duration,
-                onSeek = { targetMs -> playbackRepository.seekTo(targetMs) }
+                onSeek = { targetMs -> playbackRepository.seekTo(targetMs) },
+                abLoopState = abLoopState
             )
 
             Row(
@@ -453,10 +465,10 @@ fun NowPlayingScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 6. Modular Quick-Action Tiles: Lossless Specs, Equalizer, Sleep Timer
+            // 6. Modular Quick-Action Tiles: Lossless Specs, Equalizer, Pro Studio, Sleep Timer
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Tile 1: Lossless Audio Specs
                 ModularActionTile(
@@ -469,14 +481,31 @@ fun NowPlayingScreen(
 
                 // Tile 2: Equalizer
                 ModularActionTile(
-                    icon = Icons.Default.Tune,
+                    icon = Icons.Default.Equalizer,
                     title = "Equalizer",
                     subtitle = "Viper DSP",
                     onClick = { onNavigateToEqualizer?.invoke() },
                     modifier = Modifier.weight(1f)
                 )
 
-                // Tile 3: Sleep Timer
+                // Tile 3: Pro Audio Studio (A-B Looper / Pitch / Karaoke)
+                val proSubtitle = when {
+                    abLoopState.isEnabled -> "Looping"
+                    pitchSemitones != 0 -> "${if (pitchSemitones > 0) "+$pitchSemitones" else "$pitchSemitones"} ST"
+                    state.playbackSpeed != 1.0f -> String.format(Locale.US, "%.2fx", state.playbackSpeed)
+                    eqConfig.isVocalRemoverEnabled -> "Karaoke"
+                    else -> "Pro Studio"
+                }
+                ModularActionTile(
+                    icon = Icons.Default.Tune,
+                    title = "Pro FX",
+                    subtitle = proSubtitle,
+                    isActive = abLoopState.isEnabled || pitchSemitones != 0 || state.playbackSpeed != 1.0f || eqConfig.isVocalRemoverEnabled,
+                    onClick = { isProAudioSheetOpen = true },
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Tile 4: Sleep Timer
                 val remainingMs = sleepTimerRemainingMs
                 val isTimerActive = remainingMs > 0L
                 val timerSubtitle = if (isTimerActive) {
@@ -830,6 +859,29 @@ fun NowPlayingScreen(
                 }
             },
             containerColor = CWColors.SurfaceElevated
+        )
+    }
+
+    if (isProAudioSheetOpen) {
+        ProAudioStudioSheet(
+            abLoopState = abLoopState,
+            currentPositionMs = state.positionMs,
+            playbackSpeed = state.playbackSpeed,
+            pitchSemitones = pitchSemitones,
+            equalizerConfig = eqConfig,
+            onSetPointA = { playbackRepository.setLoopPointA(it) },
+            onSetPointB = { playbackRepository.setLoopPointB(it) },
+            onClearLoop = { playbackRepository.clearABLoop() },
+            onToggleLoop = { playbackRepository.toggleABLoop() },
+            onSetSpeed = { playbackRepository.setPlaybackSpeed(it) },
+            onSetPitch = { playbackRepository.setPitchSemitones(it) },
+            onToggleVocalRemover = { enabled ->
+                coroutineScope.launch { equalizerRepository?.setVocalRemoverEnabled(enabled) }
+            },
+            onSetVocalRemoverLevel = { level ->
+                coroutineScope.launch { equalizerRepository?.setVocalRemoverLevel(level) }
+            },
+            onDismiss = { isProAudioSheetOpen = false }
         )
     }
 }

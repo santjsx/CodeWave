@@ -212,6 +212,14 @@ class EqualizerViewModel(
         viewModelScope.launch { equalizerRepository.setIrsName(name) }
     }
 
+    fun toggleVocalRemover(enabled: Boolean) {
+        viewModelScope.launch { equalizerRepository.setVocalRemoverEnabled(enabled) }
+    }
+
+    fun setVocalRemoverLevel(level: Float) {
+        viewModelScope.launch { equalizerRepository.setVocalRemoverLevel(level) }
+    }
+
     fun saveCustomPreset(name: String, subtitle: String = "") {
         val current = config.value
         val gains = current.bands.map { it.gainDb }

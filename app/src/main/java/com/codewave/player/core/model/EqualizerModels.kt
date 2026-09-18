@@ -70,7 +70,9 @@ data class EqualizerConfig(
     val isClarityEnabled: Boolean = false,
     val clarityGainDb: Float = 3.0f,
     val isConvolverEnabled: Boolean = false,
-    val irsName: String? = null
+    val irsName: String? = null,
+    val isVocalRemoverEnabled: Boolean = false,
+    val vocalRemoverLevel: Float = 0.85f
 ) {
     companion object {
         fun defaultBands(): List<EqualizerBand> {

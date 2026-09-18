@@ -76,8 +76,22 @@ abstract class CodeWaveDatabase : RoomDatabase() {
             playlistDao.insertPlaylist(
                 PlaylistEntity(name = "Lossless & Hi-Res", isSmart = true, smartType = "HI_RES")
             )
+            playlistDao.insertPlaylist(
+                PlaylistEntity(name = "Heavy Rotation", isSmart = true, smartType = "HEAVY_ROTATION")
+            )
 
             ensurePresetsSeeded(db)
+        }
+
+        suspend fun ensureSmartPlaylistsSeeded(db: CodeWaveDatabase) {
+            val playlistDao = db.playlistDao()
+            val existing = playlistDao.getAllPlaylists()
+            val smartTypes = existing.filter { it.isSmart }.mapNotNull { it.smartType }.toSet()
+            if ("HEAVY_ROTATION" !in smartTypes && existing.none { it.name.equals("Heavy Rotation", ignoreCase = true) }) {
+                playlistDao.insertPlaylist(
+                    PlaylistEntity(name = "Heavy Rotation", isSmart = true, smartType = "HEAVY_ROTATION")
+                )
+            }
         }
 
         suspend fun ensurePresetsSeeded(db: CodeWaveDatabase) {

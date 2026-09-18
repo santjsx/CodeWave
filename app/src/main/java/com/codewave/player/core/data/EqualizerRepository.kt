@@ -46,6 +46,8 @@ interface EqualizerRepository {
     suspend fun setClarityGain(gainDb: Float)
     suspend fun setConvolverEnabled(enabled: Boolean)
     suspend fun setIrsName(name: String?)
+    suspend fun setVocalRemoverEnabled(enabled: Boolean)
+    suspend fun setVocalRemoverLevel(level: Float)
 }
 
 class DefaultEqualizerRepository(
@@ -72,6 +74,8 @@ class DefaultEqualizerRepository(
         val CLARITY_GAIN = floatPreferencesKey("clarity_gain")
         val CONVOLVER_ENABLED = booleanPreferencesKey("convolver_enabled")
         val IRS_NAME = stringPreferencesKey("irs_name")
+        val VOCAL_REMOVER_ENABLED = booleanPreferencesKey("vocal_remover_enabled")
+        val VOCAL_REMOVER_LEVEL = floatPreferencesKey("vocal_remover_level")
     }
 
     private val _equalizerConfig = MutableStateFlow(EqualizerConfig())
@@ -99,6 +103,8 @@ class DefaultEqualizerRepository(
             val clarityGain = prefs[PreferencesKeys.CLARITY_GAIN] ?: 3.0f
             val convolverEnabled = prefs[PreferencesKeys.CONVOLVER_ENABLED] ?: false
             val irsName = prefs[PreferencesKeys.IRS_NAME]
+            val vocalRemoverEnabled = prefs[PreferencesKeys.VOCAL_REMOVER_ENABLED] ?: false
+            val vocalRemoverLevel = prefs[PreferencesKeys.VOCAL_REMOVER_LEVEL] ?: 0.85f
 
             _equalizerConfig.value = EqualizerConfig(
                 isEnabled = enabled,
@@ -111,7 +117,9 @@ class DefaultEqualizerRepository(
                 isClarityEnabled = clarityEnabled,
                 clarityGainDb = clarityGain,
                 isConvolverEnabled = convolverEnabled,
-                irsName = irsName
+                irsName = irsName,
+                isVocalRemoverEnabled = vocalRemoverEnabled,
+                vocalRemoverLevel = vocalRemoverLevel
             )
         }
     }
@@ -319,6 +327,21 @@ class DefaultEqualizerRepository(
                     prefs.remove(PreferencesKeys.IRS_NAME)
                 }
             }
+        }
+    }
+
+    override suspend fun setVocalRemoverEnabled(enabled: Boolean) {
+        _equalizerConfig.update { it.copy(isVocalRemoverEnabled = enabled) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.VOCAL_REMOVER_ENABLED] = enabled }
+        }
+    }
+
+    override suspend fun setVocalRemoverLevel(level: Float) {
+        val clamped = level.coerceIn(0.0f, 1.0f)
+        _equalizerConfig.update { it.copy(vocalRemoverLevel = clamped) }
+        repoScope.launch {
+            context.eqDataStore.edit { it[PreferencesKeys.VOCAL_REMOVER_LEVEL] = clamped }
         }
     }
 }
