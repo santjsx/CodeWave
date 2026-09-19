@@ -119,6 +119,42 @@ object AlbumGrouping {
 
     private const val KEY_SEPARATOR = "\u0000"
 
+    private val GENERIC_ALBUM_TITLES = setOf(
+        "greatest hits", "best of", "the best of", "live", "collection", "anthology",
+        "remix", "remixes", "ep", "singles", "single", "unknown album", "untitled"
+    )
+
+    /**
+     * Holds the canonical album list and an O(1) index of tracks for each album key.
+     */
+    data class GroupResult(
+        val albums: List<Album>,
+        val tracksByAlbumKey: Map<String, List<Track>>
+    ) {
+        fun getTracksForAlbum(album: Album): List<Track> {
+            if (album.key.isNotEmpty()) {
+                tracksByAlbumKey[album.key]?.let { return it }
+            }
+            val matched = albums.find { it.id == album.id || it.title.equals(album.title, ignoreCase = true) }
+            return matched?.let { tracksByAlbumKey[it.key] } ?: emptyList()
+        }
+
+        fun getTracksForAlbumTitle(title: String, artist: String? = null): List<Track> {
+            if (artist != null) {
+                val normArt = MetadataNormalizer.normalizeForGrouping(artist)
+                val cleanTitle = MetadataNormalizer.normalizeForGrouping(title)
+                val key = "$cleanTitle$KEY_SEPARATOR$normArt"
+                tracksByAlbumKey[key]?.let { return it }
+            }
+            val cleanTitle = MetadataNormalizer.normalizeForGrouping(title)
+            val matched = albums.find {
+                val kTitle = it.key.substringBefore(KEY_SEPARATOR)
+                kTitle == cleanTitle || it.title.equals(title, ignoreCase = true)
+            }
+            return matched?.let { tracksByAlbumKey[it.key] } ?: emptyList()
+        }
+    }
+
     /**
      * Constructs a canonical string key for an album:
      * canonicalAlbumName + "\u0000" + canonicalAlbumArtist
@@ -164,83 +200,123 @@ object AlbumGrouping {
     }
 
     /**
-     * Groups a list of tracks into canonical Album models.
-     * Pure, deterministic function used identically across Library, Search, and Statistics.
+     * Groups a list of tracks into canonical Album models and maps each album's key to its sorted tracks.
+     * Pure, single-pass deterministic function.
      */
-    fun groupTracksIntoAlbums(tracks: List<Track>): List<Album> {
-        if (tracks.isEmpty()) return emptyList()
+    fun groupTracks(tracks: List<Track>): GroupResult {
+        if (tracks.isEmpty()) return GroupResult(emptyList(), emptyMap())
 
-        // Phase 1: Partition tracks by presence of non-blank albumArtist
-        val tracksWithAlbumArtist = mutableListOf<Track>()
-        val tracksWithoutAlbumArtist = mutableListOf<Track>()
+        // 1. Group by normalized album title
+        val byAlbumTitle = tracks.groupBy {
+            val clean = MetadataNormalizer.normalizeForGrouping(it.album)
+            clean.ifEmpty { "unknown album" }
+        }
 
-        for (track in tracks) {
-            val normArt = MetadataNormalizer.normalizeForGrouping(track.albumArtist)
-            if (normArt.isNotEmpty()) {
-                tracksWithAlbumArtist.add(track)
-            } else {
-                tracksWithoutAlbumArtist.add(track)
+        // 2. Cluster near-identical titles (e.g. "aadavari matalaku ardhale verule" vs "...ardhalu veruley")
+        val sortedTitles = byAlbumTitle.keys.sortedByDescending { byAlbumTitle[it]?.size ?: 0 }
+        val titleClusters = mutableListOf<Pair<String, MutableList<Track>>>()
+
+        for (title in sortedTitles) {
+            val groupTracks = byAlbumTitle[title] ?: continue
+            var matchedCluster = false
+
+            for ((clusterTitle, clusterTracks) in titleClusters) {
+                val dist = MetadataNormalizer.levenshteinDistance(title, clusterTitle)
+                val minLen = minOf(title.length, clusterTitle.length)
+                // Merge if exact or if Levenshtein distance <= 3 for titles with sufficient length
+                if (dist <= 3 && minLen >= 15) {
+                    clusterTracks.addAll(groupTracks)
+                    matchedCluster = true
+                    break
+                }
+            }
+
+            if (!matchedCluster) {
+                titleClusters.add(title to groupTracks.toMutableList())
             }
         }
 
         val resultAlbums = mutableListOf<Album>()
+        val resultTracksMap = mutableMapOf<String, List<Track>>()
 
-        // Phase 2: Group tracks that have explicit albumArtist
-        val byAlbumArtist = tracksWithAlbumArtist.groupBy {
-            MetadataNormalizer.normalizeForGrouping(it.albumArtist)
-        }
+        // 3. For each title cluster, determine album artist and partition if needed
+        for ((canonicalNormTitle, clusterTracks) in titleClusters) {
+            val explicitNormAlbumArtists = clusterTracks
+                .mapNotNull { it.albumArtist?.trim() }
+                .map { MetadataNormalizer.normalizeForGrouping(it) }
+                .filter { it.isNotEmpty() }
+                .distinct()
 
-        for ((normArtist, artistTracks) in byAlbumArtist) {
-            // Group by normalized album title within the same albumArtist
-            val byAlbumTitle = artistTracks.groupBy {
-                val clean = MetadataNormalizer.normalizeForGrouping(it.album)
-                clean.ifEmpty { "unknown album" }
-            }
+            // Sub-partition tracks within this cluster if needed
+            val albumPartitions: List<Pair<String, List<Track>>> = when {
+                // Case A: Multiple conflicting explicit album artists (e.g. different artists releasing "Greatest Hits")
+                explicitNormAlbumArtists.size > 1 -> {
+                    clusterTracks.groupBy {
+                        val norm = MetadataNormalizer.normalizeForGrouping(it.albumArtist)
+                        norm.ifEmpty { MetadataNormalizer.normalizeForGrouping(it.artist) }
+                    }.map { (artistKey, trks) -> artistKey to trks }
+                }
 
-            // Cluster near-identical titles under the same albumArtist (e.g. "aadavari matalaku ardhale verule" vs "...ardhalu veruley")
-            // Sort title groups by track count descending so the primary release name forms the cluster anchor
-            val sortedTitles = byAlbumTitle.keys.sortedByDescending { byAlbumTitle[it]?.size ?: 0 }
-            val clusters = mutableListOf<Pair<String, MutableList<Track>>>()
+                // Case B: Exactly ONE explicit album artist present across cluster tracks
+                // ALL tracks in this cluster belong to this album artist (even if individual tracks left it blank)
+                explicitNormAlbumArtists.size == 1 -> {
+                    listOf(explicitNormAlbumArtists.first() to clusterTracks)
+                }
 
-            for (title in sortedTitles) {
-                val groupTracks = byAlbumTitle[title] ?: continue
-                var matchedCluster = false
+                // Case C: NO explicit album artist present on any track in the cluster
+                else -> {
+                    val distinctTrackArtists = clusterTracks
+                        .map { MetadataNormalizer.normalizeForGrouping(it.artist) }
+                        .distinct()
 
-                for ((clusterTitle, clusterTracks) in clusters) {
-                    val dist = MetadataNormalizer.levenshteinDistance(title, clusterTitle)
-                    val minLen = minOf(title.length, clusterTitle.length)
-                    // Merge if exact or if Levenshtein distance <= 3 for titles with sufficient length
-                    if (dist <= 3 && minLen >= 15) {
-                        clusterTracks.addAll(groupTracks)
-                        matchedCluster = true
-                        break
+                    if (distinctTrackArtists.size == 1) {
+                        // Single-artist album
+                        listOf(distinctTrackArtists.first() to clusterTracks)
+                    } else if (canonicalNormTitle in GENERIC_ALBUM_TITLES) {
+                        // Generic album title without albumArtist -> split by track artist
+                        clusterTracks.groupBy {
+                            MetadataNormalizer.normalizeForGrouping(it.artist)
+                        }.map { (artistKey, trks) -> artistKey to trks }
+                    } else {
+                        // Multi-artist compilation / soundtrack without albumArtist tag -> unified album
+                        listOf("various_artists" to clusterTracks)
                     }
                 }
-
-                if (!matchedCluster) {
-                    clusters.add(title to groupTracks.toMutableList())
-                }
             }
 
-            for ((canonicalNormTitle, clusterTracks) in clusters) {
-                val sortedClusterTracks = clusterTracks.sortedWith(TRACK_ORDER_COMPARATOR)
+            for ((normArtist, partitionTracks) in albumPartitions) {
+                val sortedClusterTracks = partitionTracks.sortedWith(TRACK_ORDER_COMPARATOR)
                 val canonicalKey = computeAlbumKey(canonicalNormTitle, normArtist)
                 val albumId = computeStableAlbumId(canonicalKey)
 
-                // Pick display title: choose shortest clean non-blank title among tracks
+                // Pick display title: shortest clean non-blank title among tracks
                 val bestTitle = sortedClusterTracks
                     .map { MetadataNormalizer.cleanDisplayTitle(it.album) }
                     .filter { it.isNotBlank() && !it.equals("Unknown Album", ignoreCase = true) }
                     .minByOrNull { it.length }
                     ?: MetadataNormalizer.cleanDisplayTitle(sortedClusterTracks.firstOrNull()?.album)
 
-                // Pick display artist: explicit albumArtist from the first track that has it
+                // Pick display artist: explicit albumArtist if available, otherwise most common track artist or "Various Artists"
                 val explicitAlbumArtist = sortedClusterTracks
                     .mapNotNull { it.albumArtist?.trim() }
                     .firstOrNull { it.isNotBlank() }
-                    ?: normArtist
+                    ?: if (normArtist == "various_artists") {
+                        val artistFrequencies = sortedClusterTracks
+                            .map { it.artist.trim() }
+                            .groupingBy { it }
+                            .eachCount()
+                        val topArtist = artistFrequencies.maxByOrNull { it.value }
+                        if (topArtist != null && topArtist.value >= sortedClusterTracks.size / 2) {
+                            topArtist.key
+                        } else {
+                            "Various Artists"
+                        }
+                    } else {
+                        sortedClusterTracks.firstOrNull {
+                            MetadataNormalizer.normalizeForGrouping(it.artist) == normArtist
+                        }?.artist?.trim() ?: sortedClusterTracks.first().artist.trim().ifEmpty { "Unknown Artist" }
+                    }
 
-                // Deterministic artwork: first valid non-blank artwork in sorted order
                 val artworkUri = sortedClusterTracks
                     .mapNotNull { it.albumArtUri?.trim() }
                     .firstOrNull { it.isNotEmpty() }
@@ -256,7 +332,7 @@ object AlbumGrouping {
                         key = canonicalKey,
                         title = bestTitle,
                         artist = explicitAlbumArtist,
-                        albumArtist = explicitAlbumArtist,
+                        albumArtist = if (normArtist == "various_artists") null else explicitAlbumArtist,
                         trackCount = sortedClusterTracks.size,
                         year = maxYear,
                         artworkUri = artworkUri,
@@ -264,180 +340,35 @@ object AlbumGrouping {
                         isLossless = sortedClusterTracks.any { it.isLossless }
                     )
                 )
+                resultTracksMap[canonicalKey] = sortedClusterTracks
             }
         }
 
-        // Phase 3: Group tracks that do NOT have explicit albumArtist
-        val byMissingArtistAlbum = tracksWithoutAlbumArtist.groupBy {
-            val clean = MetadataNormalizer.normalizeForGrouping(it.album)
-            clean.ifEmpty { "unknown album" }
-        }
+        return GroupResult(
+            albums = resultAlbums.sortedBy { it.title.lowercase() },
+            tracksByAlbumKey = resultTracksMap
+        )
+    }
 
-        for ((normTitle, albumTracks) in byMissingArtistAlbum) {
-            // Check if all tracks in this album share the exact same track artist
-            val distinctNormTrackArtists = albumTracks.map {
-                MetadataNormalizer.normalizeForGrouping(it.artist)
-            }.distinct()
-
-            if (distinctNormTrackArtists.size == 1) {
-                // Single-artist album without albumArtist tag
-                val normArtist = distinctNormTrackArtists.first()
-                val sortedAlbumTracks = albumTracks.sortedWith(TRACK_ORDER_COMPARATOR)
-                val canonicalKey = computeAlbumKey(normTitle, normArtist)
-                val albumId = computeStableAlbumId(canonicalKey)
-
-                val displayTitle = sortedAlbumTracks
-                    .map { MetadataNormalizer.cleanDisplayTitle(it.album) }
-                    .minByOrNull { it.length }
-                    ?: MetadataNormalizer.cleanDisplayTitle(sortedAlbumTracks.firstOrNull()?.album)
-
-                val displayArtist = sortedAlbumTracks.first().artist.trim().ifEmpty { "Unknown Artist" }
-                val artworkUri = sortedAlbumTracks.mapNotNull { it.albumArtUri?.trim() }.firstOrNull { it.isNotEmpty() }
-                val maxYear = sortedAlbumTracks.mapNotNull { it.year }.filter { it > 0 }.maxOrNull()
-
-                resultAlbums.add(
-                    Album(
-                        id = albumId,
-                        key = canonicalKey,
-                        title = displayTitle,
-                        artist = displayArtist,
-                        albumArtist = displayArtist,
-                        trackCount = sortedAlbumTracks.size,
-                        year = maxYear,
-                        artworkUri = artworkUri,
-                        isHiRes = sortedAlbumTracks.any { it.isHiRes },
-                        isLossless = sortedAlbumTracks.any { it.isLossless }
-                    )
-                )
-            } else {
-                // Multi-artist compilation / soundtrack without albumArtist tag
-                // Keep tracks together as ONE album; display artist is "Various Artists"
-                val sortedAlbumTracks = albumTracks.sortedWith(TRACK_ORDER_COMPARATOR)
-                val canonicalKey = computeAlbumKey(normTitle, "various_artists")
-                val albumId = computeStableAlbumId(canonicalKey)
-
-                val displayTitle = sortedAlbumTracks
-                    .map { MetadataNormalizer.cleanDisplayTitle(it.album) }
-                    .minByOrNull { it.length }
-                    ?: MetadataNormalizer.cleanDisplayTitle(sortedAlbumTracks.firstOrNull()?.album)
-
-                val artworkUri = sortedAlbumTracks.mapNotNull { it.albumArtUri?.trim() }.firstOrNull { it.isNotEmpty() }
-                val maxYear = sortedAlbumTracks.mapNotNull { it.year }.filter { it > 0 }.maxOrNull()
-
-                resultAlbums.add(
-                    Album(
-                        id = albumId,
-                        key = canonicalKey,
-                        title = displayTitle,
-                        artist = "Various Artists",
-                        albumArtist = null,
-                        trackCount = sortedAlbumTracks.size,
-                        year = maxYear,
-                        artworkUri = artworkUri,
-                        isHiRes = sortedAlbumTracks.any { it.isHiRes },
-                        isLossless = sortedAlbumTracks.any { it.isLossless }
-                    )
-                )
-            }
-        }
-
-        // Return sorted by album title ascending (case-insensitive)
-        return resultAlbums.sortedBy { it.title.lowercase() }
+    /**
+     * Groups a list of tracks into canonical Album models.
+     */
+    fun groupTracksIntoAlbums(tracks: List<Track>): List<Album> {
+        return groupTracks(tracks).albums
     }
 
     /**
      * Resolves all tracks belonging to the specified album, ordered deterministically.
+     * Instant O(1) lookup via GroupResult.
      */
     fun getTracksForAlbum(tracks: List<Track>, album: Album): List<Track> {
-        if (tracks.isEmpty()) return emptyList()
-
-        // Match by canonical key if available
-        if (album.key.isNotEmpty()) {
-            val allAlbumsWithTracks = groupTracksIntoAlbumMap(tracks)
-            return allAlbumsWithTracks[album.key] ?: emptyList()
-        }
-
-        // Fallback: match by normalized album title and albumArtist
-        return getTracksForAlbum(tracks, album.title, album.albumArtist ?: album.artist)
+        return groupTracks(tracks).getTracksForAlbum(album)
     }
 
     /**
      * Resolves all tracks belonging to the specified album title, ordered deterministically.
      */
     fun getTracksForAlbum(tracks: List<Track>, albumTitle: String, albumArtist: String? = null): List<Track> {
-        if (tracks.isEmpty()) return emptyList()
-
-        val normTitle = MetadataNormalizer.normalizeForGrouping(albumTitle)
-        val normArtist = albumArtist?.let { MetadataNormalizer.normalizeForGrouping(it) }?.ifEmpty { null }
-
-        val allAlbumsWithTracks = groupTracksIntoAlbumMap(tracks)
-
-        // 1. Exact canonical key match if artist provided
-        if (normArtist != null) {
-            val key = computeAlbumKey(normTitle, normArtist)
-            allAlbumsWithTracks[key]?.let { return it }
-        }
-
-        // 2. Match by normalized album title in keys
-        for ((key, albumTracks) in allAlbumsWithTracks) {
-            val keyTitle = key.substringBefore(KEY_SEPARATOR)
-            if (keyTitle == normTitle || MetadataNormalizer.levenshteinDistance(keyTitle, normTitle) <= 2) {
-                if (normArtist == null || key.substringAfter(KEY_SEPARATOR) == normArtist) {
-                    return albumTracks
-                }
-            }
-        }
-
-        // 3. Fallback: filter tracks directly with relaxed title matching
-        return tracks.filter {
-            val tNorm = MetadataNormalizer.normalizeForGrouping(it.album)
-            tNorm == normTitle || MetadataNormalizer.levenshteinDistance(tNorm, normTitle) <= 2
-        }.sortedWith(TRACK_ORDER_COMPARATOR)
-    }
-
-    /**
-     * Internal helper that groups tracks and maps canonical keys to their sorted tracks.
-     */
-    private fun groupTracksIntoAlbumMap(tracks: List<Track>): Map<String, List<Track>> {
-        val albums = groupTracksIntoAlbums(tracks)
-        val albumKeySet = albums.map { it.key }.toSet()
-
-        // Map each track to its matching album key
-        val result = mutableMapOf<String, MutableList<Track>>()
-        for (key in albumKeySet) {
-            result[key] = mutableListOf()
-        }
-
-        // For fast lookup, group by albumArtist then albumTitle
-        for (album in albums) {
-            val normAlbum = album.key.substringBefore(KEY_SEPARATOR)
-            val normArtist = album.key.substringAfter(KEY_SEPARATOR)
-
-            for (track in tracks) {
-                val tNormAlbum = MetadataNormalizer.normalizeForGrouping(track.album)
-                val tNormArtist = MetadataNormalizer.normalizeForGrouping(track.albumArtist)
-
-                val artistMatches = if (normArtist == "various_artists") {
-                    tNormArtist.isEmpty()
-                } else if (tNormArtist.isNotEmpty()) {
-                    tNormArtist == normArtist
-                } else {
-                    MetadataNormalizer.normalizeForGrouping(track.artist) == normArtist
-                }
-
-                if (artistMatches) {
-                    val dist = MetadataNormalizer.levenshteinDistance(tNormAlbum, normAlbum)
-                    val minLen = minOf(tNormAlbum.length, normAlbum.length)
-                    if (tNormAlbum == normAlbum || (dist <= 3 && minLen >= 15)) {
-                        result[album.key]?.add(track)
-                    }
-                }
-            }
-        }
-
-        // Sort all track lists deterministically
-        return result.mapValues { (_, list) ->
-            list.distinctBy { it.id }.sortedWith(TRACK_ORDER_COMPARATOR)
-        }
+        return groupTracks(tracks).getTracksForAlbumTitle(albumTitle, albumArtist)
     }
 }

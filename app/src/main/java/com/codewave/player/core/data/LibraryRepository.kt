@@ -15,8 +15,10 @@ import com.codewave.player.core.scanner.AudioScanner
 import com.codewave.player.core.scanner.ScanProgress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 interface LibraryRepository {
@@ -59,8 +62,10 @@ class DefaultLibraryRepository(
     private val audioScanner: AudioScanner
 ) : LibraryRepository {
 
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     init {
-        CoroutineScope(Dispatchers.IO).launch {
+        repositoryScope.launch(Dispatchers.IO) {
             val existing = playlistDao.getAllPlaylists()
             val smartTypes = existing.filter { it.isSmart }.mapNotNull { it.smartType }.toSet()
             if ("HEAVY_ROTATION" !in smartTypes && existing.none { it.name.equals("Heavy Rotation", ignoreCase = true) }) {
@@ -80,15 +85,26 @@ class DefaultLibraryRepository(
     }
 
     override fun getAllTracks(): Flow<List<Track>> {
-        return trackDao.getAllTracksFlow().map { entities ->
-            entities.map { it.toDomain() }
-        }
+        return trackDao.getAllTracksFlow()
+            .map { entities -> entities.map { it.toDomain() } }
+            .flowOn(Dispatchers.Default)
     }
 
+    private val groupedAlbumsFlow: StateFlow<AlbumGrouping.GroupResult> =
+        trackDao.getAllTracksFlow()
+            .map { entities ->
+                val domainTracks = entities.map { it.toDomain() }
+                AlbumGrouping.groupTracks(domainTracks)
+            }
+            .flowOn(Dispatchers.Default)
+            .stateIn(
+                scope = repositoryScope,
+                started = SharingStarted.Eagerly,
+                initialValue = AlbumGrouping.GroupResult(emptyList(), emptyMap())
+            )
+
     override fun getAllAlbums(): Flow<List<Album>> {
-        return getAllTracks().map { tracks ->
-            AlbumGrouping.groupTracksIntoAlbums(tracks)
-        }
+        return groupedAlbumsFlow.map { it.albums }.flowOn(Dispatchers.Default)
     }
 
     override fun getAllArtists(): Flow<List<Artist>> {
@@ -101,19 +117,15 @@ class DefaultLibraryRepository(
                     albumCount = summary.albumCount
                 )
             }
-        }
+        }.flowOn(Dispatchers.Default)
     }
 
     override fun getTracksByAlbum(album: String): Flow<List<Track>> {
-        return getAllTracks().map { tracks ->
-            AlbumGrouping.getTracksForAlbum(tracks, album)
-        }
+        return groupedAlbumsFlow.map { it.getTracksForAlbumTitle(album) }.flowOn(Dispatchers.Default)
     }
 
     override fun getTracksForAlbum(album: Album): Flow<List<Track>> {
-        return getAllTracks().map { tracks ->
-            AlbumGrouping.getTracksForAlbum(tracks, album)
-        }
+        return groupedAlbumsFlow.map { it.getTracksForAlbum(album) }.flowOn(Dispatchers.Default)
     }
 
     override fun getTracksByArtist(artist: String): Flow<List<Track>> {
@@ -215,10 +227,10 @@ class DefaultLibraryRepository(
 
     override fun getLibraryStats(): Flow<LibraryStats> = combine(
         trackDao.getLibraryStatsFlow(),
-        getAllAlbums()
-    ) { stats, albums ->
-        stats.copy(albumCount = albums.size)
-    }
+        groupedAlbumsFlow
+    ) { stats, grouped ->
+        stats.copy(albumCount = grouped.albums.size)
+    }.flowOn(Dispatchers.Default)
 
     override fun getAllPlaylists(): Flow<List<Playlist>> {
         return combine(

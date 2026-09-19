@@ -111,19 +111,21 @@ fun CollectionDetailSheet(
         )
     }
 
-    val tracksFlow = when (target) {
-        is CollectionTarget.AlbumTarget -> libraryRepository.getTracksForAlbum(target.album)
-        is CollectionTarget.ArtistTarget -> libraryRepository.getTracksByArtist(target.artist.name)
-        is CollectionTarget.PlaylistTarget -> libraryRepository.getTracksForPlaylist(target.playlist.id)
-        is CollectionTarget.FavoritesTarget -> libraryRepository.getFavoriteTracks()
-        is CollectionTarget.HiResTarget -> libraryRepository.getAllTracks().map { list ->
-            list.filter { it.isLossless || it.isHiRes || it.sampleRate >= 48000 || (it.bitDepth ?: 0) >= 24 }
-        }
-        is CollectionTarget.HeavyRotationTarget -> libraryRepository.getAllTracks().map { list ->
-            list.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }
-        }
-        is CollectionTarget.RecentlyAddedTarget -> libraryRepository.getAllTracks().map { list ->
-            list.sortedByDescending { it.dateAdded }.take(50)
+    val tracksFlow = remember(target) {
+        when (target) {
+            is CollectionTarget.AlbumTarget -> libraryRepository.getTracksForAlbum(target.album)
+            is CollectionTarget.ArtistTarget -> libraryRepository.getTracksByArtist(target.artist.name)
+            is CollectionTarget.PlaylistTarget -> libraryRepository.getTracksForPlaylist(target.playlist.id)
+            is CollectionTarget.FavoritesTarget -> libraryRepository.getFavoriteTracks()
+            is CollectionTarget.HiResTarget -> libraryRepository.getAllTracks().map { list ->
+                list.filter { it.isLossless || it.isHiRes || it.sampleRate >= 48000 || (it.bitDepth ?: 0) >= 24 }
+            }
+            is CollectionTarget.HeavyRotationTarget -> libraryRepository.getAllTracks().map { list ->
+                list.filter { it.playCount >= 2 }.sortedByDescending { it.playCount }
+            }
+            is CollectionTarget.RecentlyAddedTarget -> libraryRepository.getAllTracks().map { list ->
+                list.sortedByDescending { it.dateAdded }.take(50)
+            }
         }
     }
 

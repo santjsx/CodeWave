@@ -444,6 +444,35 @@ class AlbumGroupingRegressionTest {
     }
 
     // ============================================================
+    // SECTION 20: PARTIAL ALBUM ARTIST & MULTI-ARTIST TRACK RETRIEVAL
+    // ============================================================
+    @Test
+    fun test20_partialAlbumArtistAndSoundtrackRetrieval() {
+        // Reproduce exact user bug:
+        // Track 1 has albumArtist set.
+        // Tracks 2, 3, 4 have albumArtist = null and different track artists.
+        val mixedTracks = listOf(
+            createTrack(101, "Track 1", artist = "Roop Kumar Rathod, Shreya Ghoshal & Anirudh Ravichander", album = "3 (Original Motion Picture Soundtrack) [Telugu]", albumArtist = "Anirudh Ravichander"),
+            createTrack(102, "Track 2", artist = "Anirudh Ravichander, Mohit Chauhan, Bhuvana Chandra", album = "3 (Original Motion Picture Soundtrack)", albumArtist = null),
+            createTrack(103, "Track 3", artist = "Anirudh Ravichander & Dhanush", album = "3 (Original Motion Picture Soundtrack) [Telugu]", albumArtist = null),
+            createTrack(104, "Track 4", artist = "Ajesh Ashok & Anirudh Ravichander", album = "3 (Original Motion Picture Soundtrack) [Telugu]", albumArtist = null)
+        )
+
+        val groupResult = AlbumGrouping.groupTracks(mixedTracks)
+        assertEquals("Must group into exactly 1 album", 1, groupResult.albums.size)
+
+        val album = groupResult.albums[0]
+        assertEquals("3 (Original Motion Picture Soundtrack)", album.title)
+        assertEquals("Anirudh Ravichander", album.artist)
+        assertEquals("Card must show 4 tracks", 4, album.trackCount)
+
+        // Critical check: getTracksForAlbum MUST return all 4 tracks, NEVER 0!
+        val retrievedTracks = groupResult.getTracksForAlbum(album)
+        assertEquals("Album detail MUST contain all 4 tracks (reproduced bug returned 0)", 4, retrievedTracks.size)
+        assertEquals(listOf(101L, 102L, 103L, 104L), retrievedTracks.map { it.id })
+    }
+
+    // ============================================================
     // SECTION 22: PERFORMANCE BENCHMARK
     // ============================================================
     @Test
