@@ -430,7 +430,7 @@ private fun AlbumsTab(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(albums, key = { "${it.title}_${it.artist}" }) { album ->
+            items(albums, key = { it.key.ifEmpty { it.id.toString() } }) { album ->
                 CWAlbumCard(album = album, onClick = { onAlbumClick(album) })
             }
         }
@@ -440,7 +440,7 @@ private fun AlbumsTab(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            items(albums, key = { "${it.title}_${it.artist}" }) { album ->
+            items(albums, key = { it.key.ifEmpty { it.id.toString() } }) { album ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

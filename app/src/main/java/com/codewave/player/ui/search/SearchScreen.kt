@@ -263,7 +263,7 @@ fun SearchScreen(
                                     } else null
                                 )
                             }
-                            items(result.albums.take(3), key = { "all_album_${it.title}_${it.artist}" }) { album ->
+                            items(result.albums.take(3), key = { "all_album_${it.key.ifEmpty { it.id.toString() }}" }) { album ->
                                 SearchAlbumRow(
                                     album = album,
                                     onClick = { onNavigateToAlbum?.invoke(album) }
@@ -336,7 +336,7 @@ fun SearchScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(result.albums, key = { "album_${it.title}_${it.artist}" }) { album ->
+                            items(result.albums, key = { "album_${it.key.ifEmpty { it.id.toString() }}" }) { album ->
                                 CWAlbumCard(
                                     album = album,
                                     onClick = { onNavigateToAlbum?.invoke(album) }

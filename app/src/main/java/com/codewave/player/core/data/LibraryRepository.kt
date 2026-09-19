@@ -6,6 +6,7 @@ import com.codewave.player.core.database.dao.TrackDao
 import com.codewave.player.core.database.entity.PlaylistEntity
 import com.codewave.player.core.database.entity.PlaylistTrackCrossRef
 import com.codewave.player.core.model.Album
+import com.codewave.player.core.model.AlbumGrouping
 import com.codewave.player.core.model.Artist
 import com.codewave.player.core.model.Playlist
 import com.codewave.player.core.model.SearchResult
@@ -32,6 +33,7 @@ interface LibraryRepository {
     fun getAllAlbums(): Flow<List<Album>>
     fun getAllArtists(): Flow<List<Artist>>
     fun getTracksByAlbum(album: String): Flow<List<Track>>
+    fun getTracksForAlbum(album: Album): Flow<List<Track>>
     fun getTracksByArtist(artist: String): Flow<List<Track>>
     fun getFavoriteTracks(): Flow<List<Track>>
     fun getRecentlyAdded(): Flow<List<Track>>
@@ -84,19 +86,8 @@ class DefaultLibraryRepository(
     }
 
     override fun getAllAlbums(): Flow<List<Album>> {
-        return trackDao.getAllAlbumsFlow().map { summaries ->
-            summaries.map { summary ->
-                Album(
-                    id = (summary.album.hashCode().toLong() shl 32) xor (summary.artist.hashCode().toLong() and 0xFFFFFFFFL),
-                    title = summary.album,
-                    artist = summary.artist,
-                    trackCount = summary.trackCount,
-                    year = summary.year,
-                    artworkUri = summary.albumArtUri,
-                    isHiRes = summary.hasHiRes,
-                    isLossless = summary.hasLossless
-                )
-            }
+        return getAllTracks().map { tracks ->
+            AlbumGrouping.groupTracksIntoAlbums(tracks)
         }
     }
 
@@ -114,8 +105,14 @@ class DefaultLibraryRepository(
     }
 
     override fun getTracksByAlbum(album: String): Flow<List<Track>> {
-        return trackDao.getTracksByAlbumFlow(album).map { entities ->
-            entities.map { it.toDomain() }
+        return getAllTracks().map { tracks ->
+            AlbumGrouping.getTracksForAlbum(tracks, album)
+        }
+    }
+
+    override fun getTracksForAlbum(album: Album): Flow<List<Track>> {
+        return getAllTracks().map { tracks ->
+            AlbumGrouping.getTracksForAlbum(tracks, album)
         }
     }
 
@@ -180,25 +177,7 @@ class DefaultLibraryRepository(
         val domainTracks = trackEntities.map { it.toDomain() }
 
         // Extract matching distinct albums and artists from matches
-        val albums = domainTracks
-            .groupBy { it.album }
-            .entries
-            .toList()
-            .mapIndexed { idx, entry ->
-                val albumName = entry.key
-                val tracks = entry.value
-                val first = tracks.first()
-                Album(
-                    id = idx.toLong() + 1,
-                    title = albumName,
-                    artist = first.artist,
-                    trackCount = tracks.size,
-                    year = first.year,
-                    artworkUri = first.albumArtUri,
-                    isHiRes = tracks.any { it.isHiRes },
-                    isLossless = tracks.any { it.isLossless }
-                )
-            }
+        val albums = AlbumGrouping.groupTracksIntoAlbums(domainTracks)
 
         val artists = domainTracks
             .groupBy { it.artist }
@@ -234,7 +213,12 @@ class DefaultLibraryRepository(
         trackDao.recordTrackPlayed(trackId, System.currentTimeMillis())
     }
 
-    override fun getLibraryStats(): Flow<LibraryStats> = trackDao.getLibraryStatsFlow()
+    override fun getLibraryStats(): Flow<LibraryStats> = combine(
+        trackDao.getLibraryStatsFlow(),
+        getAllAlbums()
+    ) { stats, albums ->
+        stats.copy(albumCount = albums.size)
+    }
 
     override fun getAllPlaylists(): Flow<List<Playlist>> {
         return combine(

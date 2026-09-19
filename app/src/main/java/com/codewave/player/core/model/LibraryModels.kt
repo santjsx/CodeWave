@@ -52,8 +52,10 @@ data class Track(
 
 data class Album(
     val id: Long,
+    val key: String = "",
     val title: String,
     val artist: String,
+    val albumArtist: String? = null,
     val trackCount: Int,
     val year: Int? = null,
     val artworkUri: String? = null,

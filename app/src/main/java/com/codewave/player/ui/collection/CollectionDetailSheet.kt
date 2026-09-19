@@ -112,7 +112,7 @@ fun CollectionDetailSheet(
     }
 
     val tracksFlow = when (target) {
-        is CollectionTarget.AlbumTarget -> libraryRepository.getTracksByAlbum(target.album.title)
+        is CollectionTarget.AlbumTarget -> libraryRepository.getTracksForAlbum(target.album)
         is CollectionTarget.ArtistTarget -> libraryRepository.getTracksByArtist(target.artist.name)
         is CollectionTarget.PlaylistTarget -> libraryRepository.getTracksForPlaylist(target.playlist.id)
         is CollectionTarget.FavoritesTarget -> libraryRepository.getFavoriteTracks()
